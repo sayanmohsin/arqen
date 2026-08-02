@@ -42,7 +42,7 @@ features:
 ::: warning Early-stage project
 Arqen is Rust-first and actively maturing. Native durable thingd migration,
 public HTTP parity, and CLI/template completion are still project gates. Check
-the [feature status](./feature-status) before adopting a capability.
+the [feature status](./feature-status.md) before adopting a capability.
 :::
 
 ## Rust-first implementation, language-agnostic direction
@@ -76,8 +76,8 @@ client or agent → Axum API → typed tools / policies / jobs / logs
 ```
 
 Application code should depend on domain interfaces and the public thingd
-contract, not private cloud modules. See [architecture](./architecture) and
-[thingd integration](./thingd-integration).
+contract, not private cloud modules. See [architecture](./architecture.md) and
+[thingd integration](./thingd-integration.md).
 
 ## thingd integration
 
@@ -87,5 +87,5 @@ cloud hosting is a future path rather than a current promise.
 
 ## Roadmap
 
-Read the [roadmap](./roadmap) and the [Phase 12 specification on GitHub](https://github.com/sayanmohsin/arqen/tree/main/specs/phase-12-documentation-and-public-presence)
+Read the [roadmap](./roadmap.md) and the [Phase 12 specification on GitHub](https://github.com/sayanmohsin/arqen/tree/main/specs/phase-12-documentation-and-public-presence)
 for implementation evidence and open work.
