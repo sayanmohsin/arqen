@@ -37,4 +37,4 @@ async-trait = "0.1"
 uuid = { version = "1", features = ["v4"] }
 chrono = { version = "0.4", features = ["serde"] }
 reqwest = { version = "0.11", features = ["json"] }
-thingd = { path = "../thingd/crates/thingd", version = "0.71", features = ["persistent", "search"] }
+thingd = { path = "../thingd/crates/thingd", version = "0.71", features = ["fjall", "search"] }
