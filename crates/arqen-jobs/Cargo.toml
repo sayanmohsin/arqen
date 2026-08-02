@@ -3,6 +3,10 @@ name = "arqen-jobs"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+keywords.workspace = true
+categories.workspace = true
 description = "Durable job types and worker runtime for Arqen"
 
 [dependencies]
