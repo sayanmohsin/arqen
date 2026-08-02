@@ -32,6 +32,7 @@ export default defineConfig({
       { text: "Agent Integration", link: "/agent-guide" },
       { text: "Reference", link: "/architecture" },
       { text: "Project", link: "/contributing" },
+      { text: "thingd.cloud", link: "https://thingd.cloud" },
     ],
     sidebar: [
       {
@@ -96,6 +97,7 @@ export default defineConfig({
           { text: "Release", link: "/release" },
           { text: "Roadmap", link: "/roadmap" },
           { text: "GitHub", link: "https://github.com/sayanmohsin/arqen" },
+          { text: "thingd.cloud", link: "https://thingd.cloud" },
         ],
       },
     ],

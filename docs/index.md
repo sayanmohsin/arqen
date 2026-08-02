@@ -17,6 +17,9 @@ hero:
     - theme: alt
       text: Feature status
       link: /feature-status
+    - theme: alt
+      text: thingd.cloud
+      link: https://thingd.cloud
 
 features:
   - icon: ◈
@@ -84,6 +87,10 @@ contract, not private cloud modules. See [architecture](./architecture.md) and
 thingd supplies the storage, events, search, links, and queue boundary that
 Arqen adapts. Arqen keeps that integration optional and public-contract based;
 cloud hosting is a future path rather than a current promise.
+
+Learn more about the thingd ecosystem at
+[thingd.cloud](https://thingd.cloud), the home for thingd’s hosted data engine
+and related services.
 
 ## A different layer
 
