@@ -1,0 +1,2 @@
+# Exclude CHANGELOG compare URLs — tags don't exist until release is published
+exclude = ["github.com/.*/compare/"]
