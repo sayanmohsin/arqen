@@ -1,0 +1,18 @@
+[package]
+name = "arqen"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+keywords.workspace = true
+categories.workspace = true
+description = "Backend infrastructure for agent-ready applications"
+
+[dependencies]
+arqen-core.workspace = true
+arqen-http.workspace = true
+arqen-agent.workspace = true
+arqen-thingd.workspace = true
+arqen-jobs.workspace = true
+arqen-logging.workspace = true

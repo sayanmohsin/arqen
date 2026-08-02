@@ -92,6 +92,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "arqen"
+version = "0.1.0"
+dependencies = [
+ "arqen-agent",
+ "arqen-core",
+ "arqen-http",
+ "arqen-jobs",
+ "arqen-logging",
+ "arqen-thingd",
+]
+
+[[package]]
 name = "arqen-agent"
 version = "0.1.0"
 dependencies = [

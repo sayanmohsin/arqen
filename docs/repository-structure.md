@@ -5,6 +5,7 @@ The planned workspace is:
 ```text
 arqen/
   crates/
+    arqen/         # Public facade crate for most applications
     arqen-core/
     arqen-http/
     arqen-agent/

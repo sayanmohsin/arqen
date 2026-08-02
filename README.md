@@ -32,6 +32,16 @@ Rust.
 
 ## Quickstart
 
+Most applications can start with the single public facade crate:
+
+```toml
+[dependencies]
+arqen = "0.1"
+```
+
+The workspace remains modular internally, so smaller services can depend on
+individual `arqen-*` crates when they need a narrower dependency set.
+
 From a checkout:
 
 ```bash

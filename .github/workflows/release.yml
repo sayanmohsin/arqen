@@ -76,4 +76,5 @@ jobs:
           publish_if_missing arqen-http
           publish_if_missing arqen-thingd
           publish_if_missing arqen-jobs
+          publish_if_missing arqen
           publish_if_missing arqen-cli

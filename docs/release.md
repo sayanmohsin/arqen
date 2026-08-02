@@ -27,3 +27,6 @@ Already-published versions are skipped.
 Configure the `CARGO_REGISTRY_TOKEN` secret in the `crates-io` GitHub
 environment before publishing. The tag must match the workspace version, and
 publishing remains intentionally separate from ordinary pushes to `main`.
+
+The public entry point is the `arqen` facade crate. The lower-level `arqen-*`
+crates are published first, followed by `arqen`, then the CLI.

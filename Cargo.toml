@@ -1,6 +1,7 @@
 [workspace]
 resolver = "2"
 members = [
+    "crates/arqen",
     "crates/arqen-core",
     "crates/arqen-http",
     "crates/arqen-agent",
@@ -21,6 +22,7 @@ keywords = ["backend", "agents", "automation", "axum", "thingd"]
 categories = ["web-programming", "command-line-utilities"]
 
 [workspace.dependencies]
+arqen = { path = "crates/arqen", version = "0.1.0" }
 arqen-core = { path = "crates/arqen-core", version = "0.1.0" }
 arqen-http = { path = "crates/arqen-http", version = "0.1.0" }
 arqen-agent = { path = "crates/arqen-agent", version = "0.1.0" }
