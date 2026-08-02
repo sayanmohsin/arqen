@@ -1,0 +1,19 @@
+name: Docker smoke
+
+on:
+  pull_request:
+    paths: ["Dockerfile", "docker-compose.yml", "Cargo.toml", "Cargo.lock", "crates/**", "cli/**"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      # The Dockerfile intentionally builds from the /ancatag parent so the
+      # sibling thingd crate is available; a standalone checkout can still
+      # validate the Compose contract here.
+      - run: docker compose config

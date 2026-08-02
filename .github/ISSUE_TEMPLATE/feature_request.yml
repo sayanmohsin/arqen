@@ -1,0 +1,19 @@
+name: Feature request
+description: Propose a scoped improvement to Arqen.
+title: "feature: "
+labels: [enhancement]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem and use case
+      description: What developer or operator problem would this solve?
+    validations:
+      required: true
+  - type: textarea
+    id: contract
+    attributes:
+      label: Proposed public contract
+      description: Describe the API, CLI, docs, or phase change you expect.
+    validations:
+      required: true
