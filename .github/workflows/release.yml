@@ -6,7 +6,7 @@ on:
   workflow_dispatch:
     inputs:
       publish_version:
-        description: "Existing Arqen version to retry, for example 0.1.1"
+        description: "Existing Arqen version to retry, for example 0.2.0"
         required: false
         type: string
 
@@ -20,136 +20,87 @@ permissions:
   pull-requests: write
 
 jobs:
-  classify_release:
-    name: Classify main update
-    if: ${{ github.event_name == 'push' || github.event_name == 'workflow_dispatch' }}
+  release-please:
+    name: Create or finalize release PR
     runs-on: ubuntu-latest
     outputs:
-      release_merge: ${{ steps.classify.outputs.release_merge }}
-      version: ${{ steps.classify.outputs.version }}
+      release_created: ${{ steps.release.outputs.release_created || steps.manual.outputs.release_created }}
+      retry: ${{ steps.manual.outputs.retry }}
+      version: ${{ steps.release.outputs.version || steps.manual.outputs.version }}
     steps:
-      - name: Classify event
-        id: classify
-        env:
-          GH_TOKEN: ${{ github.token }}
-          RETRY_VERSION: ${{ inputs.publish_version }}
-        run: |
-          if [ -n "$RETRY_VERSION" ]; then
-            echo "release_merge=true" >> "$GITHUB_OUTPUT"
-            echo "version=$RETRY_VERSION" >> "$GITHUB_OUTPUT"
-            exit 0
-          fi
-
-          RELEASE_REF=$(gh api \
-            "repos/$GITHUB_REPOSITORY/commits/$GITHUB_SHA/pulls" \
-            --jq 'map(select(.base.ref == "main")) | .[0].head.ref // ""')
-          if [[ "$RELEASE_REF" == release/v* ]]; then
-            echo "release_merge=true" >> "$GITHUB_OUTPUT"
-            echo "version=${RELEASE_REF#release/v}" >> "$GITHUB_OUTPUT"
-          else
-            echo "release_merge=false" >> "$GITHUB_OUTPUT"
-            echo "version=" >> "$GITHUB_OUTPUT"
-          fi
-
-  prepare-release-pr:
-    name: Prepare release PR
-    needs: classify_release
-    if: ${{ needs.classify_release.outputs.release_merge != 'true' }}
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-          fetch-tags: true
-          ref: main
-      - uses: actions/setup-node@v7
+      - name: Create release App token
+        id: app-token
+        if: ${{ inputs.publish_version == '' }}
+        uses: actions/create-github-app-token@v2
         with:
-          node-version: 22
-      - name: Calculate release plan
-        id: plan
-        run: |
-          node scripts/prepare-release-pr.mjs --plan --json release-plan.json
-          echo "needed=$(jq -r '.needed' release-plan.json)" >> "$GITHUB_OUTPUT"
-          echo "version=$(jq -r '.version // empty' release-plan.json)" >> "$GITHUB_OUTPUT"
-      - name: Create release branch and PR
-        if: ${{ steps.plan.outputs.needed == 'true' }}
+          app-id: ${{ vars.RELEASE_APP_ID }}
+          private-key: ${{ secrets.RELEASE_APP_PRIVATE_KEY }}
+          owner: ${{ github.repository_owner }}
+          repositories: arqen
+      - name: Run Release Please
+        id: release
+        if: ${{ inputs.publish_version == '' }}
+        uses: googleapis/release-please-action@v4
+        with:
+          token: ${{ steps.app-token.outputs.token }}
+          config-file: release-please-config.json
+          manifest-file: .release-please-manifest.json
+      - name: Update Cargo.lock on release PR
+        if: ${{ steps.release.outputs.pr-number != '' }}
         env:
-          GH_TOKEN: ${{ github.token }}
-          VERSION: ${{ steps.plan.outputs.version }}
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
         run: |
-          BRANCH="release/v${VERSION}"
-          if [ "$(gh pr list --repo "$GITHUB_REPOSITORY" --state open --head "$BRANCH" --json number --jq 'length')" -gt 0 ]; then
-            echo "Release PR $BRANCH already exists"
-            exit 0
-          fi
-
-          git switch --create "$BRANCH" origin/main
-          node scripts/prepare-release-pr.mjs --apply --plan-file release-plan.json
-          rm -f release-plan.json
+          PR_NUMBER="${{ steps.release.outputs.pr-number }}"
+          BRANCH=$(gh api "repos/$GITHUB_REPOSITORY/pulls/$PR_NUMBER" --jq '.head.ref')
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add Cargo.toml Cargo.lock CHANGELOG.md
-          git commit -m "chore(release): v${VERSION}"
-          git push origin "$BRANCH"
-          gh pr create \
-            --repo "$GITHUB_REPOSITORY" \
-            --base main \
-            --head "$BRANCH" \
-            --title "chore(release): v${VERSION}" \
-            --body "Automated Arqen release preparation for v${VERSION}."
+          git fetch origin "$BRANCH"
+          git checkout "$BRANCH"
+          cargo update -w
+          git add Cargo.lock
+          if ! git diff --cached --quiet; then
+            git commit -m "chore: update Cargo.lock"
+            git push origin "$BRANCH"
+          fi
+      - name: Normalize manual retry
+        id: manual
+        if: ${{ inputs.publish_version != '' }}
+        env:
+          VERSION: ${{ inputs.publish_version }}
+        run: |
+          if ! [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "publish_version must be a full SemVer value" >&2
+            exit 1
+          fi
+          {
+            echo "release_created=true"
+            echo "retry=true"
+            echo "version=$VERSION"
+          } >> "$GITHUB_OUTPUT"
 
   crates-publish:
     name: Publish arqen to crates.io
-    needs: classify_release
-    if: ${{ needs.classify_release.outputs.release_merge == 'true' }}
+    needs: release-please
+    if: ${{ needs.release-please.outputs.release_created == 'true' || needs.release-please.outputs.retry == 'true' }}
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-          ref: main
+          fetch-tags: true
+          ref: arqen-v${{ needs.release-please.outputs.version }}
       - uses: dtolnay/rust-toolchain@stable
       - name: Publish crate if missing
         env:
           CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
-          RETRY_VERSION: ${{ inputs.publish_version }}
+          VERSION: ${{ needs.release-please.outputs.version }}
         run: |
-          VERSION=$(grep '^version = ' Cargo.toml | head -1 | sed 's/version = "\(.*\)"/\1/')
-          if [ -n "$RETRY_VERSION" ] && [ "$RETRY_VERSION" != "$VERSION" ]; then
-            echo "Requested retry version $RETRY_VERSION does not match Cargo.toml version $VERSION"
-            exit 1
-          fi
           if curl -fsS -A "arqen-release/${GITHUB_REPOSITORY} run/${GITHUB_RUN_ID}" \
             "https://crates.io/api/v1/crates/arqen/${VERSION}" >/dev/null; then
             echo "arqen ${VERSION} already exists"
           else
             cargo publish -p arqen --token "$CARGO_REGISTRY_TOKEN"
           fi
-
-  finalize-release:
-    name: Tag and create GitHub Release
-    needs: [classify_release, crates-publish]
-    if: ${{ needs.classify_release.outputs.release_merge == 'true' }}
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v7
-        with:
-          fetch-depth: 0
-          fetch-tags: true
-          ref: main
-      - name: Create tag and GitHub Release if missing
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          VERSION=$(grep '^version = ' Cargo.toml | head -1 | sed 's/version = "\(.*\)"/\1/')
-          TAG="arqen-v${VERSION}"
-          if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
-            echo "${TAG} already exists"
-            exit 0
-          fi
-          awk 'BEGIN { found=0 } /^## / { if (found) exit; found=1 } found { print }' CHANGELOG.md > release-notes.md
-          gh release create "$TAG" \
-            --repo "$GITHUB_REPOSITORY" \
-            --target "$(git rev-parse HEAD)" \
-            --title "$TAG" \
-            --notes-file release-notes.md
