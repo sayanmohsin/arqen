@@ -24,19 +24,20 @@ Application code depends on domain repositories and job interfaces. It should no
 
 The first web stack is Axum with Tokio and Tower. Application state is explicit and constructed in `main`, avoiding a general-purpose dependency-injection container.
 
-## Crate structure
+## Package structure
 
-The workspace is organized into composable crates:
+The public library is one Cargo package with composable internal modules:
 
 ```text
 arqen/
   crates/
-    arqen-core/       # Core types, traits, and errors (no Axum dependency)
-    arqen-http/       # Axum HTTP server, middleware, and routes
-    arqen-agent/      # Agent tool definitions and manifest generation
-    arqen-thingd/     # thingd adapters (memory, HTTP, cloud)
-    arqen-jobs/       # Durable job types and worker runtime
-    arqen-logging/    # Tracing setup and redaction
+    arqen/            # Single public Cargo package
+      src/core/       # Core types, traits, and errors
+      src/http/       # Axum HTTP server, middleware, and routes
+      src/agent/      # Agent tool definitions and manifest generation
+      src/thingd/     # thingd adapters (memory, HTTP, cloud)
+      src/jobs/       # Durable job types and worker runtime
+      src/logging/    # Tracing setup and redaction
   cli/arqen-cli/      # CLI binary
   templates/          # Project templates
   examples/           # Example applications
@@ -46,8 +47,8 @@ arqen/
 
 ## Dependency rules
 
-- `arqen-core` must not depend on Axum, thingd, or model providers.
-- `arqen-thingd` owns storage and queue adapters.
-- `arqen-jobs` depends on `arqen-core` and optionally on `arqen-thingd`.
-- `arqen-http` depends on `arqen-core` and `arqen-agent`.
+- `arqen::core` must not depend on Axum, thingd, or model providers.
+- `arqen::thingd` owns storage and queue adapters.
+- `arqen::jobs` depends on core and thingd contracts.
+- `arqen::http` depends on core and agent modules.
 - The CLI and templates are replaceable without changing application domain code.

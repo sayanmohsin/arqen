@@ -135,8 +135,8 @@ Memory (development) / HTTP (production)
 
 ## Adding repositories
 
-1. Define trait in arqen-core
-2. Implement in arqen-thingd
+1. Define the trait in `arqen::core`
+2. Implement the adapter in `arqen::thingd`
 3. Register in application state
 
 ## Adding jobs

@@ -1,9 +1,9 @@
-use arqen_http::{create_router, start_server};
+use arqen::http::{create_router, start_server};
 use std::net::SocketAddr;
 
 #[tokio::main]
-async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    arqen_logging::init_logging("info", "pretty");
+async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+    arqen::logging::init_logging("info", "pretty");
     
     let addr: SocketAddr = "127.0.0.1:3000".parse()?;
     let router = create_router();

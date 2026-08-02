@@ -13,7 +13,6 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      # The Dockerfile intentionally builds from the /ancatag parent so the
-      # sibling thingd crate is available; a standalone checkout can still
-      # validate the Compose contract here.
+      # The Dockerfile builds from the /ancatag parent so Compose can resolve
+      # the repository's documented Dockerfile path.
       - run: docker compose config

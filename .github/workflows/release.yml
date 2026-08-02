@@ -19,20 +19,14 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/checkout@v4
-        with:
-          repository: sayanmohsin/thingd
-          path: thingd
-      - name: Provide sibling thingd path
-        run: ln -s "$GITHUB_WORKSPACE/thingd" "$GITHUB_WORKSPACE/../thingd"
       - uses: dtolnay/rust-toolchain@stable
         with: { components: rustfmt }
       - uses: Swatinem/rust-cache@v2
       - run: cargo fmt --all -- --check
-      - run: cargo package --workspace --no-verify
+      - run: cargo package --package arqen --no-verify
 
   publish:
-    name: Publish crates.io packages
+    name: Publish arqen to crates.io
     needs: verify
     runs-on: ubuntu-latest
     environment: crates-io
@@ -40,12 +34,6 @@ jobs:
       contents: read
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/checkout@v4
-        with:
-          repository: sayanmohsin/thingd
-          path: thingd
-      - name: Provide sibling thingd path
-        run: ln -s "$GITHUB_WORKSPACE/thingd" "$GITHUB_WORKSPACE/../thingd"
       - uses: dtolnay/rust-toolchain@stable
       - name: Publish crates if missing
         env:
@@ -53,7 +41,7 @@ jobs:
         run: |
           set -euo pipefail
 
-          VERSION=$(cargo metadata --no-deps --format-version 1 | jq -r '.packages[] | select(.name == "arqen-core") | .version')
+          VERSION=$(cargo metadata --no-deps --format-version 1 | jq -r '.packages[] | select(.name == "arqen") | .version')
           if [[ "$GITHUB_REF_TYPE" == "tag" && "$GITHUB_REF_NAME" != "arqen-v${VERSION}" ]]; then
             echo "Tag $GITHUB_REF_NAME does not match workspace version $VERSION"
             exit 1
@@ -70,11 +58,4 @@ jobs:
             sleep 30
           }
 
-          publish_if_missing arqen-core
-          publish_if_missing arqen-agent
-          publish_if_missing arqen-logging
-          publish_if_missing arqen-http
-          publish_if_missing arqen-thingd
-          publish_if_missing arqen-jobs
           publish_if_missing arqen
-          publish_if_missing arqen-cli

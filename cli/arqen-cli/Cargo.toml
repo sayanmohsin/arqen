@@ -14,11 +14,7 @@ name = "arqen"
 path = "src/main.rs"
 
 [dependencies]
-arqen-core.workspace = true
-arqen-http.workspace = true
-arqen-thingd.workspace = true
-arqen-jobs.workspace = true
-arqen-logging.workspace = true
+arqen.workspace = true
 clap = { version = "4", features = ["derive"] }
 tokio.workspace = true
 tracing.workspace = true

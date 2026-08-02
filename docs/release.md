@@ -20,13 +20,13 @@ into a completed claim without acceptance evidence.
 ## crates.io publishing
 
 The repository includes a gated `Release crates` workflow. It runs on tags in
-the form `arqen-v0.1.0` or by manual dispatch, verifies formatting and
-publishable packages, then publishes the workspace crates in dependency order.
+the form `arqen-v0.1.1` or by manual dispatch, verifies formatting and
+the publishable `arqen` package.
 Already-published versions are skipped.
 
 Configure the `CARGO_REGISTRY_TOKEN` secret in the `crates-io` GitHub
 environment before publishing. The tag must match the workspace version, and
 publishing remains intentionally separate from ordinary pushes to `main`.
 
-The public entry point is the `arqen` facade crate. The lower-level `arqen-*`
-crates are published first, followed by `arqen`, then the CLI.
+The public entry point is the single `arqen` crate. `arqen-cli` remains a
+workspace binary and is not published to crates.io.

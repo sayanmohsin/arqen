@@ -1,4 +1,4 @@
-use arqen_thingd::{MemoryThingdBackend, ThingdBackend};
+use arqen::thingd::{MemoryThingdBackend, ThingdBackend};
 use serde_json::json;
 
 #[tokio::main]
@@ -59,7 +59,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     
     // Search operations
     println!("\n5. Search Operations:");
-    let results = backend.search("Alice", arqen_thingd::traits::SearchOptions {
+    let results = backend.search("Alice", arqen::thingd::traits::SearchOptions {
         limit: 10,
         offset: 0,
         filters: vec![],

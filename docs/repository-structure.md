@@ -6,16 +6,19 @@ The planned workspace is:
 arqen/
   crates/
     arqen/         # Public facade crate for most applications
-    arqen-core/
-    arqen-http/
-    arqen-agent/
-    arqen-thingd/
-    arqen-jobs/
-    arqen-logging/
+      src/core/     # Core types and errors
+      src/http/     # Axum HTTP server and routes
+      src/agent/    # Tools and manifest generation
+      src/thingd/   # thingd adapters
+      src/jobs/     # Durable job workers
+      src/logging/  # Tracing and redaction
   cli/arqen-cli/
   templates/
   examples/
   docs/
 ```
 
-Keep crates composable. `arqen-core` should not depend on Axum or a model provider. `arqen-thingd` should own storage and queue adapters. The CLI and templates should be replaceable without changing application domain code.
+Keep the modules composable inside the public `arqen` crate. Core types stay
+independent of Axum and model providers; the thingd module owns storage and
+queue adapters. The CLI and templates should be replaceable without changing
+application domain code.

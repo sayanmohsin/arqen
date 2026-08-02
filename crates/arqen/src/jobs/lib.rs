@@ -30,20 +30,20 @@ impl Default for JobConfig {
 
 pub struct JobWorker {
     config: JobConfig,
-    thingd: Arc<dyn arqen_thingd::ThingdBackend>,
+    thingd: Arc<dyn crate::thingd::ThingdBackend>,
     handler: Box<dyn JobHandler>,
     shutdown_rx: watch::Receiver<bool>,
 }
 
 #[async_trait::async_trait]
 pub trait JobHandler: Send + Sync {
-    async fn handle(&self, payload: serde_json::Value) -> Result<(), arqen_core::AppError>;
+    async fn handle(&self, payload: serde_json::Value) -> Result<(), crate::core::AppError>;
 }
 
 impl JobWorker {
     pub fn new(
         config: JobConfig,
-        thingd: Arc<dyn arqen_thingd::ThingdBackend>,
+        thingd: Arc<dyn crate::thingd::ThingdBackend>,
         handler: Box<dyn JobHandler>,
         shutdown_rx: watch::Receiver<bool>,
     ) -> Self {

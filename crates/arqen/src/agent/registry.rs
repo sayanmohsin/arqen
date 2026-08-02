@@ -1,4 +1,4 @@
-use crate::{AgentManifest, EndpointMetadata, JobMetadata, ToolMetadata};
+use crate::agent::{AgentManifest, EndpointMetadata, JobMetadata, ToolMetadata};
 use std::collections::HashMap;
 
 pub struct ToolRegistry {

@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use std::sync::Mutex;
 use uuid::Uuid;
 
-use crate::traits::*;
+use crate::thingd::traits::*;
 
 pub struct MemoryThingdBackend {
     objects: Mutex<HashMap<String, Vec<ThingdObject>>>,
@@ -35,7 +35,7 @@ impl ThingdBackend for MemoryThingdBackend {
         &self,
         collection: &str,
         id: &str,
-    ) -> Result<Option<ThingdObject>, arqen_core::AppError> {
+    ) -> Result<Option<ThingdObject>, crate::core::AppError> {
         let objects = self.objects.lock().unwrap();
         let empty_vec = vec![];
         let collection_objects = objects.get(collection).unwrap_or(&empty_vec);
@@ -47,7 +47,7 @@ impl ThingdBackend for MemoryThingdBackend {
         collection: &str,
         id: &str,
         data: serde_json::Value,
-    ) -> Result<ThingdObject, arqen_core::AppError> {
+    ) -> Result<ThingdObject, crate::core::AppError> {
         let now = Utc::now().to_rfc3339();
         let object = ThingdObject {
             id: id.to_string(),
@@ -69,7 +69,7 @@ impl ThingdBackend for MemoryThingdBackend {
         Ok(object)
     }
 
-    async fn delete_object(&self, collection: &str, id: &str) -> Result<(), arqen_core::AppError> {
+    async fn delete_object(&self, collection: &str, id: &str) -> Result<(), crate::core::AppError> {
         let mut objects = self.objects.lock().unwrap();
         if let Some(collection_objects) = objects.get_mut(collection) {
             collection_objects.retain(|o| o.id != id);
@@ -81,7 +81,7 @@ impl ThingdBackend for MemoryThingdBackend {
         &self,
         collection: &str,
         filter: Option<ThingdFilter>,
-    ) -> Result<Vec<ThingdObject>, arqen_core::AppError> {
+    ) -> Result<Vec<ThingdObject>, crate::core::AppError> {
         let objects = self.objects.lock().unwrap();
         let collection_objects = objects.get(collection).unwrap_or(&vec![]).clone();
 
@@ -167,7 +167,7 @@ impl ThingdBackend for MemoryThingdBackend {
     async fn batch_write(
         &self,
         operations: Vec<ThingdOperation>,
-    ) -> Result<Vec<ThingdOperationResult>, arqen_core::AppError> {
+    ) -> Result<Vec<ThingdOperationResult>, crate::core::AppError> {
         let mut results = Vec::new();
 
         for op in operations {
@@ -210,7 +210,7 @@ impl ThingdBackend for MemoryThingdBackend {
         stream: &str,
         event_type: &str,
         data: serde_json::Value,
-    ) -> Result<ThingdEvent, arqen_core::AppError> {
+    ) -> Result<ThingdEvent, crate::core::AppError> {
         let event = ThingdEvent {
             id: Uuid::new_v4().to_string(),
             stream: stream.to_string(),
@@ -233,7 +233,7 @@ impl ThingdBackend for MemoryThingdBackend {
         stream: &str,
         from: Option<String>,
         limit: usize,
-    ) -> Result<Vec<ThingdEvent>, arqen_core::AppError> {
+    ) -> Result<Vec<ThingdEvent>, crate::core::AppError> {
         let events = self.events.lock().unwrap();
         let stream_events = events.get(stream).unwrap_or(&vec![]).clone();
 
@@ -259,7 +259,7 @@ impl ThingdBackend for MemoryThingdBackend {
         queue: &str,
         payload: serde_json::Value,
         max_retries: u32,
-    ) -> Result<ThingdJob, arqen_core::AppError> {
+    ) -> Result<ThingdJob, crate::core::AppError> {
         let now = Utc::now().to_rfc3339();
         let job = ThingdJob {
             id: Uuid::new_v4().to_string(),
@@ -284,7 +284,7 @@ impl ThingdBackend for MemoryThingdBackend {
         queue: &str,
         _worker_id: &str,
         lease_seconds: u32,
-    ) -> Result<Option<ThingdJob>, arqen_core::AppError> {
+    ) -> Result<Option<ThingdJob>, crate::core::AppError> {
         let mut jobs = self.jobs.lock().unwrap();
         let queue_jobs = jobs.entry(queue.to_string()).or_default();
 
@@ -303,7 +303,7 @@ impl ThingdBackend for MemoryThingdBackend {
         }
     }
 
-    async fn complete_job(&self, queue: &str, job_id: &str) -> Result<(), arqen_core::AppError> {
+    async fn complete_job(&self, queue: &str, job_id: &str) -> Result<(), crate::core::AppError> {
         let mut jobs = self.jobs.lock().unwrap();
         if let Some(queue_jobs) = jobs.get_mut(queue)
             && let Some(job) = queue_jobs.iter_mut().find(|j| j.id == job_id)
@@ -314,7 +314,7 @@ impl ThingdBackend for MemoryThingdBackend {
         Ok(())
     }
 
-    async fn nack_job(&self, queue: &str, job_id: &str) -> Result<(), arqen_core::AppError> {
+    async fn nack_job(&self, queue: &str, job_id: &str) -> Result<(), crate::core::AppError> {
         let mut jobs = self.jobs.lock().unwrap();
         if let Some(queue_jobs) = jobs.get_mut(queue)
             && let Some(job) = queue_jobs.iter_mut().find(|j| j.id == job_id)
@@ -329,7 +329,11 @@ impl ThingdBackend for MemoryThingdBackend {
         Ok(())
     }
 
-    async fn dead_letter_job(&self, queue: &str, job_id: &str) -> Result<(), arqen_core::AppError> {
+    async fn dead_letter_job(
+        &self,
+        queue: &str,
+        job_id: &str,
+    ) -> Result<(), crate::core::AppError> {
         let mut jobs = self.jobs.lock().unwrap();
         if let Some(queue_jobs) = jobs.get_mut(queue)
             && let Some(job) = queue_jobs.iter_mut().find(|j| j.id == job_id)
@@ -344,7 +348,7 @@ impl ThingdBackend for MemoryThingdBackend {
         &self,
         query: &str,
         options: SearchOptions,
-    ) -> Result<SearchResults, arqen_core::AppError> {
+    ) -> Result<SearchResults, crate::core::AppError> {
         let objects = self.objects.lock().unwrap();
         let mut all_objects: Vec<ThingdObject> = Vec::new();
 
@@ -423,7 +427,7 @@ impl ThingdBackend for MemoryThingdBackend {
         source_id: &str,
         target_id: &str,
         relation: &str,
-    ) -> Result<ThingdLink, arqen_core::AppError> {
+    ) -> Result<ThingdLink, crate::core::AppError> {
         let link = ThingdLink {
             id: Uuid::new_v4().to_string(),
             source_id: source_id.to_string(),
@@ -442,7 +446,7 @@ impl ThingdBackend for MemoryThingdBackend {
         &self,
         source_id: &str,
         relation: Option<&str>,
-    ) -> Result<Vec<ThingdLink>, arqen_core::AppError> {
+    ) -> Result<Vec<ThingdLink>, crate::core::AppError> {
         let links = self.links.lock().unwrap();
         let filtered = links
             .iter()
@@ -455,19 +459,19 @@ impl ThingdBackend for MemoryThingdBackend {
         Ok(filtered)
     }
 
-    async fn delete_link(&self, link_id: &str) -> Result<(), arqen_core::AppError> {
+    async fn delete_link(&self, link_id: &str) -> Result<(), crate::core::AppError> {
         let mut links = self.links.lock().unwrap();
         links.retain(|l| l.id != link_id);
         Ok(())
     }
 
-    async fn count_objects(&self, collection: &str) -> Result<usize, arqen_core::AppError> {
+    async fn count_objects(&self, collection: &str) -> Result<usize, crate::core::AppError> {
         let objects = self.objects.lock().unwrap();
         let count = objects.get(collection).map(|v| v.len()).unwrap_or(0);
         Ok(count)
     }
 
-    async fn reset(&self) -> Result<(), arqen_core::AppError> {
+    async fn reset(&self) -> Result<(), crate::core::AppError> {
         let mut objects = self.objects.lock().unwrap();
         let mut events = self.events.lock().unwrap();
         let mut jobs = self.jobs.lock().unwrap();
@@ -481,7 +485,7 @@ impl ThingdBackend for MemoryThingdBackend {
         Ok(())
     }
 
-    async fn seed(&self) -> Result<(), arqen_core::AppError> {
+    async fn seed(&self) -> Result<(), crate::core::AppError> {
         // Seed sample objects
         let sample_users = vec![
             (

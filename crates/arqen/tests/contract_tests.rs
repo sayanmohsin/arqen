@@ -1,5 +1,5 @@
-use arqen_thingd::MemoryThingdBackend;
-use arqen_thingd::traits::*;
+use arqen::thingd::MemoryThingdBackend;
+use arqen::thingd::*;
 use serde_json::json;
 
 async fn create_backend() -> Box<dyn ThingdBackend> {

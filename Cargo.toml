@@ -1,18 +1,13 @@
 [workspace]
 resolver = "2"
+exclude = ["examples/minimal-api", "examples/memory-backend"]
 members = [
     "crates/arqen",
-    "crates/arqen-core",
-    "crates/arqen-http",
-    "crates/arqen-agent",
-    "crates/arqen-thingd",
-    "crates/arqen-jobs",
-    "crates/arqen-logging",
     "cli/arqen-cli",
 ]
 
 [workspace.package]
-version = "0.1.0"
+version = "0.1.1"
 edition = "2024"
 rust-version = "1.96"
 license = "MIT"
@@ -23,16 +18,10 @@ categories = ["web-programming", "command-line-utilities"]
 
 [workspace.dependencies]
 arqen = { path = "crates/arqen", version = "0.1.0" }
-arqen-core = { path = "crates/arqen-core", version = "0.1.0" }
-arqen-http = { path = "crates/arqen-http", version = "0.1.0" }
-arqen-agent = { path = "crates/arqen-agent", version = "0.1.0" }
-arqen-thingd = { path = "crates/arqen-thingd", version = "0.1.0" }
-arqen-jobs = { path = "crates/arqen-jobs", version = "0.1.0" }
-arqen-logging = { path = "crates/arqen-logging", version = "0.1.0" }
 tokio = { version = "1", features = ["full"] }
 axum = { version = "0.7", features = ["macros"] }
 tower = "0.4"
-tower-http = { version = "0.5", features = ["cors", "limit", "trace"] }
+tower-http = { version = "0.6", features = ["cors", "limit", "trace"] }
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }
 serde = { version = "1", features = ["derive"] }
@@ -41,5 +30,5 @@ thiserror = "1"
 async-trait = "0.1"
 uuid = { version = "1", features = ["v4"] }
 chrono = { version = "0.4", features = ["serde"] }
-reqwest = { version = "0.11", features = ["json"] }
-thingd = { path = "../thingd/crates/thingd", version = "0.72", features = ["persistent", "search"] }
+reqwest = { version = "0.12", features = ["json"] }
+thingd = { version = "0.72", features = ["persistent", "search"] }

@@ -2,12 +2,11 @@ FROM rust:1.96 as builder
 
 WORKDIR /app
 
-# Build from the `/ancatag` parent context so the sibling `thingd` crate is
-# available to Cargo. See docker-compose.yml and docs/docker.md.
+# Build from the `/ancatag` parent context so the Compose Dockerfile path
+# remains stable. thingd is consumed from crates.io.
 COPY arqen/Cargo.toml arqen/Cargo.lock ./arqen/
 COPY arqen/crates/ ./arqen/crates/
 COPY arqen/cli/ ./arqen/cli/
-COPY thingd/crates/thingd/ ./thingd/crates/thingd/
 WORKDIR /app/arqen
 
 # Build dependencies (cached)

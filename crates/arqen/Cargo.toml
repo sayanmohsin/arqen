@@ -10,9 +10,17 @@ categories.workspace = true
 description = "Backend infrastructure for agent-ready applications"
 
 [dependencies]
-arqen-core.workspace = true
-arqen-http.workspace = true
-arqen-agent.workspace = true
-arqen-thingd.workspace = true
-arqen-jobs.workspace = true
-arqen-logging.workspace = true
+async-trait = "0.1"
+axum = { version = "0.7", features = ["macros"] }
+chrono = { version = "0.4", features = ["serde"] }
+reqwest = { version = "0.12", features = ["json"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+thingd = { version = "0.72", features = ["persistent", "search"] }
+thiserror = "1"
+tokio = { version = "1", features = ["full"] }
+tower = "0.4"
+tower-http = { version = "0.6", features = ["cors", "limit", "trace"] }
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }
+uuid = { version = "1", features = ["v4"] }

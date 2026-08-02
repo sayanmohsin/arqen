@@ -7,8 +7,9 @@ The image should compile a release Rust binary in a builder stage and run only t
 Local Compose should optionally run Arqen with a thingd sidecar so the same application can move from memory mode to HTTP-backed durable mode.
 # Build context
 
-Arqen's embedded native thingd dependency is a sibling crate during workspace
-development. Build from the `/ancatag` parent directory:
+The Compose layout uses the `/ancatag` parent as its build context so the
+repository-relative Dockerfile path remains stable. The native thingd
+dependency is resolved from crates.io:
 
 ```bash
 docker build -f arqen/Dockerfile -t arqen:local .

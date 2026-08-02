@@ -74,9 +74,7 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-arqen-core = "0.1.0"
-arqen-http = "0.1.0"
-arqen-logging = "0.1.0"
+arqen = "0.1.1"
 tokio = {{ version = "1", features = ["full"] }}
 serde = {{ version = "1", features = ["derive"] }}
 serde_json = "1"
@@ -87,19 +85,19 @@ serde_json = "1"
 
     // Generate src/main.rs
     let main_rs = format!(
-        r#"use arqen_http::create_router;
+        r#"use arqen::http::create_router;
 use std::net::SocketAddr;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {{
-    arqen_logging::init_logging("info", "pretty");
+    arqen::logging::init_logging("info", "pretty");
     
     let addr: SocketAddr = "127.0.0.1:3000".parse()?;
     let router = create_router();
     
     println!("Starting {} on {}", name, addr);
     
-    arqen_http::start_server(addr, router).await?;
+    arqen::http::start_server(addr, router).await?;
     Ok(())
 }}
 "#,
@@ -155,10 +153,10 @@ async fn main() -> anyhow::Result<()> {
             storage,
         } => {
             println!("Starting Arqen in development mode...");
-            arqen_logging::init_logging(&log, "pretty");
+            arqen::logging::init_logging(&log, "pretty");
 
             let addr: SocketAddr = format!("{}:{}", host, port).parse()?;
-            let router = arqen_http::create_router_with_runtime(arqen_http::RuntimeInfo {
+            let router = arqen::http::create_router_with_runtime(arqen::http::RuntimeInfo {
                 storage_mode: storage.clone(),
                 thingd_ready: storage != "http",
             });
@@ -174,7 +172,7 @@ async fn main() -> anyhow::Result<()> {
             println!("║  Hot reload: use `cargo watch -x 'run -- dev'`");
             println!("╚══════════════════════════════════════════════╝");
 
-            arqen_http::start_server(addr, router)
+            arqen::http::start_server(addr, router)
                 .await
                 .map_err(|e| anyhow::anyhow!(e))?;
         }
@@ -185,17 +183,17 @@ async fn main() -> anyhow::Result<()> {
             storage,
         } => {
             println!("Starting Arqen...");
-            arqen_logging::init_logging(&log, "json");
+            arqen::logging::init_logging(&log, "json");
 
             let addr: SocketAddr = format!("{}:{}", host, port).parse()?;
-            let router = arqen_http::create_router_with_runtime(arqen_http::RuntimeInfo {
+            let router = arqen::http::create_router_with_runtime(arqen::http::RuntimeInfo {
                 storage_mode: storage.clone(),
                 thingd_ready: storage != "http",
             });
 
             println!("Arqen listening on {}", addr);
 
-            arqen_http::start_server(addr, router)
+            arqen::http::start_server(addr, router)
                 .await
                 .map_err(|e| anyhow::anyhow!(e))?;
         }

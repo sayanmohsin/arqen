@@ -22,7 +22,7 @@ impl Worker {
     pub fn spawn_worker(
         &mut self,
         config: JobConfig,
-        thingd: Arc<dyn arqen_thingd::ThingdBackend>,
+        thingd: Arc<dyn crate::thingd::ThingdBackend>,
         handler: Box<dyn JobHandler>,
     ) {
         let shutdown_rx = self.shutdown_tx.subscribe();

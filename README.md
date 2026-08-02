@@ -39,8 +39,8 @@ Most applications can start with the single public facade crate:
 arqen = "0.1"
 ```
 
-The workspace remains modular internally, so smaller services can depend on
-individual `arqen-*` crates when they need a narrower dependency set.
+The source remains modular internally, while the public distribution stays
+focused on one package.
 
 From a checkout:
 
