@@ -1,7 +1,7 @@
 use std::sync::Arc;
-use tokio::time::{sleep, Duration};
 use tokio::sync::watch;
-use tracing::{info, error, warn};
+use tokio::time::{Duration, sleep};
+use tracing::{error, info, warn};
 
 pub mod worker;
 
@@ -56,31 +56,43 @@ impl JobWorker {
     }
 
     pub async fn run(&mut self) {
-        info!("Starting worker {} for queue {}", self.config.worker_id, self.config.queue);
-        
+        info!(
+            "Starting worker {} for queue {}",
+            self.config.worker_id, self.config.queue
+        );
+
         loop {
             // Check for shutdown signal
             if *self.shutdown_rx.borrow() {
                 info!("Worker {} received shutdown signal", self.config.worker_id);
                 break;
             }
-            
-            match self.thingd.claim_job(
-                &self.config.queue,
-                &self.config.worker_id,
-                self.config.lease_seconds,
-            ).await {
+
+            match self
+                .thingd
+                .claim_job(
+                    &self.config.queue,
+                    &self.config.worker_id,
+                    self.config.lease_seconds,
+                )
+                .await
+            {
                 Ok(Some(job)) => {
-                    info!("Processing job {} on worker {}", job.id, self.config.worker_id);
-                    
+                    info!(
+                        "Processing job {} on worker {}",
+                        job.id, self.config.worker_id
+                    );
+
                     // Check idempotency (if job has been processed before)
                     if job.attempts > 1 {
                         warn!("Job {} has been attempted {} times", job.id, job.attempts);
                     }
-                    
+
                     match self.handler.handle(job.payload).await {
                         Ok(()) => {
-                            if let Err(e) = self.thingd.complete_job(&self.config.queue, &job.id).await {
+                            if let Err(e) =
+                                self.thingd.complete_job(&self.config.queue, &job.id).await
+                            {
                                 error!("Failed to complete job {}: {}", job.id, e);
                             } else {
                                 info!("Job {} completed successfully", job.id);
@@ -88,7 +100,8 @@ impl JobWorker {
                         }
                         Err(e) => {
                             error!("Job {} failed: {}", job.id, e);
-                            if let Err(e) = self.thingd.nack_job(&self.config.queue, &job.id).await {
+                            if let Err(e) = self.thingd.nack_job(&self.config.queue, &job.id).await
+                            {
                                 error!("Failed to nack job {}: {}", job.id, e);
                             }
                         }
@@ -112,7 +125,7 @@ impl JobWorker {
                 }
             }
         }
-        
+
         info!("Worker {} shutting down", self.config.worker_id);
     }
 }

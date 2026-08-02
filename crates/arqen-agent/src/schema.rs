@@ -18,7 +18,8 @@ impl SchemaGenerator {
     }
 
     pub fn object_schema(properties: Vec<(&str, &str)>) -> Value {
-        let props: serde_json::Map<String, Value> = properties.into_iter()
+        let props: serde_json::Map<String, Value> = properties
+            .into_iter()
             .map(|(name, type_name)| {
                 let type_str = match type_name {
                     "string" => "string",
@@ -30,7 +31,7 @@ impl SchemaGenerator {
                 (name.to_string(), serde_json::json!({ "type": type_str }))
             })
             .collect();
-        
+
         serde_json::json!({
             "type": "object",
             "properties": props,

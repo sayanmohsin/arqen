@@ -1,6 +1,6 @@
 use std::sync::Arc;
-use tokio::task::JoinHandle;
 use tokio::sync::watch;
+use tokio::task::JoinHandle;
 use tracing::info;
 
 use crate::{JobConfig, JobHandler, JobWorker};
@@ -41,7 +41,7 @@ impl Worker {
         info!("Shutting down workers");
         // Send shutdown signal
         let _ = self.shutdown_tx.send(true);
-        
+
         // Wait for all workers to finish
         for handle in self.handles {
             let _ = handle.await;

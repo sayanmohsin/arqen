@@ -1,5 +1,5 @@
+use crate::{AgentManifest, EndpointMetadata, JobMetadata, ToolMetadata};
 use std::collections::HashMap;
-use crate::{ToolMetadata, AgentManifest, JobMetadata, EndpointMetadata};
 
 pub struct ToolRegistry {
     tools: HashMap<String, ToolMetadata>,
@@ -12,7 +12,12 @@ pub struct ToolRegistry {
 }
 
 impl ToolRegistry {
-    pub fn new(app_name: &str, app_version: &str, app_description: &str, storage_mode: &str) -> Self {
+    pub fn new(
+        app_name: &str,
+        app_version: &str,
+        app_description: &str,
+        storage_mode: &str,
+    ) -> Self {
         Self {
             tools: HashMap::new(),
             jobs: Vec::new(),

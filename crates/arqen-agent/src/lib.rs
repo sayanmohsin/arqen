@@ -4,7 +4,7 @@ pub mod registry;
 pub mod schema;
 
 pub use registry::ToolRegistry;
-pub use schema::{SchemaGenerator, Schema};
+pub use schema::{Schema, SchemaGenerator};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ToolMetadata {

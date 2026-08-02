@@ -13,8 +13,8 @@ use std::sync::{Arc, Mutex, MutexGuard};
 pub enum NativeThingdEngine {
     /// Ephemeral engine for local development and tests.
     Memory(thingd::MemoryEngine),
-    /// Durable Fjall-backed engine for a single Arqen process.
-    Fjall(thingd::FjallEngine),
+    /// Durable persistent engine for a single Arqen process.
+    Persistent(thingd::PersistentEngine),
 }
 
 /// Thread-safe handle for an embedded native thingd engine.
@@ -38,12 +38,11 @@ impl NativeThingdStore {
         }
     }
 
-    /// Open a durable Fjall-backed native thingd store.
+    /// Open a durable native thingd store.
     pub fn fjall(path: impl AsRef<Path>) -> Result<Self, thingd::ThingdError> {
-        let engine = thingd::FjallEngine::open(path)
-            .map_err(|error| thingd::ThingdError::Storage(error.to_string()))?;
+        let engine = thingd::PersistentEngine::open(path)?;
         Ok(Self {
-            engine: Arc::new(Mutex::new(NativeThingdEngine::Fjall(engine))),
+            engine: Arc::new(Mutex::new(NativeThingdEngine::Persistent(engine))),
         })
     }
 

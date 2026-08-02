@@ -12,4 +12,5 @@ Before opening a change:
 5. For docs, run `pnpm install --frozen-lockfile` and `pnpm build` in `docs/`.
 
 Use focused commits and describe known limitations honestly. See the root
-[CONTRIBUTING.md](../CONTRIBUTING.md) for the pull request checklist.
+[contribution guide](https://github.com/sayanmohsin/arqen/blob/main/CONTRIBUTING.md)
+for the pull request checklist.
