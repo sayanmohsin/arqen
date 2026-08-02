@@ -1,0 +1,16 @@
+[package]
+name = "arqen-jobs"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Durable job types and worker runtime for Arqen"
+
+[dependencies]
+arqen-core.workspace = true
+arqen-thingd.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+async-trait.workspace = true
+tokio.workspace = true
+tracing.workspace = true
+uuid.workspace = true

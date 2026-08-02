@@ -1,0 +1,12 @@
+[package]
+name = "arqen-core"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Core types, traits, and errors for Arqen"
+
+[dependencies]
+serde.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+async-trait.workspace = true

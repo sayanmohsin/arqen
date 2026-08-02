@@ -1,0 +1,36 @@
+version: '3.8'
+
+services:
+  arqen:
+    build:
+      context: ..
+      dockerfile: arqen/Dockerfile
+    ports:
+      - "3000:3000"
+    environment:
+      - ARQEN_HOST=0.0.0.0
+      - ARQEN_PORT=3000
+      - ARQEN_LOG=info
+      - ARQEN_STORAGE_MODE=memory
+      - ARQEN_THINGD_URL=http://thingd:8757
+    volumes:
+      - arqen_data:/data
+    restart: unless-stopped
+
+  thingd:
+    image: sayanmohsin/thingd:latest
+    ports:
+      - "8757:8757"
+    volumes:
+      - thingd_data:/data
+    environment:
+      - THINGD_PATH=/data/thingd.db
+      - THINGD_DRIVER=native
+      - THINGD_HOST=0.0.0.0
+      - THINGD_PORT=8757
+      - THINGD_AUTH_TOKEN=${THINGD_AUTH_TOKEN:?set THINGD_AUTH_TOKEN}
+    restart: unless-stopped
+
+volumes:
+  arqen_data:
+  thingd_data:

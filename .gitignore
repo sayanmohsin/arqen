@@ -1,0 +1,6 @@
+/target/
+**/target/
+.DS_Store
+.pnpm-store/
+.env
+*.log

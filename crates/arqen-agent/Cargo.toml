@@ -1,0 +1,12 @@
+[package]
+name = "arqen-agent"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Agent tool definitions and manifest generation for Arqen"
+
+[dependencies]
+arqen-core.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+async-trait.workspace = true

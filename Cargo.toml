@@ -1,0 +1,40 @@
+[workspace]
+resolver = "2"
+members = [
+    "crates/arqen-core",
+    "crates/arqen-http",
+    "crates/arqen-agent",
+    "crates/arqen-thingd",
+    "crates/arqen-jobs",
+    "crates/arqen-logging",
+    "cli/arqen-cli",
+]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.96"
+license = "MIT"
+repository = "https://github.com/arqen/arqen"
+
+[workspace.dependencies]
+arqen-core = { path = "crates/arqen-core" }
+arqen-http = { path = "crates/arqen-http" }
+arqen-agent = { path = "crates/arqen-agent" }
+arqen-thingd = { path = "crates/arqen-thingd" }
+arqen-jobs = { path = "crates/arqen-jobs" }
+arqen-logging = { path = "crates/arqen-logging" }
+tokio = { version = "1", features = ["full"] }
+axum = { version = "0.7", features = ["macros"] }
+tower = "0.4"
+tower-http = { version = "0.5", features = ["cors", "limit", "trace"] }
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+thiserror = "1"
+async-trait = "0.1"
+uuid = { version = "1", features = ["v4"] }
+chrono = { version = "0.4", features = ["serde"] }
+reqwest = { version = "0.11", features = ["json"] }
+thingd = { path = "../thingd/crates/thingd", version = "0.71", features = ["fjall", "search"] }
