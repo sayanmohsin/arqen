@@ -28,7 +28,7 @@ services:
       - THINGD_DRIVER=native
       - THINGD_HOST=0.0.0.0
       - THINGD_PORT=8757
-      - THINGD_AUTH_TOKEN=${THINGD_AUTH_TOKEN:?set THINGD_AUTH_TOKEN}
+      - THINGD_AUTH_TOKEN=${THINGD_AUTH_TOKEN:-dev-token}
     restart: unless-stopped
 
 volumes:
