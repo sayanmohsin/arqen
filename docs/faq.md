@@ -6,6 +6,12 @@ No. It is backend infrastructure. “Agent-ready” describes discoverable,
 typed, permission-aware, auditable, and automation-friendly interfaces that
 are useful to humans and software too.
 
+## What does Arqen replace?
+
+Nothing by default. Arqen complements a web framework, model runtime, BaaS,
+or workflow engine by giving the application an explicit contract for
+capabilities, storage, jobs, and operations.
+
 ## Is Arqen Rust-only?
 
 The implementation is Rust-first today. The public positioning is

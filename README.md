@@ -78,6 +78,26 @@ deployment modes:
 | HTTP sidecar | Separate thingd service boundary | Contract and adapter work exists; parity is still being hardened |
 | Cloud | Optional hosted thingd service | Future, public-contract dependent |
 
+## What makes Arqen distinct
+
+Arqen is the layer between an ordinary backend and the software that needs to
+operate it. It does not replace a web framework, an AI model runtime, a hosted
+BaaS, or a standalone workflow engine. It gives those systems a shared,
+inspectable contract for capabilities, data, jobs, and operations.
+
+- Compared with a traditional web framework, Arqen makes tools, manifests,
+  permissions, jobs, health, and auditability first-class.
+- Compared with an agent framework, Arqen is model-agnostic. Agents are
+  clients of the application rather than the application’s architecture.
+- Compared with a BaaS, Arqen keeps deployment and adapter boundaries visible
+  instead of requiring a hosted control plane.
+- Compared with a workflow engine, durable jobs are one backend primitive
+  alongside HTTP, storage, tools, logs, and readiness.
+- Compared with a microservice stack, Arqen starts with one explicit
+  application boundary and adds sidecars or cloud adapters only when useful.
+
+See [Why Arqen?](docs/why-arqen.md) for the detailed comparison.
+
 ## Explore the docs
 
 - [About Arqen](docs/about.md) · [Why Arqen?](docs/why-arqen.md) · [Use cases](docs/use-cases.md)

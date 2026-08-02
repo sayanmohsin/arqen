@@ -85,6 +85,20 @@ thingd supplies the storage, events, search, links, and queue boundary that
 Arqen adapts. Arqen keeps that integration optional and public-contract based;
 cloud hosting is a future path rather than a current promise.
 
+## A different layer
+
+Arqen is not another model runtime or hosted backend. It is the contract layer
+between an application and the software that operates it:
+
+- web frameworks get typed tools, manifests, permissions, jobs, and health;
+- agent frameworks get a model-agnostic application boundary;
+- BaaS products get an explicit adapter and deployment model;
+- workflow systems get an HTTP, storage, and observability home;
+- microservice stacks get a clear starting boundary before sidecars multiply.
+
+Read [Why Arqen?](./why-arqen.md) for the tradeoffs and the honest maturity
+boundary.
+
 ## Roadmap
 
 Read the [roadmap](./roadmap.md) and the [Phase 12 specification on GitHub](https://github.com/sayanmohsin/arqen/tree/main/specs/phase-12-documentation-and-public-presence)
