@@ -19,7 +19,9 @@ jobs:
       - uses: actions/checkout@v4
         with:
           repository: sayanmohsin/thingd
-          path: ../thingd
+          path: thingd
+      - name: Provide sibling thingd path
+        run: ln -s "$GITHUB_WORKSPACE/thingd" "$GITHUB_WORKSPACE/../thingd"
       - uses: dtolnay/rust-toolchain@stable
         with: { components: rustfmt, clippy }
       - uses: Swatinem/rust-cache@v2
