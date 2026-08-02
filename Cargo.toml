@@ -17,7 +17,7 @@ keywords = ["backend", "agents", "automation", "axum", "thingd"]
 categories = ["web-programming", "command-line-utilities"]
 
 [workspace.dependencies]
-arqen = { path = "crates/arqen", version = "0.1.0" }
+arqen = { path = "crates/arqen" }
 tokio = { version = "1", features = ["full"] }
 axum = { version = "0.7", features = ["macros"] }
 tower = "0.4"
