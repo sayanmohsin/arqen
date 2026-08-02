@@ -17,7 +17,7 @@ jobs:
         with: { globs: "**/*.md" }
       - uses: lycheeverse/lychee-action@v2
         with:
-          args: --verbose --no-progress "**/*.md" "README.md"
+          args: --verbose --no-progress --exclude '127\.0\.0\.1' "**/*.md" "README.md"
           fail: true
 
   security:
