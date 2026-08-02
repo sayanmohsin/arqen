@@ -1,10 +1,23 @@
 {
   "packages": {
-    ".": {
+    "crates/arqen": {
       "release-type": "rust",
       "component": "arqen",
       "tag-prefix": "arqen-v",
       "changelog-path": "CHANGELOG.md"
+    },
+    "cli/arqen-cli": {
+      "release-type": "rust",
+      "component": "arqen-cli",
+      "tag-prefix": "arqen-v"
     }
-  }
+  },
+  "plugins": [
+    "cargo-workspace",
+    {
+      "type": "linked-versions",
+      "groupName": "arqen",
+      "components": ["arqen", "arqen-cli"]
+    }
+  ]
 }
