@@ -1,61 +1,155 @@
-name: Release crates
+name: Release
 
 on:
   push:
-    tags:
-      - "arqen-v*"
+    branches: [main]
   workflow_dispatch:
+    inputs:
+      publish_version:
+        description: "Existing Arqen version to retry, for example 0.1.1"
+        required: false
+        type: string
 
 concurrency:
-  group: crates-release
+  group: release
   cancel-in-progress: false
 
 permissions:
-  contents: read
+  contents: write
+  issues: write
+  pull-requests: write
 
 jobs:
-  verify:
-    name: Verify publishable workspace
+  classify_release:
+    name: Classify main update
+    if: ${{ github.event_name == 'push' || github.event_name == 'workflow_dispatch' }}
     runs-on: ubuntu-latest
+    outputs:
+      release_merge: ${{ steps.classify.outputs.release_merge }}
+      version: ${{ steps.classify.outputs.version }}
     steps:
-      - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@stable
-        with: { components: rustfmt }
-      - uses: Swatinem/rust-cache@v2
-      - run: cargo fmt --all -- --check
-      - run: cargo package --package arqen --no-verify
-
-  publish:
-    name: Publish arqen to crates.io
-    needs: verify
-    runs-on: ubuntu-latest
-    environment: crates-io
-    permissions:
-      contents: read
-    steps:
-      - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@stable
-      - name: Publish crates if missing
+      - name: Classify event
+        id: classify
         env:
-          CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
+          GH_TOKEN: ${{ github.token }}
+          RETRY_VERSION: ${{ inputs.publish_version }}
         run: |
-          set -euo pipefail
-
-          VERSION=$(cargo metadata --no-deps --format-version 1 | jq -r '.packages[] | select(.name == "arqen") | .version')
-          if [[ "$GITHUB_REF_TYPE" == "tag" && "$GITHUB_REF_NAME" != "arqen-v${VERSION}" ]]; then
-            echo "Tag $GITHUB_REF_NAME does not match workspace version $VERSION"
-            exit 1
+          if [ -n "$RETRY_VERSION" ]; then
+            echo "release_merge=true" >> "$GITHUB_OUTPUT"
+            echo "version=$RETRY_VERSION" >> "$GITHUB_OUTPUT"
+            exit 0
           fi
 
-          publish_if_missing() {
-            local crate="$1"
-            if curl -fsS "https://crates.io/api/v1/crates/${crate}/${VERSION}" >/dev/null; then
-              echo "${crate} ${VERSION} already exists"
-              return
-            fi
+          RELEASE_REF=$(gh api \
+            "repos/$GITHUB_REPOSITORY/commits/$GITHUB_SHA/pulls" \
+            --jq 'map(select(.base.ref == "main")) | .[0].head.ref // ""')
+          if [[ "$RELEASE_REF" == release/v* ]]; then
+            echo "release_merge=true" >> "$GITHUB_OUTPUT"
+            echo "version=${RELEASE_REF#release/v}" >> "$GITHUB_OUTPUT"
+          else
+            echo "release_merge=false" >> "$GITHUB_OUTPUT"
+            echo "version=" >> "$GITHUB_OUTPUT"
+          fi
 
-            cargo publish -p "$crate" --token "$CARGO_REGISTRY_TOKEN"
-            sleep 30
-          }
+  prepare-release-pr:
+    name: Prepare release PR
+    needs: classify_release
+    if: ${{ needs.classify_release.outputs.release_merge != 'true' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+          ref: main
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Calculate release plan
+        id: plan
+        run: |
+          node scripts/prepare-release-pr.mjs --plan --json release-plan.json
+          echo "needed=$(jq -r '.needed' release-plan.json)" >> "$GITHUB_OUTPUT"
+          echo "version=$(jq -r '.version // empty' release-plan.json)" >> "$GITHUB_OUTPUT"
+      - name: Create release branch and PR
+        if: ${{ steps.plan.outputs.needed == 'true' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ steps.plan.outputs.version }}
+        run: |
+          BRANCH="release/v${VERSION}"
+          if [ "$(gh pr list --repo "$GITHUB_REPOSITORY" --state open --head "$BRANCH" --json number --jq 'length')" -gt 0 ]; then
+            echo "Release PR $BRANCH already exists"
+            exit 0
+          fi
 
-          publish_if_missing arqen
+          git switch --create "$BRANCH" origin/main
+          node scripts/prepare-release-pr.mjs --apply --plan-file release-plan.json
+          rm -f release-plan.json
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add Cargo.toml Cargo.lock CHANGELOG.md
+          git commit -m "chore(release): v${VERSION}"
+          git push origin "$BRANCH"
+          gh pr create \
+            --repo "$GITHUB_REPOSITORY" \
+            --base main \
+            --head "$BRANCH" \
+            --title "chore(release): v${VERSION}" \
+            --body "Automated Arqen release preparation for v${VERSION}."
+
+  crates-publish:
+    name: Publish arqen to crates.io
+    needs: classify_release
+    if: ${{ needs.classify_release.outputs.release_merge == 'true' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: main
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Publish crate if missing
+        env:
+          CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
+          RETRY_VERSION: ${{ inputs.publish_version }}
+        run: |
+          VERSION=$(grep '^version = ' Cargo.toml | head -1 | sed 's/version = "\(.*\)"/\1/')
+          if [ -n "$RETRY_VERSION" ] && [ "$RETRY_VERSION" != "$VERSION" ]; then
+            echo "Requested retry version $RETRY_VERSION does not match Cargo.toml version $VERSION"
+            exit 1
+          fi
+          if curl -fsS -A "arqen-release/${GITHUB_REPOSITORY} run/${GITHUB_RUN_ID}" \
+            "https://crates.io/api/v1/crates/arqen/${VERSION}" >/dev/null; then
+            echo "arqen ${VERSION} already exists"
+          else
+            cargo publish -p arqen --token "$CARGO_REGISTRY_TOKEN"
+          fi
+
+  finalize-release:
+    name: Tag and create GitHub Release
+    needs: [classify_release, crates-publish]
+    if: ${{ needs.classify_release.outputs.release_merge == 'true' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+          ref: main
+      - name: Create tag and GitHub Release if missing
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          VERSION=$(grep '^version = ' Cargo.toml | head -1 | sed 's/version = "\(.*\)"/\1/')
+          TAG="arqen-v${VERSION}"
+          if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo "${TAG} already exists"
+            exit 0
+          fi
+          awk 'BEGIN { found=0 } /^## / { if (found) exit; found=1 } found { print }' CHANGELOG.md > release-notes.md
+          gh release create "$TAG" \
+            --repo "$GITHUB_REPOSITORY" \
+            --target "$(git rev-parse HEAD)" \
+            --title "$TAG" \
+            --notes-file release-notes.md
