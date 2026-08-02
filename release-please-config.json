@@ -1,0 +1,17 @@
+{
+  "packages": {
+    ".": {
+      "release-type": "rust",
+      "component": "arqen",
+      "tag-prefix": "arqen-v",
+      "changelog-path": "CHANGELOG.md",
+      "extra-files": [
+        {
+          "type": "toml",
+          "path": "Cargo.toml",
+          "jsonpath": "$.workspace.package.version"
+        }
+      ]
+    }
+  }
+}
