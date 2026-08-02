@@ -3,7 +3,7 @@
 ## In scope
 
 - Root README information architecture, badges, quickstart, architecture, modes, status, and links.
-- `docs/` VitePress site using pnpm, dark technical styling, orange accent, logo, landing page, and navigation.
+- `docs/` VitePress site using pnpm, dark technical styling, neon blue accent, logo, landing page, and navigation.
 - About, rationale, use-case, feature-status, agent, contribution, release, and FAQ documents.
 - GitHub Pages deployment from `main`; Rust, Markdown/link, dependency/security, and Docker smoke workflows.
 - Repository contribution/security/changelog files and issue/PR templates.

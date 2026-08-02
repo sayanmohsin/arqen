@@ -1,21 +1,21 @@
 :root {
-  --vp-c-brand-1: #ff6a00;
-  --vp-c-brand-2: #ff9944;
-  --vp-c-brand-3: #e05316;
-  --vp-c-brand-soft: rgba(255, 106, 0, 0.14);
-  --vp-button-brand-bg: #e05316;
-  --vp-button-brand-hover-bg: #ff6a00;
+  --vp-c-brand-1: #00d9ff;
+  --vp-c-brand-2: #7cf3ff;
+  --vp-c-brand-3: #008cff;
+  --vp-c-brand-soft: rgba(0, 217, 255, 0.14);
+  --vp-button-brand-bg: #0077ff;
+  --vp-button-brand-hover-bg: #00bfff;
   --vp-home-hero-name-color: transparent;
-  --vp-home-hero-name-background: linear-gradient(120deg, #ff6a00 25%, #ffb36b);
+  --vp-home-hero-name-background: linear-gradient(120deg, #00bfff 25%, #7cf3ff);
 }
 
 .dark {
   --vp-c-bg: #080a0d;
   --vp-c-bg-alt: #0d1015;
   --vp-c-bg-soft: #11161d;
-  --vp-c-brand-1: #ff8533;
-  --vp-c-brand-2: #ffb36b;
-  --vp-c-brand-3: #e05316;
+  --vp-c-brand-1: #00e5ff;
+  --vp-c-brand-2: #8af7ff;
+  --vp-c-brand-3: #008cff;
 }
 
 .VPNavBar .logo {
@@ -30,7 +30,7 @@
 
 .VPFeature:hover {
   border-color: var(--vp-c-brand-1);
-  box-shadow: 0 0 24px rgba(255, 106, 0, 0.14);
+  box-shadow: 0 0 24px rgba(0, 217, 255, 0.18);
 }
 
 .vp-doc code,

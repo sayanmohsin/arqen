@@ -4,7 +4,7 @@
 [![Tests](https://github.com/sayanmohsin/arqen/actions/workflows/rust.yml/badge.svg?label=tests)](https://github.com/sayanmohsin/arqen/actions/workflows/rust.yml)
 [![Rust](https://img.shields.io/badge/rust-first-orange.svg)](https://www.rust-lang.org/)
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
-[![Docs](https://img.shields.io/badge/docs-GitHub%20Pages-orange.svg)](https://sayanmohsin.github.io/arqen/)
+[![Docs](https://img.shields.io/badge/docs-GitHub%20Pages-00d9ff.svg)](https://sayanmohsin.github.io/arqen/)
 
 ## Backend infrastructure for agent-ready applications
 
