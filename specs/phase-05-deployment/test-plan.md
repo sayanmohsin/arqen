@@ -1,0 +1,1 @@
+# Test plan\n\n## Required checks\n\nClean Docker build; Compose smoke test; readiness failure test; SIGTERM test; JSON log validation.\n\n## Evidence\n\nRecord exact commands, environment assumptions, and pass/fail results in `handoff.md`. Tests must cover the documented public behavior, failure paths, and relevant compatibility boundaries.\n

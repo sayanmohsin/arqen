@@ -1,0 +1,1 @@
+# Test plan\n\n## Required checks\n\nJWKS tests; tenant isolation tests; contract fixtures; direct/cloud parity; timeout/retry tests; secret-redaction tests.\n\n## Evidence\n\nRecord exact commands, environment assumptions, and pass/fail results in `handoff.md`. Tests must cover the documented public behavior, failure paths, and relevant compatibility boundaries.\n

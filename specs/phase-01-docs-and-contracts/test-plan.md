@@ -1,0 +1,1 @@
+# Test plan\n\n## Required checks\n\nDocumentation link check; command/example review; consistency review across docs and phase specs.\n\n## Evidence\n\nRecord exact commands, environment assumptions, and pass/fail results in `handoff.md`. Tests must cover the documented public behavior, failure paths, and relevant compatibility boundaries.\n

@@ -1,0 +1,1 @@
+# Interfaces\n\nContainer listens on configured `ARQEN_PORT`; `/health` is liveness; `/ready` verifies required dependencies; shutdown honors SIGTERM; logs support JSON mode.\n\n## Compatibility rule\n\nKeep interfaces small, typed, documented, and replaceable. Do not expose private implementation details through public application contracts.\n

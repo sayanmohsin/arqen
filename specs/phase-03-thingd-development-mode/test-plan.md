@@ -1,0 +1,1 @@
+# Test plan\n\n## Required checks\n\nMemory tests; HTTP mock tests; real sidecar integration tests; restart and queue lease tests; adapter parity tests.\n\n## Evidence\n\nRecord exact commands, environment assumptions, and pass/fail results in `handoff.md`. Tests must cover the documented public behavior, failure paths, and relevant compatibility boundaries.\n

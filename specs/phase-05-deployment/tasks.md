@@ -1,0 +1,1 @@
+# Tasks\n\n1. Add production build.\n2. Add runtime image and Compose.\n3. Add readiness/dependency checks.\n4. Add signal handling and worker drain.\n5. Add `doctor` and deployment guides.\n\n## Agent rule\n\nComplete tasks in order. If a task requires a contract change, stop, record the issue in `handoff.md`, and update the relevant interface specification before continuing.\n

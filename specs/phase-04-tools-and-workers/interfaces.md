@@ -1,0 +1,1 @@
+# Interfaces\n\nTool metadata includes name, description, input schema, output schema, scopes, effects, idempotency, and async behavior. Job states and transitions follow Phase 01.\n\n## Compatibility rule\n\nKeep interfaces small, typed, documented, and replaceable. Do not expose private implementation details through public application contracts.\n

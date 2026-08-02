@@ -1,0 +1,1 @@
+# Test plan\n\n## Required checks\n\nSchema tests; authorization tests; manifest tests; duplicate-job tests; lease/retry/dead-letter tests; shutdown tests.\n\n## Evidence\n\nRecord exact commands, environment assumptions, and pass/fail results in `handoff.md`. Tests must cover the documented public behavior, failure paths, and relevant compatibility boundaries.\n

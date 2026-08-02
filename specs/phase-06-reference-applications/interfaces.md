@@ -1,0 +1,1 @@
+# Interfaces\n\nEach example must expose health, docs, agent metadata where relevant, and a documented start command. Watchloom-shaped example uses normalized domain interfaces only.\n\n## Compatibility rule\n\nKeep interfaces small, typed, documented, and replaceable. Do not expose private implementation details through public application contracts.\n

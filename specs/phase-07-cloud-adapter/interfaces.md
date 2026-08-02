@@ -1,0 +1,1 @@
+# Interfaces\n\nCloud adapter accepts public base URL, issuer/JWKS URL, tenant context, and server-side credentials. It must implement the same backend traits as direct thingd.\n\n## Compatibility rule\n\nKeep interfaces small, typed, documented, and replaceable. Do not expose private implementation details through public application contracts.\n

@@ -1,0 +1,1 @@
+# Acceptance checklist\n\n- [ ] - Cloud support is optional at compile time.\n- [ ] - No private cloud imports or database access exist.\n- [ ] - Tenant isolation is tested.\n- [ ] - Failure and credential rotation behavior is documented.\n- [ ] Required documentation is updated.\n- [ ] `handoff.md` is complete.\n- [ ] `STATUS.md` reflects the actual phase state.\n

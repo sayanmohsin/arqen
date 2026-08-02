@@ -1,0 +1,1 @@
+# Interfaces\n\n`ThingdBackend` must expose typed object CRUD, batch writes, event append/list, queue push/claim/ack/nack, search, and links. `storage.mode` accepts `memory` or `http`.\n\n## Compatibility rule\n\nKeep interfaces small, typed, documented, and replaceable. Do not expose private implementation details through public application contracts.\n
