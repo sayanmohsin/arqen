@@ -21,7 +21,7 @@ export default defineConfig({
     ],
   ],
   themeConfig: {
-    logo: "/arqen/logo.svg",
+    logo: "/logo.svg",
     siteTitle: "Arqen",
     search: { provider: "local" },
     nav: [
