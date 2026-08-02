@@ -28,7 +28,7 @@ jobs:
       retry: ${{ steps.manual.outputs.retry }}
       version: ${{ steps.release.outputs.version || steps.manual.outputs.version }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
       - name: Create release App token
@@ -43,7 +43,7 @@ jobs:
       - name: Run Release Please
         id: release
         if: ${{ inputs.publish_version == '' }}
-        uses: googleapis/release-please-action@v4
+        uses: googleapis/release-please-action@v5
         with:
           token: ${{ steps.app-token.outputs.token }}
           config-file: release-please-config.json
@@ -87,7 +87,7 @@ jobs:
     if: ${{ needs.release-please.outputs.release_created == 'true' || needs.release-please.outputs.retry == 'true' }}
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
           fetch-tags: true
