@@ -153,11 +153,7 @@ pub mod validators {
     /// Check string minimum length.
     pub fn min_length(field: &str, value: &str, min: usize) -> Result<(), FieldError> {
         if value.len() < min {
-            Err(FieldError::new(
-                field,
-                "min_length",
-                format!("must be at least {} characters", min),
-            ))
+            Err(FieldError::new(field, "min_length", format!("must be at least {} characters", min)))
         } else {
             Ok(())
         }
@@ -166,11 +162,7 @@ pub mod validators {
     /// Check string maximum length.
     pub fn max_length(field: &str, value: &str, max: usize) -> Result<(), FieldError> {
         if value.len() > max {
-            Err(FieldError::new(
-                field,
-                "max_length",
-                format!("must be at most {} characters", max),
-            ))
+            Err(FieldError::new(field, "max_length", format!("must be at most {} characters", max)))
         } else {
             Ok(())
         }
@@ -197,11 +189,7 @@ pub mod validators {
     /// Check numeric minimum value.
     pub fn min_value<T: PartialOrd + std::fmt::Debug>(field: &str, value: &T, min: &T) -> Result<(), FieldError> {
         if value < min {
-            Err(FieldError::new(
-                field,
-                "min_value",
-                format!("must be at least {:?}", min),
-            ))
+            Err(FieldError::new(field, "min_value", format!("must be at least {:?}", min)))
         } else {
             Ok(())
         }
@@ -210,14 +198,56 @@ pub mod validators {
     /// Check numeric maximum value.
     pub fn max_value<T: PartialOrd + std::fmt::Debug>(field: &str, value: &T, max: &T) -> Result<(), FieldError> {
         if value > max {
-            Err(FieldError::new(
-                field,
-                "max_value",
-                format!("must be at most {:?}", max),
-            ))
+            Err(FieldError::new(field, "max_value", format!("must be at most {:?}", max)))
         } else {
             Ok(())
         }
+    }
+
+    /// Check if value is one of allowed values (enum validation).
+    pub fn one_of<T: PartialEq + std::fmt::Debug>(field: &str, value: &T, allowed: &[T]) -> Result<(), FieldError> {
+        if allowed.contains(value) {
+            Ok(())
+        } else {
+            Err(FieldError::new(field, "one_of", format!("must be one of {:?}", allowed)))
+        }
+    }
+
+    /// Check if a string matches a pattern.
+    pub fn pattern(field: &str, value: &str, pattern: &str) -> Result<(), FieldError> {
+        if value.contains(pattern) {
+            Ok(())
+        } else {
+            Err(FieldError::new(field, "pattern", format!("must contain '{}'", pattern)))
+        }
+    }
+
+    /// Check if two fields match (cross-field validation).
+    pub fn fields_match<T: PartialEq + std::fmt::Debug>(field1: &str, value1: &T, field2: &str, value2: &T) -> Result<(), FieldError> {
+        if value1 == value2 {
+            Ok(())
+        } else {
+            Err(FieldError::new(field1, "fields_match", format!("must match {}", field2)))
+        }
+    }
+
+    /// Check if a field is after another field (for date/time ranges).
+    pub fn field_after(field: &str, value: &str, after_field: &str, after_value: &str) -> Result<(), FieldError> {
+        if value > after_value {
+            Ok(())
+        } else {
+            Err(FieldError::new(field, "field_after", format!("must be after {}", after_field)))
+        }
+    }
+
+    /// Validate a nested struct.
+    pub fn nested<T: Validate>(field: &str, value: &T) -> Result<(), ValidationErrors> {
+        value.validate().map_err(|mut errors| {
+            for err in &mut errors.errors {
+                err.field = format!("{}.{}", field, err.field);
+            }
+            errors
+        })
     }
 }
 

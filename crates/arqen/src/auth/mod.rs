@@ -1,11 +1,17 @@
 //! Authentication module for Arqen.
 //!
 //! Provides pluggable authentication with API keys, JWT, and session adapters.
+//! API key comparison uses constant-time equality to prevent timing attacks.
+//! JWT validation uses the `jsonwebtoken` crate with proper signature, expiry,
+//! issuer, and audience checks.
 
 use std::collections::HashMap;
 
 use async_trait::async_trait;
+use jsonwebtoken::{decode, decode_header, Algorithm, DecodingKey, Validation};
 use serde::{Deserialize, Serialize};
+use sha2::{Digest, Sha256};
+use subtle::ConstantTimeEq;
 
 use crate::core::{AppError, ErrorKind};
 
@@ -89,11 +95,7 @@ impl AuthContext {
     pub fn has_role(&self, role: &str) -> bool {
         self.get_claim("roles")
             .and_then(|v| v.as_array())
-            .map(|roles| {
-                roles
-                    .iter()
-                    .any(|r| r.as_str() == Some(role))
-            })
+            .map(|roles| roles.iter().any(|r| r.as_str() == Some(role)))
             .unwrap_or(false)
     }
 }
@@ -105,12 +107,28 @@ pub trait Authentication: Send + Sync {
     async fn authenticate(&self, headers: &axum::http::HeaderMap) -> Result<AuthContext, AuthError>;
 }
 
+/// Constant-time string comparison to prevent timing attacks.
+fn constant_time_eq(a: &str, b: &str) -> bool {
+    if a.len() != b.len() {
+        return false;
+    }
+    a.as_bytes().ct_eq(b.as_bytes()).into()
+}
+
+/// Hash an API key using SHA-256 for secure storage.
+pub fn hash_api_key(key: &str) -> String {
+    let mut hasher = Sha256::new();
+    hasher.update(key.as_bytes());
+    let result = hasher.finalize();
+    hex::encode(result)
+}
+
 /// API key authentication adapter.
 ///
 /// Validates API keys from the `Authorization: Bearer <key>` header
-/// or `X-API-Key` header.
+/// or `X-API-Key` header. Uses constant-time comparison to prevent timing attacks.
 pub struct ApiKeyAuth {
-    /// Valid API keys mapped to subject IDs.
+    /// Valid API key hashes mapped to subject IDs.
     keys: HashMap<String, String>,
 }
 
@@ -122,15 +140,23 @@ impl ApiKeyAuth {
         }
     }
 
-    /// Add an API key.
+    /// Add an API key (will be hashed for secure storage).
     pub fn with_key(mut self, key: impl Into<String>, subject: impl Into<String>) -> Self {
-        self.keys.insert(key.into(), subject.into());
+        self.keys.insert(hash_api_key(&key.into()), subject.into());
+        self
+    }
+
+    /// Add a pre-hashed API key.
+    pub fn with_hashed_key(mut self, hashed_key: impl Into<String>, subject: impl Into<String>) -> Self {
+        self.keys.insert(hashed_key.into(), subject.into());
         self
     }
 
     /// Add multiple API keys.
     pub fn with_keys(mut self, keys: HashMap<String, String>) -> Self {
-        self.keys.extend(keys);
+        for (key, subject) in keys {
+            self.keys.insert(hash_api_key(&key), subject);
+        }
         self
     }
 }
@@ -147,8 +173,11 @@ impl Authentication for ApiKeyAuth {
         // Try X-API-Key header first
         if let Some(key) = headers.get("x-api-key") {
             let key = key.to_str().map_err(|_| AuthError::Invalid)?;
-            if let Some(subject) = self.keys.get(key) {
-                return Ok(AuthContext::new(subject, "api_key"));
+            let hashed = hash_api_key(key);
+            for (stored_hash, subject) in &self.keys {
+                if constant_time_eq(&hashed, stored_hash) {
+                    return Ok(AuthContext::new(subject, "api_key"));
+                }
             }
             return Err(AuthError::Invalid);
         }
@@ -157,8 +186,11 @@ impl Authentication for ApiKeyAuth {
         if let Some(auth) = headers.get("authorization") {
             let auth = auth.to_str().map_err(|_| AuthError::Invalid)?;
             if let Some(key) = auth.strip_prefix("Bearer ") {
-                if let Some(subject) = self.keys.get(key) {
-                    return Ok(AuthContext::new(subject, "api_key"));
+                let hashed = hash_api_key(key);
+                for (stored_hash, subject) in &self.keys {
+                    if constant_time_eq(&hashed, stored_hash) {
+                        return Ok(AuthContext::new(subject, "api_key"));
+                    }
                 }
                 return Err(AuthError::Invalid);
             }
@@ -170,31 +202,68 @@ impl Authentication for ApiKeyAuth {
 
 /// JWT authentication adapter.
 ///
-/// Validates JWT tokens from the `Authorization: Bearer <token>` header.
-/// This is a placeholder implementation - in production, use a proper JWT library.
+/// Validates JWT tokens from the `Authorization: Bearer <token>` header
+/// using the `jsonwebtoken` crate with proper signature, expiry, issuer,
+/// and audience validation.
 pub struct JwtAuth {
-    /// Valid tokens mapped to auth contexts.
-    tokens: HashMap<String, AuthContext>,
+    /// Decoding key for JWT validation.
+    decoding_key: DecodingKey,
+    /// Validation settings.
+    validation: Validation,
+    /// Optional issuer to validate.
+    issuer: Option<String>,
 }
 
 impl JwtAuth {
-    /// Create a new JWT auth adapter.
-    pub fn new() -> Self {
+    /// Create a new JWT auth adapter with a secret key (HMAC).
+    pub fn new_secret(secret: &[u8]) -> Self {
+        let mut validation = Validation::new(Algorithm::HS256);
+        validation.validate_exp = true;
+        validation.validate_nbf = true;
+
         Self {
-            tokens: HashMap::new(),
+            decoding_key: DecodingKey::from_secret(secret),
+            validation,
+            issuer: None,
         }
     }
 
-    /// Add a valid token with its auth context.
-    pub fn with_token(mut self, token: impl Into<String>, context: AuthContext) -> Self {
-        self.tokens.insert(token.into(), context);
+    /// Create a new JWT auth adapter with RSA public key.
+    pub fn new_rsa(public_key: &[u8]) -> Self {
+        let mut validation = Validation::new(Algorithm::RS256);
+        validation.validate_exp = true;
+        validation.validate_nbf = true;
+
+        Self {
+            decoding_key: DecodingKey::from_rsa_pem(public_key).expect("invalid RSA public key"),
+            validation,
+            issuer: None,
+        }
+    }
+
+    /// Set the expected issuer for validation.
+    pub fn with_issuer(mut self, issuer: impl Into<String>) -> Self {
+        self.issuer = Some(issuer.into());
         self
     }
-}
 
-impl Default for JwtAuth {
-    fn default() -> Self {
-        Self::new()
+    /// Set the expected audience for validation.
+    pub fn with_audience(mut self, audience: impl Into<String>) -> Self {
+        self.validation.set_audience(&[audience.into()]);
+        self
+    }
+
+    /// Decode and validate a JWT token.
+    pub fn validate_token(&self, token: &str) -> Result<jsonwebtoken::TokenData<serde_json::Value>, AuthError> {
+        decode::<serde_json::Value>(
+            token,
+            &self.decoding_key,
+            &self.validation,
+        )
+        .map_err(|e| match e.kind() {
+            jsonwebtoken::errors::ErrorKind::ExpiredSignature => AuthError::Expired,
+            _ => AuthError::Invalid,
+        })
     }
 }
 
@@ -211,10 +280,25 @@ impl Authentication for JwtAuth {
             .strip_prefix("Bearer ")
             .ok_or(AuthError::Invalid)?;
 
-        self.tokens
-            .get(token)
-            .cloned()
-            .ok_or(AuthError::Invalid)
+        let token_data = self.validate_token(token)?;
+        let claims = token_data.claims;
+
+        let subject = claims
+            .get("sub")
+            .and_then(|v| v.as_str())
+            .unwrap_or("unknown")
+            .to_string();
+
+        let mut context = AuthContext::new(subject, "jwt");
+
+        // Copy all claims into context
+        if let Some(obj) = claims.as_object() {
+            for (key, value) in obj {
+                context.claims.insert(key.clone(), value.clone());
+            }
+        }
+
+        Ok(context)
     }
 }
 
@@ -253,7 +337,6 @@ impl Authentication for SessionAuth {
             .to_str()
             .map_err(|_| AuthError::Invalid)?;
 
-        // Parse cookie header to find session token
         for part in cookie_header.split(';') {
             let part = part.trim();
             if let Some((name, value)) = part.split_once('=') {
@@ -403,10 +486,7 @@ mod tests {
         let ctx = AuthContext::new("user-123", "api_key")
             .with_claim("roles", serde_json::json!(["admin"]));
         assert!(ctx.has_claim("roles"));
-        assert_eq!(
-            ctx.get_claim("roles"),
-            Some(&serde_json::json!(["admin"]))
-        );
+        assert_eq!(ctx.get_claim("roles"), Some(&serde_json::json!(["admin"])));
     }
 
     #[test]
@@ -422,6 +502,23 @@ mod tests {
     fn test_auth_context_no_roles() {
         let ctx = AuthContext::new("user-123", "api_key");
         assert!(!ctx.has_role("admin"));
+    }
+
+    #[test]
+    fn test_constant_time_eq() {
+        assert!(constant_time_eq("hello", "hello"));
+        assert!(!constant_time_eq("hello", "world"));
+        assert!(!constant_time_eq("hello", "hell"));
+        assert!(!constant_time_eq("hell", "hello"));
+    }
+
+    #[test]
+    fn test_hash_api_key() {
+        let hash1 = hash_api_key("test-key");
+        let hash2 = hash_api_key("test-key");
+        let hash3 = hash_api_key("different-key");
+        assert_eq!(hash1, hash2);
+        assert_ne!(hash1, hash3);
     }
 
     #[tokio::test]
@@ -472,29 +569,59 @@ mod tests {
         assert_eq!(ctx.subject, "user-123");
     }
 
-    #[tokio::test]
-    async fn test_jwt_auth_valid() {
-        let ctx = AuthContext::new("user-123", "jwt")
-            .with_claim("exp", serde_json::json!(1234567890));
+    #[test]
+    fn test_jwt_auth_decode() {
+        // Create a test JWT with HS256
+        let secret = b"test-secret";
+        let header = jsonwebtoken::Header::new(Algorithm::HS256);
+        let claims = serde_json::json!({
+            "sub": "user-123",
+            "exp": 4102444800_i64,
+            "iss": "test-issuer"
+        });
+        let token = jsonwebtoken::encode(&header, &claims, &jsonwebtoken::EncodingKey::from_secret(secret))
+            .unwrap();
 
-        let auth = JwtAuth::new()
-            .with_token("valid-token", ctx);
+        let auth = JwtAuth::new_secret(secret)
+            .with_issuer("test-issuer");
 
         let mut headers = axum::http::HeaderMap::new();
-        headers.insert("authorization", "Bearer valid-token".parse().unwrap());
+        headers.insert("authorization", format!("Bearer {}", token).parse().unwrap());
 
-        let ctx = auth.authenticate(&headers).await.unwrap();
+        let ctx = tokio_test::block_on(auth.authenticate(&headers)).unwrap();
         assert_eq!(ctx.subject, "user-123");
+        assert_eq!(ctx.adapter, "jwt");
+        assert_eq!(ctx.get_claim("iss"), Some(&serde_json::json!("test-issuer")));
     }
 
-    #[tokio::test]
-    async fn test_jwt_auth_invalid() {
-        let auth = JwtAuth::new();
+    #[test]
+    fn test_jwt_auth_invalid_token() {
+        let secret = b"test-secret";
+        let auth = JwtAuth::new_secret(secret);
 
         let mut headers = axum::http::HeaderMap::new();
         headers.insert("authorization", "Bearer invalid-token".parse().unwrap());
 
-        let err = auth.authenticate(&headers).await.unwrap_err();
+        let err = tokio_test::block_on(auth.authenticate(&headers)).unwrap_err();
+        assert_eq!(err, AuthError::Invalid);
+    }
+
+    #[test]
+    fn test_jwt_auth_wrong_secret() {
+        let header = jsonwebtoken::Header::new(Algorithm::HS256);
+        let claims = serde_json::json!({
+            "sub": "user-123",
+            "exp": 4102444800_i64,
+        });
+        let token = jsonwebtoken::encode(&header, &claims, &jsonwebtoken::EncodingKey::from_secret(b"wrong-secret"))
+            .unwrap();
+
+        let auth = JwtAuth::new_secret(b"correct-secret");
+
+        let mut headers = axum::http::HeaderMap::new();
+        headers.insert("authorization", format!("Bearer {}", token).parse().unwrap());
+
+        let err = tokio_test::block_on(auth.authenticate(&headers)).unwrap_err();
         assert_eq!(err, AuthError::Invalid);
     }
 
