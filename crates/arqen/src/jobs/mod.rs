@@ -3,6 +3,7 @@ pub mod worker;
 pub use worker::Worker;
 
 use std::sync::Arc;
+use std::time::Instant;
 use tokio::sync::watch;
 use tokio::time::{Duration, sleep};
 use tracing::{error, info, warn};
@@ -20,6 +21,8 @@ pub struct JobConfig {
     pub lease_seconds: u32,
     /// Maximum retries before dead-lettering.
     pub max_retries: u32,
+    /// Maximum number of concurrent jobs this worker can process.
+    pub max_concurrency: u32,
 }
 
 impl Default for JobConfig {
@@ -30,6 +33,33 @@ impl Default for JobConfig {
             poll_interval: Duration::from_secs(1),
             lease_seconds: 30,
             max_retries: 3,
+            max_concurrency: 1,
+        }
+    }
+}
+
+/// Metrics for job processing.
+#[derive(Debug, Clone, Default)]
+pub struct JobMetrics {
+    /// Total jobs processed.
+    pub processed: u64,
+    /// Total jobs completed successfully.
+    pub completed: u64,
+    /// Total jobs failed.
+    pub failed: u64,
+    /// Total jobs dead-lettered.
+    pub dead_lettered: u64,
+    /// Total processing time in milliseconds.
+    pub total_duration_ms: u64,
+}
+
+impl JobMetrics {
+    /// Get average processing time per job.
+    pub fn avg_duration_ms(&self) -> u64 {
+        if self.processed == 0 {
+            0
+        } else {
+            self.total_duration_ms / self.processed
         }
     }
 }
@@ -40,6 +70,7 @@ pub struct JobWorker {
     thingd: Arc<dyn crate::thingd::ThingdBackend>,
     handler: Box<dyn JobHandler>,
     shutdown_rx: watch::Receiver<bool>,
+    metrics: JobMetrics,
 }
 
 /// Trait for job handlers.
@@ -64,19 +95,29 @@ impl JobWorker {
             thingd,
             handler,
             shutdown_rx,
+            metrics: JobMetrics::default(),
         }
+    }
+
+    /// Get current metrics.
+    pub fn metrics(&self) -> &JobMetrics {
+        &self.metrics
     }
 
     /// Run the worker loop until shutdown signal is received.
     pub async fn run(&mut self) {
         info!(
-            "Starting worker {} for queue {}",
-            self.config.worker_id, self.config.queue
+            worker_id = %self.config.worker_id,
+            queue = %self.config.queue,
+            "Starting job worker"
         );
 
         loop {
             if *self.shutdown_rx.borrow() {
-                info!("Worker {} received shutdown signal", self.config.worker_id);
+                info!(
+                    worker_id = %self.config.worker_id,
+                    "Received shutdown signal"
+                );
                 break;
             }
 
@@ -90,30 +131,61 @@ impl JobWorker {
                 .await
             {
                 Ok(Some(job)) => {
+                    let start = Instant::now();
                     info!(
-                        "Processing job {} on worker {}",
-                        job.id, self.config.worker_id
+                        job_id = %job.id,
+                        worker_id = %self.config.worker_id,
+                        queue = %self.config.queue,
+                        attempt = job.attempts,
+                        "Processing job"
                     );
 
                     if job.attempts > 1 {
-                        warn!("Job {} has been attempted {} times", job.id, job.attempts);
+                        warn!(
+                            job_id = %job.id,
+                            attempts = job.attempts,
+                            "Job has been retried"
+                        );
                     }
 
-                    match self.handler.handle(job.payload).await {
+                    let result = self.handler.handle(job.payload).await;
+                    let duration_ms = start.elapsed().as_millis() as u64;
+                    self.metrics.processed += 1;
+                    self.metrics.total_duration_ms += duration_ms;
+
+                    match result {
                         Ok(()) => {
                             if let Err(e) =
                                 self.thingd.complete_job(&self.config.queue, &job.id).await
                             {
-                                error!("Failed to complete job {}: {}", job.id, e);
+                                error!(
+                                    job_id = %job.id,
+                                    error = %e,
+                                    "Failed to complete job"
+                                );
                             } else {
-                                info!("Job {} completed successfully", job.id);
+                                self.metrics.completed += 1;
+                                info!(
+                                    job_id = %job.id,
+                                    duration_ms = duration_ms,
+                                    "Job completed successfully"
+                                );
                             }
                         }
                         Err(e) => {
-                            error!("Job {} failed: {}", job.id, e);
-                            if let Err(e) = self.thingd.nack_job(&self.config.queue, &job.id).await
-                            {
-                                error!("Failed to nack job {}: {}", job.id, e);
+                            self.metrics.failed += 1;
+                            error!(
+                                job_id = %job.id,
+                                error = %e,
+                                duration_ms = duration_ms,
+                                "Job failed"
+                            );
+                            if let Err(e) = self.thingd.nack_job(&self.config.queue, &job.id).await {
+                                error!(
+                                    job_id = %job.id,
+                                    error = %e,
+                                    "Failed to nack job"
+                                );
                             }
                         }
                     }
@@ -123,19 +195,64 @@ impl JobWorker {
                         _ = sleep(self.config.poll_interval) => {},
                         _ = self.shutdown_rx.changed() => {
                             if *self.shutdown_rx.borrow() {
-                                info!("Worker {} received shutdown signal during sleep", self.config.worker_id);
+                                info!(
+                                    worker_id = %self.config.worker_id,
+                                    "Received shutdown signal during poll interval"
+                                );
                                 break;
                             }
                         }
                     }
                 }
                 Err(e) => {
-                    error!("Failed to claim job: {}", e);
+                    error!(
+                        worker_id = %self.config.worker_id,
+                        error = %e,
+                        "Failed to claim job"
+                    );
                     sleep(self.config.poll_interval).await;
                 }
             }
         }
 
-        info!("Worker {} shutting down", self.config.worker_id);
+        info!(
+            worker_id = %self.config.worker_id,
+            metrics = ?self.metrics,
+            "Worker shutting down"
+        );
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_job_config_default() {
+        let config = JobConfig::default();
+        assert_eq!(config.queue, "default");
+        assert_eq!(config.poll_interval, Duration::from_secs(1));
+        assert_eq!(config.lease_seconds, 30);
+        assert_eq!(config.max_retries, 3);
+        assert_eq!(config.max_concurrency, 1);
+    }
+
+    #[test]
+    fn test_job_metrics_default() {
+        let metrics = JobMetrics::default();
+        assert_eq!(metrics.processed, 0);
+        assert_eq!(metrics.completed, 0);
+        assert_eq!(metrics.failed, 0);
+        assert_eq!(metrics.avg_duration_ms(), 0);
+    }
+
+    #[test]
+    fn test_job_metrics_avg_duration() {
+        let metrics = JobMetrics {
+            processed: 10,
+            total_duration_ms: 1000,
+            ..Default::default()
+        };
+        assert_eq!(metrics.avg_duration_ms(), 100);
     }
 }
