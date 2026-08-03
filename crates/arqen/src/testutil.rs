@@ -1,11 +1,11 @@
 //! Testing utilities module for Arqen.
 //!
-//! Provides TestApp, MockAuth, and fixture helpers for testing.
+//! Provides TestApp, MockAuth, fixture helpers, and request builders for testing.
 
 use std::sync::Arc;
 
 use axum::body::Body;
-use axum::http::{Method, Request};
+use axum::http::{Method, Request, StatusCode};
 use axum::response::Response;
 use axum::Router;
 use tower::ServiceExt;
@@ -60,6 +60,45 @@ impl TestApp {
                     .body(Body::from(serde_json::to_string(&body).unwrap()))
                     .unwrap(),
             )
+            .await
+            .expect("failed to make request")
+    }
+
+    /// Make a PUT request with JSON body.
+    pub async fn put_json(&self, path: &str, body: serde_json::Value) -> Response {
+        self.router
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .method(Method::PUT)
+                    .uri(path)
+                    .header("content-type", "application/json")
+                    .body(Body::from(serde_json::to_string(&body).unwrap()))
+                    .unwrap(),
+            )
+            .await
+            .expect("failed to make request")
+    }
+
+    /// Make a DELETE request.
+    pub async fn delete(&self, path: &str) -> Response {
+        self.request(Method::DELETE, path).await
+    }
+
+    /// Make a request with custom headers.
+    pub async fn request_with_headers(
+        &self,
+        method: Method,
+        path: &str,
+        headers: Vec<(&str, &str)>,
+    ) -> Response {
+        let mut builder = Request::builder().method(method).uri(path);
+        for (key, value) in headers {
+            builder = builder.header(key, value);
+        }
+        self.router
+            .clone()
+            .oneshot(builder.body(Body::empty()).unwrap())
             .await
             .expect("failed to make request")
     }
@@ -125,9 +164,7 @@ impl TestAppBuilder {
 
     /// Build the TestApp.
     pub fn build(self) -> TestApp {
-        let storage = self.storage.unwrap_or_else(|| {
-            Arc::new(MemoryThingdBackend::new())
-        });
+        let storage = self.storage.unwrap_or_else(|| Arc::new(MemoryThingdBackend::new()));
 
         let registry = self.registry.unwrap_or_else(|| {
             ToolRegistry::new(
@@ -174,9 +211,7 @@ impl MockAuth {
     /// Create a MockAuth that always succeeds.
     pub fn always_success(subject: impl Into<String>) -> Self {
         Self {
-            behavior: MockAuthBehavior::AlwaysSuccess(
-                AuthContext::new(subject, "mock"),
-            ),
+            behavior: MockAuthBehavior::AlwaysSuccess(AuthContext::new(subject, "mock")),
         }
     }
 
@@ -238,6 +273,39 @@ impl Fixtures {
         let obj = self.storage.get_object(kind, id).await?;
         Ok(obj.map(|o| o.data))
     }
+
+    /// Delete a test object.
+    pub async fn delete_object(
+        &self,
+        kind: &str,
+        id: &str,
+    ) -> Result<(), crate::core::AppError> {
+        self.storage.delete_object(kind, id).await
+    }
+
+    /// Create multiple test objects.
+    pub async fn create_objects(
+        &self,
+        kind: &str,
+        count: usize,
+    ) -> Result<Vec<crate::thingd::ThingdObject>, crate::core::AppError> {
+        let mut objects = Vec::new();
+        for i in 0..count {
+            let id = format!("{}-{}", kind, i);
+            let data = serde_json::json!({"index": i});
+            let obj = self.storage.put_object(kind, &id, data).await?;
+            objects.push(obj);
+        }
+        Ok(objects)
+    }
+}
+
+/// Response body reader.
+pub async fn read_body(response: Response) -> serde_json::Value {
+    let body = axum::body::to_bytes(response.into_body(), usize::MAX)
+        .await
+        .expect("failed to read body");
+    serde_json::from_slice(&body).expect("failed to parse JSON")
 }
 
 /// Assert that a response has the expected status code.
@@ -269,6 +337,16 @@ macro_rules! assert_error {
     };
 }
 
+/// Assert that JSON contains expected fields.
+#[macro_export]
+macro_rules! assert_json_contains {
+    ($json:expr, { $($key:expr => $value:expr),* $(,)? }) => {
+        $(
+            assert_eq!($json[$key], $value, "expected {} to be {:?}", $key, $value);
+        )*
+    };
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -278,22 +356,35 @@ mod tests {
     async fn test_testapp_builder_default() {
         let app = TestApp::builder().build();
         let response = app.get("/health").await;
-        assert_eq!(response.status(), axum::http::StatusCode::OK);
+        assert_eq!(response.status(), StatusCode::OK);
     }
 
     #[tokio::test]
     async fn test_testapp_get() {
         let app = TestApp::builder().build();
         let response = app.get("/health").await;
-        assert_eq!(response.status(), axum::http::StatusCode::OK);
+        assert_eq!(response.status(), StatusCode::OK);
     }
 
     #[tokio::test]
     async fn test_testapp_post_json() {
         let app = TestApp::builder().build();
         let response = app.post_json("/agent", json!({})).await;
-        // POST to /agent should return 405 Method Not Allowed
-        assert_eq!(response.status(), axum::http::StatusCode::METHOD_NOT_ALLOWED);
+        assert_eq!(response.status(), StatusCode::METHOD_NOT_ALLOWED);
+    }
+
+    #[tokio::test]
+    async fn test_testapp_put_json() {
+        let app = TestApp::builder().build();
+        let response = app.put_json("/agent", json!({})).await;
+        assert_eq!(response.status(), StatusCode::METHOD_NOT_ALLOWED);
+    }
+
+    #[tokio::test]
+    async fn test_testapp_delete() {
+        let app = TestApp::builder().build();
+        let response = app.delete("/agent").await;
+        assert_eq!(response.status(), StatusCode::METHOD_NOT_ALLOWED);
     }
 
     #[tokio::test]
@@ -369,5 +460,21 @@ mod tests {
         let fixtures = Fixtures::new(storage);
         let obj = fixtures.get_object("user", "nonexistent").await.unwrap();
         assert!(obj.is_none());
+    }
+
+    #[tokio::test]
+    async fn test_fixtures_create_multiple() {
+        let storage = Arc::new(MemoryThingdBackend::new());
+        let fixtures = Fixtures::new(storage);
+        let objects = fixtures.create_objects("item", 5).await.unwrap();
+        assert_eq!(objects.len(), 5);
+    }
+
+    #[tokio::test]
+    async fn test_read_body() {
+        let app = TestApp::builder().build();
+        let response = app.get("/health").await;
+        let body = read_body(response).await;
+        assert!(body.is_object() || body.is_string() || body.is_null());
     }
 }
