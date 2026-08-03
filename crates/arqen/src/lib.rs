@@ -28,6 +28,7 @@ pub mod agent;
 pub mod auth;
 pub mod config;
 pub mod core;
+pub mod health;
 pub mod jobs;
 pub mod state;
 pub mod thingd;
