@@ -7,12 +7,18 @@ use tokio::sync::watch;
 use tokio::time::{Duration, sleep};
 use tracing::{error, info, warn};
 
+/// Configuration for a job worker.
 #[derive(Debug, Clone)]
 pub struct JobConfig {
+    /// Queue name to consume from.
     pub queue: String,
+    /// Unique worker identifier.
     pub worker_id: String,
+    /// How long to sleep between polls when the queue is empty.
     pub poll_interval: Duration,
+    /// Lease duration in seconds for claimed jobs.
     pub lease_seconds: u32,
+    /// Maximum retries before dead-lettering.
     pub max_retries: u32,
 }
 
@@ -28,6 +34,7 @@ impl Default for JobConfig {
     }
 }
 
+/// A worker that polls a queue and processes jobs.
 pub struct JobWorker {
     config: JobConfig,
     thingd: Arc<dyn crate::thingd::ThingdBackend>,
@@ -35,12 +42,17 @@ pub struct JobWorker {
     shutdown_rx: watch::Receiver<bool>,
 }
 
+/// Trait for job handlers.
+///
+/// Implement this trait to define how jobs are processed.
 #[async_trait::async_trait]
 pub trait JobHandler: Send + Sync {
+    /// Handle a job payload. Return `Ok(())` on success, or `Err` to nack the job.
     async fn handle(&self, payload: serde_json::Value) -> Result<(), crate::core::AppError>;
 }
 
 impl JobWorker {
+    /// Create a new job worker.
     pub fn new(
         config: JobConfig,
         thingd: Arc<dyn crate::thingd::ThingdBackend>,
@@ -55,6 +67,7 @@ impl JobWorker {
         }
     }
 
+    /// Run the worker loop until shutdown signal is received.
     pub async fn run(&mut self) {
         info!(
             "Starting worker {} for queue {}",

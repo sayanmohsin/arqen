@@ -5,9 +5,30 @@
 //! engine to application code. Improvements made in thingd therefore become
 //! available to Arqen through the normal dependency update path; Arqen does
 //! not reimplement object, event, queue, or link semantics here.
+//!
+//! # Relationship to `ThingdBackend`
+//!
+//! `NativeThingdStore` intentionally does **not** implement the Arqen
+//! [`ThingdBackend`](super::traits::ThingdBackend) trait. The two APIs serve
+//! different purposes:
+//!
+//! - **`ThingdBackend`** is an async trait with Arqen-owned types
+//!   (`ThingdObject`, `ThingdEvent`, …). It is designed for trait-object
+//!   polymorphism and HTTP/worker integration.
+//! - **`NativeThingdStore`** wraps the real thingd engine synchronously and
+//!   exposes its full API through [`with_engine`](Self::with_engine) and
+//!   [`lock`](Self::lock). This gives application code direct access to
+//!   thingd's [`ObjectStore`], [`EventLog`], [`QueueStore`], and [`LinkStore`]
+//!   traits without lossy type conversions.
+//!
+//! Use `NativeThingdStore` when you need the complete thingd feature set
+//! (search, aggregation, vector search, links, etc.). Use `MemoryThingdBackend`
+//! or `HttpThingdBackend` when you need async trait-object polymorphism.
 
 use std::path::Path;
 use std::sync::{Arc, Mutex, MutexGuard};
+
+use crate::core::{AppError, ErrorKind};
 
 /// An embedded thingd engine selected by deployment mode.
 pub enum NativeThingdEngine {
@@ -25,6 +46,12 @@ pub enum NativeThingdEngine {
 #[derive(Clone)]
 pub struct NativeThingdStore {
     engine: Arc<Mutex<NativeThingdEngine>>,
+}
+
+fn lock_engine(store: &Mutex<NativeThingdEngine>) -> Result<MutexGuard<'_, NativeThingdEngine>, AppError> {
+    store
+        .lock()
+        .map_err(|e| AppError::new(ErrorKind::Internal, format!("thingd engine mutex poisoned: {e}")))
 }
 
 impl NativeThingdStore {
@@ -52,13 +79,13 @@ impl NativeThingdStore {
     /// Keep the closure short: it holds the shared engine lock for its full
     /// duration. Application code should use this for thingd operations, not
     /// for network calls or other blocking work.
-    pub fn with_engine<R>(&self, operation: impl FnOnce(&mut NativeThingdEngine) -> R) -> R {
-        let mut engine = self.engine.lock().expect("thingd engine mutex poisoned");
-        operation(&mut engine)
+    pub fn with_engine<R>(&self, operation: impl FnOnce(&mut NativeThingdEngine) -> R) -> Result<R, AppError> {
+        let mut engine = lock_engine(&self.engine)?;
+        Ok(operation(&mut engine))
     }
 
     /// Lock the underlying engine for advanced integrations.
-    pub fn lock(&self) -> MutexGuard<'_, NativeThingdEngine> {
-        self.engine.lock().expect("thingd engine mutex poisoned")
+    pub fn lock(&self) -> Result<MutexGuard<'_, NativeThingdEngine>, AppError> {
+        lock_engine(&self.engine)
     }
 }

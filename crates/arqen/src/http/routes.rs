@@ -21,54 +21,73 @@ pub async fn ready(Extension(runtime): Extension<RuntimeInfo>) -> impl IntoRespo
 }
 
 pub async fn agent(Extension(runtime): Extension<RuntimeInfo>) -> Json<Value> {
+    let manifest = runtime.registry.generate_manifest();
     Json(json!({
-        "name": "arqen-app",
-        "version": env!("CARGO_PKG_VERSION"),
-        "description": "An Arqen application",
-        "storage_mode": runtime.storage_mode
+        "name": manifest.name,
+        "version": manifest.version,
+        "description": manifest.description,
+        "storage_mode": manifest.storage_mode,
+        "tools_count": manifest.tools.len(),
+        "jobs_count": manifest.jobs.len(),
+        "endpoints_count": manifest.endpoints.len()
     }))
 }
 
 pub async fn agent_manifest(Extension(runtime): Extension<RuntimeInfo>) -> Json<Value> {
+    let manifest = runtime.registry.generate_manifest();
+    let tools: Vec<Value> = manifest
+        .tools
+        .iter()
+        .map(|t| {
+            json!({
+                "name": t.name,
+                "description": t.description,
+                "input": t.input,
+                "output": t.output,
+                "scopes": t.scopes,
+                "effect": format!("{:?}", t.effect),
+                "idempotent": t.idempotent,
+                "enqueues_job": t.enqueues_job,
+                "timeout": t.timeout
+            })
+        })
+        .collect();
+
+    let jobs: Vec<Value> = manifest
+        .jobs
+        .iter()
+        .map(|j| {
+            json!({
+                "name": j.name,
+                "queue": j.queue,
+                "description": j.description,
+                "max_retries": j.max_retries,
+                "timeout": j.timeout
+            })
+        })
+        .collect();
+
+    let endpoints: Vec<Value> = manifest
+        .endpoints
+        .iter()
+        .map(|e| {
+            json!({
+                "path": e.path,
+                "method": e.method,
+                "description": e.description,
+                "authenticated": e.authenticated
+            })
+        })
+        .collect();
+
     Json(json!({
-        "name": "arqen-app",
-        "version": env!("CARGO_PKG_VERSION"),
-        "description": "An Arqen application",
-        "storage_mode": runtime.storage_mode,
-        "tools": [],
-        "jobs": [],
-        "endpoints": [
-            {
-                "path": "/health",
-                "method": "GET",
-                "description": "Liveness check",
-                "authenticated": false
-            },
-            {
-                "path": "/ready",
-                "method": "GET",
-                "description": "Readiness check",
-                "authenticated": false
-            },
-            {
-                "path": "/agent",
-                "method": "GET",
-                "description": "Agent description",
-                "authenticated": false
-            },
-            {
-                "path": "/agent/manifest",
-                "method": "GET",
-                "description": "Agent manifest",
-                "authenticated": false
-            },
-            {
-                "path": "/docs",
-                "method": "GET",
-                "description": "API documentation",
-                "authenticated": false
-            }
-        ]
+        "name": manifest.name,
+        "version": manifest.version,
+        "description": manifest.description,
+        "storage_mode": manifest.storage_mode,
+        "tools": tools,
+        "jobs": jobs,
+        "endpoints": endpoints
     }))
 }
 

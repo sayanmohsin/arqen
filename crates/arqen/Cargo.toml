@@ -9,18 +9,25 @@ keywords.workspace = true
 categories.workspace = true
 description = "Backend infrastructure for agent-ready applications"
 
+[features]
+default = ["http-server", "thingd-native"]
+http-server = ["dep:axum", "dep:tower", "dep:tower-http"]
+thingd-native = ["dep:thingd", "thingd/persistent", "thingd/search"]
+http-client = ["dep:reqwest"]
+logging = ["dep:tracing-subscriber"]
+
 [dependencies]
 async-trait = "0.1"
-axum = { version = "0.7", features = ["macros"] }
+axum = { version = "0.7", features = ["macros"], optional = true }
 chrono = { version = "0.4", features = ["serde"] }
-reqwest = { version = "0.12", features = ["json"] }
+reqwest = { version = "0.12", features = ["json"], optional = true }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
-thingd = { version = "0.73", features = ["persistent", "search"] }
+thingd = { version = "0.73", optional = true }
 thiserror = "1"
 tokio = { version = "1", features = ["full"] }
-tower = "0.4"
-tower-http = { version = "0.6", features = ["cors", "limit", "trace"] }
+tower = { version = "0.4", optional = true }
+tower-http = { version = "0.6", features = ["limit"], optional = true }
 tracing = "0.1"
-tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }
+tracing-subscriber = { version = "0.3", features = ["env-filter", "json"], optional = true }
 uuid = { version = "1", features = ["v4"] }

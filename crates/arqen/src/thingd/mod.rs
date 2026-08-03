@@ -1,9 +1,15 @@
-pub mod http;
 pub mod memory;
-pub mod native;
 pub mod traits;
 
-pub use http::HttpThingdBackend;
+#[cfg(feature = "http-client")]
+pub mod http;
+#[cfg(feature = "thingd-native")]
+pub mod native;
+
 pub use memory::MemoryThingdBackend;
-pub use native::{NativeThingdEngine, NativeThingdStore};
 pub use traits::*;
+
+#[cfg(feature = "http-client")]
+pub use http::HttpThingdBackend;
+#[cfg(feature = "thingd-native")]
+pub use native::{NativeThingdEngine, NativeThingdStore};

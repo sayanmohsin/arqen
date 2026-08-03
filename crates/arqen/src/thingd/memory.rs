@@ -3,7 +3,14 @@ use std::collections::HashMap;
 use std::sync::Mutex;
 use uuid::Uuid;
 
+use crate::core::{AppError, ErrorKind};
 use crate::thingd::traits::*;
+
+fn lock_mutex<'a, T>(mutex: &'a Mutex<T>, name: &'a str) -> Result<std::sync::MutexGuard<'a, T>, AppError> {
+    mutex
+        .lock()
+        .map_err(|e| AppError::new(ErrorKind::Internal, format!("mutex lock poisoned ({name}): {e}")))
+}
 
 pub struct MemoryThingdBackend {
     objects: Mutex<HashMap<String, Vec<ThingdObject>>>,
@@ -35,8 +42,8 @@ impl ThingdBackend for MemoryThingdBackend {
         &self,
         collection: &str,
         id: &str,
-    ) -> Result<Option<ThingdObject>, crate::core::AppError> {
-        let objects = self.objects.lock().unwrap();
+    ) -> Result<Option<ThingdObject>, AppError> {
+        let objects = lock_mutex(&self.objects, "objects")?;
         let empty_vec = vec![];
         let collection_objects = objects.get(collection).unwrap_or(&empty_vec);
         Ok(collection_objects.iter().find(|o| o.id == id).cloned())
@@ -47,7 +54,7 @@ impl ThingdBackend for MemoryThingdBackend {
         collection: &str,
         id: &str,
         data: serde_json::Value,
-    ) -> Result<ThingdObject, crate::core::AppError> {
+    ) -> Result<ThingdObject, AppError> {
         let now = Utc::now().to_rfc3339();
         let object = ThingdObject {
             id: id.to_string(),
@@ -57,7 +64,7 @@ impl ThingdBackend for MemoryThingdBackend {
             updated_at: now,
         };
 
-        let mut objects = self.objects.lock().unwrap();
+        let mut objects = lock_mutex(&self.objects, "objects")?;
         let collection_objects = objects.entry(collection.to_string()).or_default();
 
         if let Some(existing) = collection_objects.iter_mut().find(|o| o.id == id) {
@@ -69,8 +76,8 @@ impl ThingdBackend for MemoryThingdBackend {
         Ok(object)
     }
 
-    async fn delete_object(&self, collection: &str, id: &str) -> Result<(), crate::core::AppError> {
-        let mut objects = self.objects.lock().unwrap();
+    async fn delete_object(&self, collection: &str, id: &str) -> Result<(), AppError> {
+        let mut objects = lock_mutex(&self.objects, "objects")?;
         if let Some(collection_objects) = objects.get_mut(collection) {
             collection_objects.retain(|o| o.id != id);
         }
@@ -81,8 +88,8 @@ impl ThingdBackend for MemoryThingdBackend {
         &self,
         collection: &str,
         filter: Option<ThingdFilter>,
-    ) -> Result<Vec<ThingdObject>, crate::core::AppError> {
-        let objects = self.objects.lock().unwrap();
+    ) -> Result<Vec<ThingdObject>, AppError> {
+        let objects = lock_mutex(&self.objects, "objects")?;
         let collection_objects = objects.get(collection).unwrap_or(&vec![]).clone();
 
         if let Some(filter) = filter {
@@ -167,7 +174,7 @@ impl ThingdBackend for MemoryThingdBackend {
     async fn batch_write(
         &self,
         operations: Vec<ThingdOperation>,
-    ) -> Result<Vec<ThingdOperationResult>, crate::core::AppError> {
+    ) -> Result<Vec<ThingdOperationResult>, AppError> {
         let mut results = Vec::new();
 
         for op in operations {
@@ -210,7 +217,7 @@ impl ThingdBackend for MemoryThingdBackend {
         stream: &str,
         event_type: &str,
         data: serde_json::Value,
-    ) -> Result<ThingdEvent, crate::core::AppError> {
+    ) -> Result<ThingdEvent, AppError> {
         let event = ThingdEvent {
             id: Uuid::new_v4().to_string(),
             stream: stream.to_string(),
@@ -219,7 +226,7 @@ impl ThingdBackend for MemoryThingdBackend {
             timestamp: Utc::now().to_rfc3339(),
         };
 
-        let mut events = self.events.lock().unwrap();
+        let mut events = lock_mutex(&self.events, "events")?;
         events
             .entry(stream.to_string())
             .or_default()
@@ -233,8 +240,8 @@ impl ThingdBackend for MemoryThingdBackend {
         stream: &str,
         from: Option<String>,
         limit: usize,
-    ) -> Result<Vec<ThingdEvent>, crate::core::AppError> {
-        let events = self.events.lock().unwrap();
+    ) -> Result<Vec<ThingdEvent>, AppError> {
+        let events = lock_mutex(&self.events, "events")?;
         let stream_events = events.get(stream).unwrap_or(&vec![]).clone();
 
         let filtered = if let Some(from_id) = from {
@@ -259,7 +266,7 @@ impl ThingdBackend for MemoryThingdBackend {
         queue: &str,
         payload: serde_json::Value,
         max_retries: u32,
-    ) -> Result<ThingdJob, crate::core::AppError> {
+    ) -> Result<ThingdJob, AppError> {
         let now = Utc::now().to_rfc3339();
         let job = ThingdJob {
             id: Uuid::new_v4().to_string(),
@@ -273,7 +280,7 @@ impl ThingdBackend for MemoryThingdBackend {
             updated_at: now,
         };
 
-        let mut jobs = self.jobs.lock().unwrap();
+        let mut jobs = lock_mutex(&self.jobs, "jobs")?;
         jobs.entry(queue.to_string()).or_default().push(job.clone());
 
         Ok(job)
@@ -284,8 +291,8 @@ impl ThingdBackend for MemoryThingdBackend {
         queue: &str,
         _worker_id: &str,
         lease_seconds: u32,
-    ) -> Result<Option<ThingdJob>, crate::core::AppError> {
-        let mut jobs = self.jobs.lock().unwrap();
+    ) -> Result<Option<ThingdJob>, AppError> {
+        let mut jobs = lock_mutex(&self.jobs, "jobs")?;
         let queue_jobs = jobs.entry(queue.to_string()).or_default();
 
         if let Some(job) = queue_jobs
@@ -303,8 +310,8 @@ impl ThingdBackend for MemoryThingdBackend {
         }
     }
 
-    async fn complete_job(&self, queue: &str, job_id: &str) -> Result<(), crate::core::AppError> {
-        let mut jobs = self.jobs.lock().unwrap();
+    async fn complete_job(&self, queue: &str, job_id: &str) -> Result<(), AppError> {
+        let mut jobs = lock_mutex(&self.jobs, "jobs")?;
         if let Some(queue_jobs) = jobs.get_mut(queue)
             && let Some(job) = queue_jobs.iter_mut().find(|j| j.id == job_id)
         {
@@ -314,8 +321,8 @@ impl ThingdBackend for MemoryThingdBackend {
         Ok(())
     }
 
-    async fn nack_job(&self, queue: &str, job_id: &str) -> Result<(), crate::core::AppError> {
-        let mut jobs = self.jobs.lock().unwrap();
+    async fn nack_job(&self, queue: &str, job_id: &str) -> Result<(), AppError> {
+        let mut jobs = lock_mutex(&self.jobs, "jobs")?;
         if let Some(queue_jobs) = jobs.get_mut(queue)
             && let Some(job) = queue_jobs.iter_mut().find(|j| j.id == job_id)
         {
@@ -329,12 +336,8 @@ impl ThingdBackend for MemoryThingdBackend {
         Ok(())
     }
 
-    async fn dead_letter_job(
-        &self,
-        queue: &str,
-        job_id: &str,
-    ) -> Result<(), crate::core::AppError> {
-        let mut jobs = self.jobs.lock().unwrap();
+    async fn dead_letter_job(&self, queue: &str, job_id: &str) -> Result<(), AppError> {
+        let mut jobs = lock_mutex(&self.jobs, "jobs")?;
         if let Some(queue_jobs) = jobs.get_mut(queue)
             && let Some(job) = queue_jobs.iter_mut().find(|j| j.id == job_id)
         {
@@ -348,27 +351,23 @@ impl ThingdBackend for MemoryThingdBackend {
         &self,
         query: &str,
         options: SearchOptions,
-    ) -> Result<SearchResults, crate::core::AppError> {
-        let objects = self.objects.lock().unwrap();
+    ) -> Result<SearchResults, AppError> {
+        let objects = lock_mutex(&self.objects, "objects")?;
         let mut all_objects: Vec<ThingdObject> = Vec::new();
 
-        // Collect all objects from all collections
         for collection_objects in objects.values() {
             all_objects.extend(collection_objects.clone());
         }
 
-        // Simple full-text search: check if query appears in any string value
         let query_lower = query.to_lowercase();
         let mut matched: Vec<ThingdObject> = all_objects
             .into_iter()
             .filter(|obj| {
-                // Search in data fields
                 if let Some(data_str) = obj.data.as_str()
                     && data_str.to_lowercase().contains(&query_lower)
                 {
                     return true;
                 }
-                // Search in object fields
                 if let Some(obj) = obj.data.as_object() {
                     for (_, value) in obj {
                         if let Some(s) = value.as_str()
@@ -382,7 +381,6 @@ impl ThingdBackend for MemoryThingdBackend {
             })
             .collect();
 
-        // Apply filters
         for filter in options.filters {
             matched.retain(|obj| {
                 if let Some(value) = obj.data.get(&filter.field) {
@@ -412,7 +410,6 @@ impl ThingdBackend for MemoryThingdBackend {
 
         let total = matched.len();
 
-        // Apply pagination
         let items: Vec<ThingdObject> = matched
             .into_iter()
             .skip(options.offset)
@@ -427,7 +424,7 @@ impl ThingdBackend for MemoryThingdBackend {
         source_id: &str,
         target_id: &str,
         relation: &str,
-    ) -> Result<ThingdLink, crate::core::AppError> {
+    ) -> Result<ThingdLink, AppError> {
         let link = ThingdLink {
             id: Uuid::new_v4().to_string(),
             source_id: source_id.to_string(),
@@ -436,7 +433,7 @@ impl ThingdBackend for MemoryThingdBackend {
             created_at: Utc::now().to_rfc3339(),
         };
 
-        let mut links = self.links.lock().unwrap();
+        let mut links = lock_mutex(&self.links, "links")?;
         links.push(link.clone());
 
         Ok(link)
@@ -446,8 +443,8 @@ impl ThingdBackend for MemoryThingdBackend {
         &self,
         source_id: &str,
         relation: Option<&str>,
-    ) -> Result<Vec<ThingdLink>, crate::core::AppError> {
-        let links = self.links.lock().unwrap();
+    ) -> Result<Vec<ThingdLink>, AppError> {
+        let links = lock_mutex(&self.links, "links")?;
         let filtered = links
             .iter()
             .filter(|l| {
@@ -459,23 +456,23 @@ impl ThingdBackend for MemoryThingdBackend {
         Ok(filtered)
     }
 
-    async fn delete_link(&self, link_id: &str) -> Result<(), crate::core::AppError> {
-        let mut links = self.links.lock().unwrap();
+    async fn delete_link(&self, link_id: &str) -> Result<(), AppError> {
+        let mut links = lock_mutex(&self.links, "links")?;
         links.retain(|l| l.id != link_id);
         Ok(())
     }
 
-    async fn count_objects(&self, collection: &str) -> Result<usize, crate::core::AppError> {
-        let objects = self.objects.lock().unwrap();
+    async fn count_objects(&self, collection: &str) -> Result<usize, AppError> {
+        let objects = lock_mutex(&self.objects, "objects")?;
         let count = objects.get(collection).map(|v| v.len()).unwrap_or(0);
         Ok(count)
     }
 
-    async fn reset(&self) -> Result<(), crate::core::AppError> {
-        let mut objects = self.objects.lock().unwrap();
-        let mut events = self.events.lock().unwrap();
-        let mut jobs = self.jobs.lock().unwrap();
-        let mut links = self.links.lock().unwrap();
+    async fn reset(&self) -> Result<(), AppError> {
+        let mut objects = lock_mutex(&self.objects, "objects")?;
+        let mut events = lock_mutex(&self.events, "events")?;
+        let mut jobs = lock_mutex(&self.jobs, "jobs")?;
+        let mut links = lock_mutex(&self.links, "links")?;
 
         objects.clear();
         events.clear();
@@ -485,8 +482,7 @@ impl ThingdBackend for MemoryThingdBackend {
         Ok(())
     }
 
-    async fn seed(&self) -> Result<(), crate::core::AppError> {
-        // Seed sample objects
+    async fn seed(&self) -> Result<(), AppError> {
         let sample_users = vec![
             (
                 "user1",
@@ -506,7 +502,6 @@ impl ThingdBackend for MemoryThingdBackend {
             self.put_object("users", id, data).await?;
         }
 
-        // Seed sample events
         self.append_event(
             "user_events",
             "user_created",
@@ -520,7 +515,6 @@ impl ThingdBackend for MemoryThingdBackend {
         )
         .await?;
 
-        // Seed sample jobs
         self.push_job(
             "email_queue",
             serde_json::json!({"to": "alice@example.com", "subject": "Welcome"}),
@@ -535,5 +529,174 @@ impl ThingdBackend for MemoryThingdBackend {
         .await?;
 
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    async fn create_backend() -> MemoryThingdBackend {
+        MemoryThingdBackend::new()
+    }
+
+    #[tokio::test]
+    async fn test_put_and_get_object() {
+        let backend = create_backend().await;
+        let data = serde_json::json!({"name": "Alice", "age": 30});
+
+        let obj = backend.put_object("users", "user1", data.clone()).await.unwrap();
+        assert_eq!(obj.id, "user1");
+        assert_eq!(obj.collection, "users");
+
+        let retrieved = backend.get_object("users", "user1").await.unwrap();
+        assert!(retrieved.is_some());
+        assert_eq!(retrieved.unwrap().data, data);
+    }
+
+    #[tokio::test]
+    async fn test_get_nonexistent_object() {
+        let backend = create_backend().await;
+        let result = backend.get_object("users", "nonexistent").await.unwrap();
+        assert!(result.is_none());
+    }
+
+    #[tokio::test]
+    async fn test_delete_object() {
+        let backend = create_backend().await;
+        backend.put_object("users", "user1", serde_json::json!({"name": "Alice"})).await.unwrap();
+
+        backend.delete_object("users", "user1").await.unwrap();
+        let result = backend.get_object("users", "user1").await.unwrap();
+        assert!(result.is_none());
+    }
+
+    #[tokio::test]
+    async fn test_query_objects_with_filter() {
+        let backend = create_backend().await;
+        backend.put_object("users", "u1", serde_json::json!({"name": "Alice", "age": 30})).await.unwrap();
+        backend.put_object("users", "u2", serde_json::json!({"name": "Bob", "age": 25})).await.unwrap();
+        backend.put_object("users", "u3", serde_json::json!({"name": "Charlie", "age": 35})).await.unwrap();
+
+        let filter = ThingdFilter {
+            field: "age".to_string(),
+            operator: FilterOperator::Gt,
+            value: serde_json::json!(27),
+        };
+        let results = backend.query_objects("users", Some(filter)).await.unwrap();
+        assert_eq!(results.len(), 2);
+    }
+
+    #[tokio::test]
+    async fn test_count_objects() {
+        let backend = create_backend().await;
+        assert_eq!(backend.count_objects("users").await.unwrap(), 0);
+
+        backend.put_object("users", "u1", serde_json::json!({})).await.unwrap();
+        backend.put_object("users", "u2", serde_json::json!({})).await.unwrap();
+        assert_eq!(backend.count_objects("users").await.unwrap(), 2);
+    }
+
+    #[tokio::test]
+    async fn test_append_and_read_events() {
+        let backend = create_backend().await;
+
+        let event1 = backend.append_event("audit", "user.created", serde_json::json!({"id": "u1"})).await.unwrap();
+        let _event2 = backend.append_event("audit", "user.created", serde_json::json!({"id": "u2"})).await.unwrap();
+
+        let events = backend.read_events("audit", None, 10).await.unwrap();
+        assert_eq!(events.len(), 2);
+
+        let events_from = backend.read_events("audit", Some(event1.id), 10).await.unwrap();
+        assert_eq!(events_from.len(), 1);
+    }
+
+    #[tokio::test]
+    async fn test_job_lifecycle() {
+        let backend = create_backend().await;
+
+        let job = backend.push_job("queue", serde_json::json!({"task": "send_email"}), 3).await.unwrap();
+        assert_eq!(job.state, JobState::Queued);
+
+        let claimed = backend.claim_job("queue", "worker1", 60).await.unwrap();
+        assert!(claimed.is_some());
+        assert_eq!(claimed.unwrap().state, JobState::Leased);
+
+        backend.complete_job("queue", &job.id).await.unwrap();
+        // Note: jobs are stored separately from objects, so get_object won't find them
+    }
+
+    #[tokio::test]
+    async fn test_batch_write() {
+        let backend = create_backend().await;
+
+        let ops = vec![
+            ThingdOperation::Put {
+                collection: "users".to_string(),
+                id: "u1".to_string(),
+                data: serde_json::json!({"name": "Alice"}),
+            },
+            ThingdOperation::Put {
+                collection: "users".to_string(),
+                id: "u2".to_string(),
+                data: serde_json::json!({"name": "Bob"}),
+            },
+            ThingdOperation::Delete {
+                collection: "users".to_string(),
+                id: "u1".to_string(),
+            },
+        ];
+
+        let results = backend.batch_write(ops).await.unwrap();
+        assert_eq!(results.len(), 3);
+        assert!(results.iter().all(|r| r.success));
+
+        assert!(backend.get_object("users", "u1").await.unwrap().is_none());
+        assert!(backend.get_object("users", "u2").await.unwrap().is_some());
+    }
+
+    #[tokio::test]
+    async fn test_create_and_get_links() {
+        let backend = create_backend().await;
+
+        let link = backend.create_link("doc1", "doc2", "references").await.unwrap();
+        assert_eq!(link.source_id, "doc1");
+        assert_eq!(link.target_id, "doc2");
+        assert_eq!(link.relation, "references");
+
+        let links = backend.get_links("doc1", None).await.unwrap();
+        assert_eq!(links.len(), 1);
+
+        backend.delete_link(&link.id).await.unwrap();
+        let links = backend.get_links("doc1", None).await.unwrap();
+        assert_eq!(links.len(), 0);
+    }
+
+    #[tokio::test]
+    async fn test_search() {
+        let backend = create_backend().await;
+        backend.put_object("docs", "d1", serde_json::json!({"title": "Rust guide"})).await.unwrap();
+        backend.put_object("docs", "d2", serde_json::json!({"title": "Python guide"})).await.unwrap();
+        backend.put_object("docs", "d3", serde_json::json!({"title": "Rust advanced"})).await.unwrap();
+
+        let results = backend.search("rust", SearchOptions {
+            limit: 10,
+            offset: 0,
+            filters: vec![],
+        }).await.unwrap();
+        assert_eq!(results.total, 2);
+    }
+
+    #[tokio::test]
+    async fn test_reset() {
+        let backend = create_backend().await;
+        backend.put_object("users", "u1", serde_json::json!({})).await.unwrap();
+        backend.append_event("audit", "test", serde_json::json!({})).await.unwrap();
+
+        backend.reset().await.unwrap();
+
+        assert_eq!(backend.count_objects("users").await.unwrap(), 0);
+        let events = backend.read_events("audit", None, 10).await.unwrap();
+        assert_eq!(events.len(), 0);
     }
 }

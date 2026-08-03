@@ -55,6 +55,10 @@ impl HttpThingdBackend {
         })
     }
 
+    fn is_not_found(err: &crate::core::AppError) -> bool {
+        err.message.contains("404")
+    }
+
     async fn post<T: Serialize, R: for<'de> Deserialize<'de>>(
         &self,
         path: &str,
@@ -170,7 +174,7 @@ impl ThingdBackend for HttpThingdBackend {
         match self.get::<ThingdObject>(&path).await {
             Ok(obj) => Ok(Some(obj)),
             Err(e) => {
-                if e.to_string().contains("404") {
+                if Self::is_not_found(&e) {
                     Ok(None)
                 } else {
                     Err(e)
@@ -268,7 +272,7 @@ impl ThingdBackend for HttpThingdBackend {
         match self.post::<_, Option<ThingdJob>>(&path, body).await {
             Ok(job) => Ok(job),
             Err(e) => {
-                if e.to_string().contains("404") || e.to_string().contains("no jobs") {
+                if Self::is_not_found(&e) || e.message.contains("no jobs") {
                     Ok(None)
                 } else {
                     Err(e)

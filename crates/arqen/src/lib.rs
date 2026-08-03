@@ -3,11 +3,11 @@
 //! Backend infrastructure for agent-ready applications.
 //!
 //! Arqen provides a complete backend toolkit including:
-//! - HTTP server with Axum
-//! - thingd integration for storage, events, search, and queues
+//! - HTTP server with Axum (feature: `http-server`)
+//! - thingd integration for storage, events, search, and queues (feature: `thingd-native`)
 //! - Typed agent tools and manifest generation
 //! - Durable job workers with graceful shutdown
-//! - Structured logging with tracing
+//! - Structured logging with tracing (feature: `logging`)
 //!
 //! ## Quick Start
 //!
@@ -26,18 +26,28 @@
 
 pub mod agent;
 pub mod core;
-pub mod http;
 pub mod jobs;
-pub mod logging;
 pub mod thingd;
+
+#[cfg(feature = "http-server")]
+pub mod http;
+#[cfg(feature = "logging")]
+pub mod logging;
 
 // Re-export commonly used types at crate root
 pub use agent::{
-    AgentManifest, EndpointMetadata, JobMetadata as AgentJobMetadata, ToolEffect, ToolMetadata,
+    AgentManifest, EndpointMetadata, JobMetadata, ToolEffect, ToolMetadata,
     ToolRegistry,
 };
 pub use core::{AppError, ErrorKind};
-pub use http::{create_router, start_server};
 pub use jobs::{JobConfig, JobHandler, JobWorker, Worker};
+pub use thingd::{MemoryThingdBackend, ThingdBackend};
+
+#[cfg(feature = "http-server")]
+pub use http::{create_router, start_server};
+#[cfg(feature = "logging")]
 pub use logging::init_logging;
-pub use thingd::{HttpThingdBackend, MemoryThingdBackend, ThingdBackend};
+#[cfg(feature = "thingd-native")]
+pub use thingd::NativeThingdStore;
+#[cfg(feature = "http-client")]
+pub use thingd::HttpThingdBackend;
