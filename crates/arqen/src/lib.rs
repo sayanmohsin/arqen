@@ -50,7 +50,10 @@ pub use agent::{
     AgentManifest, EndpointMetadata, JobMetadata, ToolEffect, ToolMetadata,
     ToolRegistry,
 };
-pub use config::{AppConfig, Secret, ServerConfig, StorageConfig, StorageMode};
+pub use config::{
+    AppConfig, AuthConfig, CliOverrides, HealthConfig, LoggingConfig, LogFormat,
+    Secret, ServerConfig, StorageConfig, StorageMode, WorkerConfig,
+};
 pub use core::{AppError, ErrorKind};
 pub use jobs::{JobConfig, JobHandler, JobWorker, Worker};
 pub use state::{AppState, AppStateBuilder};
