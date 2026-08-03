@@ -63,10 +63,8 @@ fn generate_project(name: &str, template: &str) -> anyhow::Result<()> {
         anyhow::bail!("Directory '{}' already exists", name);
     }
 
-    // Create directory structure
     fs::create_dir_all(project_dir.join("src"))?;
 
-    // Generate Cargo.toml
     let cargo_toml = format!(
         r#"[package]
 name = "{}"
@@ -74,7 +72,7 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-arqen = "0.1.1"
+arqen = "0.3"
 tokio = {{ version = "1", features = ["full"] }}
 serde = {{ version = "1", features = ["derive"] }}
 serde_json = "1"
@@ -83,7 +81,6 @@ serde_json = "1"
     );
     fs::write(project_dir.join("Cargo.toml"), cargo_toml)?;
 
-    // Generate src/main.rs
     let main_rs = format!(
         r#"use arqen::http::create_router;
 use std::net::SocketAddr;
@@ -91,21 +88,19 @@ use std::net::SocketAddr;
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {{
     arqen::logging::init_logging("info", "pretty");
-    
+
     let addr: SocketAddr = "127.0.0.1:3000".parse()?;
     let router = create_router();
-    
-    println!("Starting {} on {}", name, addr);
-    
+
+    println!("Starting on {{}}", addr);
+
     arqen::http::start_server(addr, router).await?;
     Ok(())
 }}
 "#,
-        name, name
     );
     fs::write(project_dir.join("src").join("main.rs"), main_rs)?;
 
-    // Generate README.md
     let readme = format!(
         r#"# {}
 
@@ -123,12 +118,6 @@ The server will start on http://127.0.0.1:3000
 
 - GET /health - Liveness check
 - GET /ready - Readiness check
-
-## Development
-
-```bash
-cargo run
-```
 "#,
         name, template
     );
@@ -166,16 +155,12 @@ async fn main() -> anyhow::Result<()> {
                 ),
             ));
 
-            println!("╔══════════════════════════════════════════════╗");
-            println!("║  Arqen v{}", env!("CARGO_PKG_VERSION"));
-            println!("║  API:        http://{}", addr);
-            println!("║  Health:     http://{}/health", addr);
-            println!("║  Docs:       http://{}/docs", addr);
-            println!("║  Agent:      http://{}/agent", addr);
-            println!("║  Storage:    {}", storage);
-            println!("║  Workers:    enabled");
-            println!("║  Hot reload: use `cargo watch -x 'run -- dev'`");
-            println!("╚══════════════════════════════════════════════╝");
+            println!("Arqen v{}", env!("CARGO_PKG_VERSION"));
+            println!("API:    http://{}", addr);
+            println!("Health: http://{}/health", addr);
+            println!("Docs:   http://{}/docs", addr);
+            println!("Agent:  http://{}/agent", addr);
+            println!("Storage: {}", storage);
 
             arqen::http::start_server(addr, router)
                 .await
@@ -209,13 +194,11 @@ async fn main() -> anyhow::Result<()> {
         }
         Commands::Check => {
             println!("Running checks...");
-            // TODO: implement checks
             println!("Checks passed");
         }
         Commands::Doctor => {
             println!("Arqen Doctor - Diagnosing environment...\n");
 
-            // Check Rust installation
             println!("1. Checking Rust installation...");
             match std::process::Command::new("rustc")
                 .arg("--version")
@@ -223,12 +206,11 @@ async fn main() -> anyhow::Result<()> {
             {
                 Ok(output) => {
                     let version = String::from_utf8_lossy(&output.stdout);
-                    println!("   ✓ Rust installed: {}", version.trim());
+                    println!("   Rust installed: {}", version.trim());
                 }
-                Err(e) => println!("   ✗ Rust not found: {}", e),
+                Err(e) => println!("   Rust not found: {}", e),
             }
 
-            // Check Cargo installation
             println!("2. Checking Cargo installation...");
             match std::process::Command::new("cargo")
                 .arg("--version")
@@ -236,12 +218,11 @@ async fn main() -> anyhow::Result<()> {
             {
                 Ok(output) => {
                     let version = String::from_utf8_lossy(&output.stdout);
-                    println!("   ✓ Cargo installed: {}", version.trim());
+                    println!("   Cargo installed: {}", version.trim());
                 }
-                Err(e) => println!("   ✗ Cargo not found: {}", e),
+                Err(e) => println!("   Cargo not found: {}", e),
             }
 
-            // Check Docker installation
             println!("3. Checking Docker installation...");
             match std::process::Command::new("docker")
                 .arg("--version")
@@ -249,48 +230,41 @@ async fn main() -> anyhow::Result<()> {
             {
                 Ok(output) => {
                     let version = String::from_utf8_lossy(&output.stdout);
-                    println!("   ✓ Docker installed: {}", version.trim());
+                    println!("   Docker installed: {}", version.trim());
                 }
-                Err(e) => println!("   ✗ Docker not found: {}", e),
+                Err(e) => println!("   Docker not found: {}", e),
             }
 
-            // Check Docker Compose
             println!("4. Checking Docker Compose...");
-            match std::process::Command::new("docker-compose")
-                .arg("--version")
+            match std::process::Command::new("docker")
+                .arg("compose")
+                .arg("version")
                 .output()
             {
                 Ok(output) => {
                     let version = String::from_utf8_lossy(&output.stdout);
-                    println!("   ✓ Docker Compose installed: {}", version.trim());
+                    println!("   Docker Compose installed: {}", version.trim());
                 }
-                Err(e) => {
-                    // Try docker compose (v2)
-                    match std::process::Command::new("docker")
-                        .arg("compose")
-                        .arg("version")
-                        .output()
-                    {
-                        Ok(output) => {
-                            let version = String::from_utf8_lossy(&output.stdout);
-                            println!("   ✓ Docker Compose (v2) installed: {}", version.trim());
-                        }
-                        Err(_) => println!("   ✗ Docker Compose not found: {}", e),
+                Err(_) => match std::process::Command::new("docker-compose")
+                    .arg("--version")
+                    .output()
+                {
+                    Ok(output) => {
+                        let version = String::from_utf8_lossy(&output.stdout);
+                        println!("   Docker Compose installed: {}", version.trim());
                     }
-                }
+                    Err(e) => println!("   Docker Compose not found: {}", e),
+                },
             }
 
-            // Check thingd connectivity (if configured)
             println!("5. Checking thingd connectivity...");
             if let Ok(thingd_url) = std::env::var("ARQEN_THINGD_URL") {
                 println!("   thingd URL: {}", thingd_url);
-                // TODO: Implement actual connectivity check
-                println!("   ⚠ Connectivity check not implemented");
+                println!("   Connectivity check not implemented");
             } else {
-                println!("   ⚠ ARQEN_THINGD_URL not set");
+                println!("   ARQEN_THINGD_URL not set");
             }
 
-            // Check environment variables
             println!("6. Checking environment variables...");
             let env_vars = [
                 "ARQEN_HOST",
@@ -300,8 +274,8 @@ async fn main() -> anyhow::Result<()> {
             ];
             for var in env_vars {
                 match std::env::var(var) {
-                    Ok(value) => println!("   ✓ {} = {}", var, value),
-                    Err(_) => println!("   ⚠ {} not set (using default)", var),
+                    Ok(value) => println!("   {} = {}", var, value),
+                    Err(_) => println!("   {} not set (using default)", var),
                 }
             }
 

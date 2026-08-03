@@ -148,7 +148,7 @@ impl Module for StateModule {
     }
 
     fn state(&self) -> Option<Box<dyn Any + Send + Sync>> {
-        self.state.as_ref().map(|s| {
+        self.state.as_ref().map(|_s| {
             // This is a simplification - in practice, you'd need to clone or Arc the state
             // For now, we'll use a dummy approach
             Box::new(format!("state from {}", self.name)) as Box<dyn Any + Send + Sync>

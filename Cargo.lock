@@ -93,11 +93,13 @@ dependencies = [
 
 [[package]]
 name = "arqen"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
+ "anyhow",
  "async-trait",
  "axum",
  "chrono",
+ "clap",
  "reqwest",
  "serde",
  "serde_json",
@@ -110,18 +112,6 @@ dependencies = [
  "tracing",
  "tracing-subscriber",
  "uuid",
-]
-
-[[package]]
-name = "arqen-cli"
-version = "0.2.0"
-dependencies = [
- "anyhow",
- "arqen",
- "clap",
- "serde_json",
- "tokio",
- "tracing",
 ]
 
 [[package]]

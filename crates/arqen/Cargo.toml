@@ -10,8 +10,14 @@ categories.workspace = true
 description = "Backend infrastructure for agent-ready applications"
 readme = "../../README.md"
 
+[[bin]]
+name = "arqen"
+path = "src/bin/arqen.rs"
+required-features = ["cli"]
+
 [features]
 default = ["http-server", "thingd-native"]
+cli = ["http-server", "logging"]
 http-server = ["dep:axum", "dep:tower", "dep:tower-http"]
 http-client = ["dep:reqwest"]
 thingd-native = ["dep:thingd"]
@@ -19,9 +25,11 @@ logging = ["dep:tracing-subscriber"]
 test-util = ["dep:tower"]
 
 [dependencies]
+anyhow = "1"
 async-trait = "0.1"
 axum = { version = "0.7", features = ["macros"], optional = true }
 chrono = { version = "0.4", features = ["serde"] }
+clap = { version = "4", features = ["derive"] }
 reqwest = { version = "0.12", features = ["json"], optional = true }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
