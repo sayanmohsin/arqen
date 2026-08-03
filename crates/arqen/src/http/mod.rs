@@ -1,6 +1,8 @@
+pub mod middleware_correlation;
 pub mod middleware_log;
 pub mod routes;
 
+pub use middleware_correlation::{correlation_id_middleware, X_REQUEST_ID};
 pub use middleware_log::logging_middleware;
 pub use routes::{agent, agent_manifest, docs, health, ready};
 
@@ -53,6 +55,7 @@ pub fn create_router_with_runtime(runtime: RuntimeInfo) -> Router {
         .route("/docs", get(routes::docs))
         .layer(Extension(runtime))
         .layer(RequestBodyLimitLayer::new(1024 * 1024))
+        .layer(middleware::from_fn(middleware_correlation::correlation_id_middleware))
         .layer(middleware::from_fn(middleware_log::logging_middleware))
 }
 

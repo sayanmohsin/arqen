@@ -1,12 +1,20 @@
+use crate::core::error::CorrelationId;
 use crate::http::RuntimeInfo;
 use axum::{Json, extract::Extension, http::StatusCode, response::IntoResponse};
 use serde_json::{Value, json};
 
-pub async fn health() -> Json<Value> {
-    Json(json!({ "status": "ok" }))
+pub async fn health(Extension(correlation_id): Extension<CorrelationId>) -> impl IntoResponse {
+    let body = Json(json!({
+        "status": "ok",
+        "correlation_id": correlation_id.to_string()
+    }));
+    (StatusCode::OK, body)
 }
 
-pub async fn ready(Extension(runtime): Extension<RuntimeInfo>) -> impl IntoResponse {
+pub async fn ready(
+    Extension(runtime): Extension<RuntimeInfo>,
+    Extension(correlation_id): Extension<CorrelationId>,
+) -> impl IntoResponse {
     let status = if runtime.thingd_ready {
         StatusCode::OK
     } else {
@@ -15,25 +23,34 @@ pub async fn ready(Extension(runtime): Extension<RuntimeInfo>) -> impl IntoRespo
     let body = Json(json!({
         "status": if runtime.thingd_ready { "ready" } else { "not_ready" },
         "storage_mode": runtime.storage_mode,
-        "checks": { "thingd": if runtime.thingd_ready { "ok" } else { "unavailable" } }
+        "checks": { "thingd": if runtime.thingd_ready { "ok" } else { "unavailable" } },
+        "correlation_id": correlation_id.to_string()
     }));
     (status, body)
 }
 
-pub async fn agent(Extension(runtime): Extension<RuntimeInfo>) -> Json<Value> {
+pub async fn agent(
+    Extension(runtime): Extension<RuntimeInfo>,
+    Extension(correlation_id): Extension<CorrelationId>,
+) -> impl IntoResponse {
     let manifest = runtime.registry.generate_manifest();
-    Json(json!({
+    let body = Json(json!({
         "name": manifest.name,
         "version": manifest.version,
         "description": manifest.description,
         "storage_mode": manifest.storage_mode,
         "tools_count": manifest.tools.len(),
         "jobs_count": manifest.jobs.len(),
-        "endpoints_count": manifest.endpoints.len()
-    }))
+        "endpoints_count": manifest.endpoints.len(),
+        "correlation_id": correlation_id.to_string()
+    }));
+    (StatusCode::OK, body)
 }
 
-pub async fn agent_manifest(Extension(runtime): Extension<RuntimeInfo>) -> Json<Value> {
+pub async fn agent_manifest(
+    Extension(runtime): Extension<RuntimeInfo>,
+    Extension(correlation_id): Extension<CorrelationId>,
+) -> impl IntoResponse {
     let manifest = runtime.registry.generate_manifest();
     let tools: Vec<Value> = manifest
         .tools
@@ -80,33 +97,38 @@ pub async fn agent_manifest(Extension(runtime): Extension<RuntimeInfo>) -> Json<
         })
         .collect();
 
-    Json(json!({
+    let body = Json(json!({
         "name": manifest.name,
         "version": manifest.version,
         "description": manifest.description,
         "storage_mode": manifest.storage_mode,
         "tools": tools,
         "jobs": jobs,
-        "endpoints": endpoints
-    }))
+        "endpoints": endpoints,
+        "correlation_id": correlation_id.to_string()
+    }));
+    (StatusCode::OK, body)
 }
 
-pub async fn docs() -> axum::response::Html<String> {
+pub async fn docs(Extension(correlation_id): Extension<CorrelationId>) -> axum::response::Html<String> {
     axum::response::Html(
-        r#"<!DOCTYPE html>
+        format!(
+            r#"<!DOCTYPE html>
 <html>
 <head>
     <title>Arqen API Documentation</title>
     <style>
-        body { font-family: sans-serif; margin: 40px; }
-        h1 { color: #333; }
-        .endpoint { margin: 20px 0; padding: 10px; border: 1px solid #ddd; border-radius: 5px; }
-        .method { font-weight: bold; color: #007bff; }
-        .path { font-family: monospace; }
+        body {{ font-family: sans-serif; margin: 40px; }}
+        h1 {{ color: #333; }}
+        .endpoint {{ margin: 20px 0; padding: 10px; border: 1px solid #ddd; border-radius: 5px; }}
+        .method {{ font-weight: bold; color: #007bff; }}
+        .path {{ font-family: monospace; }}
+        .correlation-id {{ font-family: monospace; color: #666; font-size: 0.9em; }}
     </style>
 </head>
 <body>
     <h1>Arqen API Documentation</h1>
+    <p class="correlation-id">Request ID: {}</p>
     <div class="endpoint">
         <span class="method">GET</span> <span class="path">/health</span>
         <p>Liveness check</p>
@@ -128,7 +150,9 @@ pub async fn docs() -> axum::response::Html<String> {
         <p>This documentation page</p>
     </div>
 </body>
-</html>"#
-            .to_string(),
+</html>"#,
+            correlation_id
+        )
+        .to_string(),
     )
 }

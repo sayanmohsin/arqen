@@ -1,7 +1,159 @@
+use serde::{Deserialize, Serialize};
+use uuid::Uuid;
+
 #[cfg(feature = "http-server")]
 use axum::http::StatusCode;
 #[cfg(feature = "http-server")]
 use axum::response::{IntoResponse, Response};
+
+/// Stable error codes for API responses.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum ErrorCode {
+    NotFound,
+    Validation,
+    Authentication,
+    Authorization,
+    Conflict,
+    RateLimited,
+    Internal,
+    External,
+    Unavailable,
+}
+
+impl ErrorCode {
+    /// Map error code to HTTP status code.
+    pub fn status_code(&self) -> StatusCode {
+        match self {
+            ErrorCode::NotFound => StatusCode::NOT_FOUND,
+            ErrorCode::Validation => StatusCode::BAD_REQUEST,
+            ErrorCode::Authentication => StatusCode::UNAUTHORIZED,
+            ErrorCode::Authorization => StatusCode::FORBIDDEN,
+            ErrorCode::Conflict => StatusCode::CONFLICT,
+            ErrorCode::RateLimited => StatusCode::TOO_MANY_REQUESTS,
+            ErrorCode::Internal => StatusCode::INTERNAL_SERVER_ERROR,
+            ErrorCode::External => StatusCode::BAD_GATEWAY,
+            ErrorCode::Unavailable => StatusCode::SERVICE_UNAVAILABLE,
+        }
+    }
+}
+
+impl std::fmt::Display for ErrorCode {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            ErrorCode::NotFound => write!(f, "not_found"),
+            ErrorCode::Validation => write!(f, "validation"),
+            ErrorCode::Authentication => write!(f, "authentication"),
+            ErrorCode::Authorization => write!(f, "authorization"),
+            ErrorCode::Conflict => write!(f, "conflict"),
+            ErrorCode::RateLimited => write!(f, "rate_limited"),
+            ErrorCode::Internal => write!(f, "internal"),
+            ErrorCode::External => write!(f, "external"),
+            ErrorCode::Unavailable => write!(f, "unavailable"),
+        }
+    }
+}
+
+/// Correlation ID for request tracing.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct CorrelationId(pub String);
+
+impl CorrelationId {
+    /// Generate a new correlation ID.
+    pub fn new() -> Self {
+        Self(Uuid::new_v4().to_string())
+    }
+}
+
+impl Default for CorrelationId {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl std::fmt::Display for CorrelationId {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.0)
+    }
+}
+
+/// Error context for propagating request context through the call stack.
+#[derive(Debug, Clone)]
+pub struct ErrorContext {
+    pub correlation_id: CorrelationId,
+    pub path: String,
+    pub method: String,
+}
+
+impl ErrorContext {
+    pub fn new(correlation_id: CorrelationId, path: impl Into<String>, method: impl Into<String>) -> Self {
+        Self {
+            correlation_id,
+            path: path.into(),
+            method: method.into(),
+        }
+    }
+}
+
+/// Error response body.
+#[derive(Debug, Serialize, Deserialize)]
+pub struct ErrorBody {
+    pub code: ErrorCode,
+    pub message: String,
+    pub correlation_id: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub details: Option<serde_json::Value>,
+}
+
+/// Consistent error response format.
+#[derive(Debug, Serialize, Deserialize)]
+pub struct ErrorResponse {
+    pub error: ErrorBody,
+}
+
+impl ErrorResponse {
+    /// Create a new error response.
+    pub fn new(
+        code: ErrorCode,
+        message: impl Into<String>,
+        correlation_id: impl Into<String>,
+    ) -> Self {
+        Self {
+            error: ErrorBody {
+                code,
+                message: message.into(),
+                correlation_id: correlation_id.into(),
+                details: None,
+            },
+        }
+    }
+
+    /// Create a new error response with details.
+    pub fn with_details(
+        code: ErrorCode,
+        message: impl Into<String>,
+        correlation_id: impl Into<String>,
+        details: serde_json::Value,
+    ) -> Self {
+        Self {
+            error: ErrorBody {
+                code,
+                message: message.into(),
+                correlation_id: correlation_id.into(),
+                details: Some(details),
+            },
+        }
+    }
+
+    /// Create a redacted error response for internal errors.
+    pub fn redacted(correlation_id: impl Into<String>) -> Self {
+        Self::new(
+            ErrorCode::Internal,
+            "An internal error occurred",
+            correlation_id,
+        )
+    }
+}
 
 /// Categorization of errors for HTTP response mapping and debugging.
 #[derive(Debug, Clone, PartialEq, thiserror::Error)]
@@ -14,10 +166,33 @@ pub enum ErrorKind {
     Authentication,
     #[error("authorization error")]
     Authorization,
+    #[error("conflict")]
+    Conflict,
+    #[error("rate limited")]
+    RateLimited,
     #[error("internal error")]
     Internal,
     #[error("external error")]
     External,
+    #[error("unavailable")]
+    Unavailable,
+}
+
+impl ErrorKind {
+    /// Convert to stable ErrorCode.
+    pub fn to_code(&self) -> ErrorCode {
+        match self {
+            ErrorKind::NotFound => ErrorCode::NotFound,
+            ErrorKind::Validation => ErrorCode::Validation,
+            ErrorKind::Authentication => ErrorCode::Authentication,
+            ErrorKind::Authorization => ErrorCode::Authorization,
+            ErrorKind::Conflict => ErrorCode::Conflict,
+            ErrorKind::RateLimited => ErrorCode::RateLimited,
+            ErrorKind::Internal => ErrorCode::Internal,
+            ErrorKind::External => ErrorCode::External,
+            ErrorKind::Unavailable => ErrorCode::Unavailable,
+        }
+    }
 }
 
 /// Application error type that maps to HTTP status codes.
@@ -43,26 +218,36 @@ impl AppError {
         self.source = Some(Box::new(source));
         self
     }
+
+    /// Convert to ErrorResponse with correlation ID.
+    pub fn to_response(&self, correlation_id: &CorrelationId) -> ErrorResponse {
+        ErrorResponse::new(self.kind.to_code(), &self.message, correlation_id.0.clone())
+    }
+
+    /// Convert to redacted ErrorResponse for internal errors.
+    pub fn to_redacted_response(&self, correlation_id: &CorrelationId) -> ErrorResponse {
+        if self.kind == ErrorKind::Internal {
+            ErrorResponse::redacted(correlation_id.0.clone())
+        } else {
+            self.to_response(correlation_id)
+        }
+    }
+
+    /// Check if error is internal (should be redacted).
+    pub fn is_internal(&self) -> bool {
+        self.kind == ErrorKind::Internal
+    }
 }
 
 #[cfg(feature = "http-server")]
 impl IntoResponse for AppError {
     fn into_response(self) -> Response {
-        let status = match self.kind {
-            ErrorKind::NotFound => StatusCode::NOT_FOUND,
-            ErrorKind::Validation => StatusCode::BAD_REQUEST,
-            ErrorKind::Authentication => StatusCode::UNAUTHORIZED,
-            ErrorKind::Authorization => StatusCode::FORBIDDEN,
-            ErrorKind::Internal => StatusCode::INTERNAL_SERVER_ERROR,
-            ErrorKind::External => StatusCode::BAD_GATEWAY,
-        };
+        // Generate correlation ID if not provided via extension
+        let correlation_id = CorrelationId::new();
+        let status = self.kind.to_code().status_code();
 
-        let body = axum::Json(serde_json::json!({
-            "error": {
-                "kind": format!("{}", self.kind),
-                "message": self.message,
-            }
-        }));
+        let response = self.to_redacted_response(&correlation_id);
+        let body = axum::Json(response);
 
         (status, body).into_response()
     }
@@ -92,10 +277,70 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_error_kind_display() {
-        assert_eq!(format!("{}", ErrorKind::NotFound), "not found");
-        assert_eq!(format!("{}", ErrorKind::Validation), "validation error");
-        assert_eq!(format!("{}", ErrorKind::Internal), "internal error");
+    fn test_error_code_display() {
+        assert_eq!(format!("{}", ErrorCode::NotFound), "not_found");
+        assert_eq!(format!("{}", ErrorCode::Validation), "validation");
+        assert_eq!(format!("{}", ErrorCode::Internal), "internal");
+    }
+
+    #[test]
+    fn test_error_code_status_codes() {
+        assert_eq!(ErrorCode::NotFound.status_code(), StatusCode::NOT_FOUND);
+        assert_eq!(ErrorCode::Validation.status_code(), StatusCode::BAD_REQUEST);
+        assert_eq!(ErrorCode::Authentication.status_code(), StatusCode::UNAUTHORIZED);
+        assert_eq!(ErrorCode::Authorization.status_code(), StatusCode::FORBIDDEN);
+        assert_eq!(ErrorCode::Conflict.status_code(), StatusCode::CONFLICT);
+        assert_eq!(ErrorCode::RateLimited.status_code(), StatusCode::TOO_MANY_REQUESTS);
+        assert_eq!(ErrorCode::Internal.status_code(), StatusCode::INTERNAL_SERVER_ERROR);
+        assert_eq!(ErrorCode::External.status_code(), StatusCode::BAD_GATEWAY);
+        assert_eq!(ErrorCode::Unavailable.status_code(), StatusCode::SERVICE_UNAVAILABLE);
+    }
+
+    #[test]
+    fn test_correlation_id_new() {
+        let id = CorrelationId::new();
+        assert!(!id.0.is_empty());
+    }
+
+    #[test]
+    fn test_correlation_id_default() {
+        let id = CorrelationId::default();
+        assert!(!id.0.is_empty());
+    }
+
+    #[test]
+    fn test_error_response_new() {
+        let response = ErrorResponse::new(ErrorCode::NotFound, "not found", "req-123");
+        assert_eq!(response.error.code, ErrorCode::NotFound);
+        assert_eq!(response.error.message, "not found");
+        assert_eq!(response.error.correlation_id, "req-123");
+        assert!(response.error.details.is_none());
+    }
+
+    #[test]
+    fn test_error_response_with_details() {
+        let details = serde_json::json!({"field": "email"});
+        let response = ErrorResponse::with_details(
+            ErrorCode::Validation,
+            "invalid email",
+            "req-123",
+            details.clone(),
+        );
+        assert_eq!(response.error.details, Some(details));
+    }
+
+    #[test]
+    fn test_error_response_redacted() {
+        let response = ErrorResponse::redacted("req-123");
+        assert_eq!(response.error.code, ErrorCode::Internal);
+        assert_eq!(response.error.message, "An internal error occurred");
+    }
+
+    #[test]
+    fn test_error_kind_to_code() {
+        assert_eq!(ErrorKind::NotFound.to_code(), ErrorCode::NotFound);
+        assert_eq!(ErrorKind::Validation.to_code(), ErrorCode::Validation);
+        assert_eq!(ErrorKind::Internal.to_code(), ErrorCode::Internal);
     }
 
     #[test]
@@ -124,5 +369,71 @@ mod tests {
         let json_err = serde_json::from_str::<serde_json::Value>("not json").unwrap_err();
         let app_err: AppError = json_err.into();
         assert_eq!(app_err.kind, ErrorKind::Validation);
+    }
+
+    #[test]
+    fn test_app_error_to_response() {
+        let err = AppError::new(ErrorKind::NotFound, "not found");
+        let correlation_id = CorrelationId::new();
+        let response = err.to_response(&correlation_id);
+        assert_eq!(response.error.code, ErrorCode::NotFound);
+        assert_eq!(response.error.message, "not found");
+        assert_eq!(response.error.correlation_id, correlation_id.0);
+    }
+
+    #[test]
+    fn test_app_error_to_redacted_response_internal() {
+        let err = AppError::new(ErrorKind::Internal, "database connection failed");
+        let correlation_id = CorrelationId::new();
+        let response = err.to_redacted_response(&correlation_id);
+        assert_eq!(response.error.code, ErrorCode::Internal);
+        assert_eq!(response.error.message, "An internal error occurred");
+    }
+
+    #[test]
+    fn test_app_error_to_redacted_response_non_internal() {
+        let err = AppError::new(ErrorKind::NotFound, "user not found");
+        let correlation_id = CorrelationId::new();
+        let response = err.to_redacted_response(&correlation_id);
+        assert_eq!(response.error.code, ErrorCode::NotFound);
+        assert_eq!(response.error.message, "user not found");
+    }
+
+    #[test]
+    fn test_app_error_is_internal() {
+        let err = AppError::new(ErrorKind::Internal, "internal error");
+        assert!(err.is_internal());
+
+        let err = AppError::new(ErrorKind::NotFound, "not found");
+        assert!(!err.is_internal());
+    }
+
+    #[test]
+    fn test_error_response_json_format() {
+        let response = ErrorResponse::new(ErrorCode::NotFound, "not found", "req-123");
+        let json = serde_json::to_string(&response).unwrap();
+        assert!(json.contains("not_found"));
+        assert!(json.contains("not found"));
+        assert!(json.contains("req-123"));
+    }
+
+    #[test]
+    fn test_error_response_json_no_details_when_none() {
+        let response = ErrorResponse::new(ErrorCode::NotFound, "not found", "req-123");
+        let json = serde_json::to_string(&response).unwrap();
+        assert!(!json.contains("details"));
+    }
+
+    #[test]
+    fn test_error_response_json_with_details() {
+        let response = ErrorResponse::with_details(
+            ErrorCode::Validation,
+            "invalid",
+            "req-123",
+            serde_json::json!({"field": "email"}),
+        );
+        let json = serde_json::to_string(&response).unwrap();
+        assert!(json.contains("details"));
+        assert!(json.contains("email"));
     }
 }
