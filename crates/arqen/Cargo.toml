@@ -13,9 +13,10 @@ readme = "../../README.md"
 [features]
 default = ["http-server", "thingd-native"]
 http-server = ["dep:axum", "dep:tower", "dep:tower-http"]
-thingd-native = ["dep:thingd", "thingd/persistent", "thingd/search"]
 http-client = ["dep:reqwest"]
+thingd-native = ["dep:thingd"]
 logging = ["dep:tracing-subscriber"]
+test-util = ["dep:tower"]
 
 [dependencies]
 async-trait = "0.1"
@@ -28,7 +29,7 @@ thingd = { version = "0.73", optional = true }
 thiserror = "1"
 tokio = { version = "1", features = ["full"] }
 toml = "0.8"
-tower = { version = "0.4", optional = true }
+tower = { version = "0.4", features = ["util"], optional = true }
 tower-http = { version = "0.6", features = ["limit"], optional = true }
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter", "json"], optional = true }

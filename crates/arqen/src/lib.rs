@@ -34,6 +34,9 @@ pub mod state;
 pub mod thingd;
 pub mod validation;
 
+#[cfg(any(test, feature = "test-util"))]
+pub mod testutil;
+
 #[cfg(feature = "http-server")]
 pub mod http;
 #[cfg(feature = "logging")]
