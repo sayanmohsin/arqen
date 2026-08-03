@@ -1,6 +1,7 @@
 //! Health and readiness module for Arqen.
 //!
-//! Provides dependency checks with timeouts and degraded states.
+//! Provides dependency checks with timeouts, degraded states, parallel execution,
+//! and HTTP endpoint integration for Kubernetes-style liveness/readiness probes.
 
 use std::sync::Arc;
 use std::time::{Duration, Instant};
@@ -35,6 +36,15 @@ impl HealthStatus {
     pub fn is_unhealthy(&self) -> bool {
         matches!(self, HealthStatus::Unhealthy { .. })
     }
+
+    /// Convert to HTTP status code.
+    pub fn to_http_status(&self) -> u16 {
+        match self {
+            HealthStatus::Healthy => 200,
+            HealthStatus::Degraded { .. } => 200,
+            HealthStatus::Unhealthy { .. } => 503,
+        }
+    }
 }
 
 impl std::fmt::Display for HealthStatus {
@@ -60,6 +70,11 @@ pub trait HealthCheck: Send + Sync {
     fn timeout(&self) -> Duration {
         Duration::from_secs(5)
     }
+
+    /// Whether this check is required for readiness.
+    fn required_for_readiness(&self) -> bool {
+        true
+    }
 }
 
 /// Result of a single health check.
@@ -82,6 +97,18 @@ pub struct HealthReport {
     pub checks: Vec<CheckResult>,
     /// Timestamp of the report.
     pub timestamp: String,
+    /// Whether this is a liveness or readiness report.
+    pub probe_type: ProbeType,
+}
+
+/// Type of health probe.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum ProbeType {
+    /// Liveness probe - is the application alive?
+    Liveness,
+    /// Readiness probe - is the application ready to serve traffic?
+    Readiness,
 }
 
 /// Registry for health checks.
@@ -102,34 +129,65 @@ impl HealthRegistry {
         self.checks.push(check);
     }
 
-    /// Run all health checks and return a report.
+    /// Run all health checks in parallel and return a report.
     pub async fn check_all(&self) -> HealthReport {
+        self.check_with_type(ProbeType::Liveness).await
+    }
+
+    /// Run liveness checks (all checks).
+    pub async fn check_liveness(&self) -> HealthReport {
+        self.check_with_type(ProbeType::Liveness).await
+    }
+
+    /// Run readiness checks (only required checks).
+    pub async fn check_readiness(&self) -> HealthReport {
+        self.check_with_type(ProbeType::Readiness).await
+    }
+
+    /// Run checks with specified probe type.
+    async fn check_with_type(&self, probe_type: ProbeType) -> HealthReport {
+        let checks_to_run: Vec<_> = match probe_type {
+            ProbeType::Liveness => self.checks.clone(),
+            ProbeType::Readiness => self.checks
+                .iter()
+                .filter(|c| c.required_for_readiness())
+                .cloned()
+                .collect(),
+        };
+
         let mut results = Vec::new();
         let mut overall_status = HealthStatus::Healthy;
 
-        for check in &self.checks {
-            let start = Instant::now();
-            let status = run_check_with_timeout(check.as_ref(), check.timeout()).await;
-            let duration_ms = start.elapsed().as_millis() as u64;
-
-            results.push(CheckResult {
-                name: check.name().to_string(),
-                status: status.clone(),
-                duration_ms,
-            });
-
-            // Update overall status
-            match &status {
-                HealthStatus::Unhealthy { .. } => {
-                    overall_status = status;
-                    break;
+        // Run checks in parallel
+        let mut handles = Vec::new();
+        for check in checks_to_run {
+            handles.push(tokio::spawn(async move {
+                let start = Instant::now();
+                let status = run_check_with_timeout(check.as_ref(), check.timeout()).await;
+                let duration_ms = start.elapsed().as_millis() as u64;
+                CheckResult {
+                    name: check.name().to_string(),
+                    status,
+                    duration_ms,
                 }
-                HealthStatus::Degraded { .. } => {
-                    if overall_status.is_healthy() {
-                        overall_status = status;
+            }));
+        }
+
+        for handle in handles {
+            if let Ok(result) = handle.await {
+                // Update overall status
+                match &result.status {
+                    HealthStatus::Unhealthy { .. } => {
+                        overall_status = result.status.clone();
                     }
+                    HealthStatus::Degraded { .. } => {
+                        if overall_status.is_healthy() {
+                            overall_status = result.status.clone();
+                        }
+                    }
+                    _ => {}
                 }
-                _ => {}
+                results.push(result);
             }
         }
 
@@ -137,6 +195,7 @@ impl HealthRegistry {
             status: overall_status,
             checks: results,
             timestamp: chrono::Utc::now().to_rfc3339(),
+            probe_type,
         }
     }
 }
@@ -250,6 +309,24 @@ impl HealthCheck for AlwaysTimeout {
     }
 }
 
+/// Check that is optional for readiness.
+pub struct OptionalCheck;
+
+#[async_trait]
+impl HealthCheck for OptionalCheck {
+    fn name(&self) -> &str {
+        "optional_check"
+    }
+
+    async fn check(&self) -> HealthStatus {
+        HealthStatus::Healthy
+    }
+
+    fn required_for_readiness(&self) -> bool {
+        false
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -286,6 +363,13 @@ mod tests {
             format!("{}", HealthStatus::Unhealthy { reason: "down".to_string() }),
             "unhealthy: down"
         );
+    }
+
+    #[test]
+    fn test_health_status_http_codes() {
+        assert_eq!(HealthStatus::Healthy.to_http_status(), 200);
+        assert_eq!(HealthStatus::Degraded { reason: "slow".to_string() }.to_http_status(), 200);
+        assert_eq!(HealthStatus::Unhealthy { reason: "down".to_string() }.to_http_status(), 503);
     }
 
     #[tokio::test]
@@ -365,6 +449,20 @@ mod tests {
         assert!(report.status.is_unhealthy());
     }
 
+    #[tokio::test]
+    async fn test_readiness_skips_optional() {
+        let mut registry = HealthRegistry::new();
+        registry.register(Arc::new(AlwaysHealthy));
+        registry.register(Arc::new(OptionalCheck));
+
+        let liveness = registry.check_liveness().await;
+        assert_eq!(liveness.checks.len(), 2);
+
+        let readiness = registry.check_readiness().await;
+        assert_eq!(readiness.checks.len(), 1);
+        assert_eq!(readiness.checks[0].name, "always_healthy");
+    }
+
     #[test]
     fn test_check_result_serialization() {
         let result = CheckResult {
@@ -383,8 +481,10 @@ mod tests {
             status: HealthStatus::Healthy,
             checks: vec![],
             timestamp: "2024-01-01T00:00:00Z".to_string(),
+            probe_type: ProbeType::Liveness,
         };
         let json = serde_json::to_string(&report).unwrap();
         assert!(json.contains("healthy"));
+        assert!(json.contains("liveness"));
     }
 }
