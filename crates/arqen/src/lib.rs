@@ -25,8 +25,10 @@
 //! ```
 
 pub mod agent;
+pub mod config;
 pub mod core;
 pub mod jobs;
+pub mod state;
 pub mod thingd;
 
 #[cfg(feature = "http-server")]
@@ -39,8 +41,10 @@ pub use agent::{
     AgentManifest, EndpointMetadata, JobMetadata, ToolEffect, ToolMetadata,
     ToolRegistry,
 };
+pub use config::{AppConfig, Secret, ServerConfig, StorageConfig, StorageMode};
 pub use core::{AppError, ErrorKind};
 pub use jobs::{JobConfig, JobHandler, JobWorker, Worker};
+pub use state::{AppState, AppStateBuilder};
 pub use thingd::{MemoryThingdBackend, ThingdBackend};
 
 #[cfg(feature = "http-server")]
