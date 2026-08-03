@@ -16,7 +16,7 @@ chrono = { version = "0.4", features = ["serde"] }
 reqwest = { version = "0.12", features = ["json"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
-thingd = { version = "0.72", features = ["persistent", "search"] }
+thingd = { version = "0.73", features = ["persistent", "search"] }
 thiserror = "1"
 tokio = { version = "1", features = ["full"] }
 tower = "0.4"
