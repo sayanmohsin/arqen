@@ -31,6 +31,7 @@ pub mod core;
 pub mod jobs;
 pub mod state;
 pub mod thingd;
+pub mod validation;
 
 #[cfg(feature = "http-server")]
 pub mod http;
