@@ -31,6 +31,7 @@ pub mod core;
 pub mod health;
 pub mod jobs;
 pub mod observability;
+pub mod openapi;
 pub mod state;
 pub mod thingd;
 pub mod validation;
