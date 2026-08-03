@@ -1,10 +1,15 @@
 //! Module composition for Arqen.
 //!
-//! Provides a trait-based system for composing application modules.
+//! Provides a trait-based system for composing application modules with
+//! lifecycle hooks and dependency management.
 
 use std::any::Any;
+use std::sync::Arc;
+
+use async_trait::async_trait;
 
 /// Trait for application modules.
+#[async_trait]
 pub trait Module: Send + Sync {
     /// Module name.
     fn name(&self) -> &str;
@@ -14,10 +19,33 @@ pub trait Module: Send + Sync {
         None
     }
 
-    /// Module state (if any).
-    fn state(&self) -> Option<Box<dyn Any + Send + Sync>> {
-        None
+    /// Module dependencies (other module names this depends on).
+    fn dependencies(&self) -> Vec<&str> {
+        Vec::new()
     }
+
+    /// Initialize the module (called once at startup).
+    async fn init(&self) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+        Ok(())
+    }
+
+    /// Shutdown the module (called once at shutdown).
+    async fn shutdown(&self) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+        Ok(())
+    }
+
+    /// Health check for this module.
+    async fn health_check(&self) -> ModuleHealth {
+        ModuleHealth::Healthy
+    }
+}
+
+/// Module health status.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum ModuleHealth {
+    Healthy,
+    Degraded { reason: String },
+    Unhealthy { reason: String },
 }
 
 /// Description of a route provided by a module.
@@ -30,7 +58,7 @@ pub struct RouteEntry {
 
 /// Builder for composing modules.
 pub struct ModuleBuilder {
-    modules: Vec<Box<dyn Module>>,
+    modules: Vec<Arc<dyn Module>>,
 }
 
 impl ModuleBuilder {
@@ -42,7 +70,13 @@ impl ModuleBuilder {
 
     /// Register a module.
     pub fn register<M: Module + 'static>(mut self, module: M) -> Self {
-        self.modules.push(Box::new(module));
+        self.modules.push(Arc::new(module));
+        self
+    }
+
+    /// Register a module wrapped in Arc.
+    pub fn register_arc(mut self, module: Arc<dyn Module>) -> Self {
+        self.modules.push(module);
         self
     }
 
@@ -64,6 +98,47 @@ impl ModuleBuilder {
     pub fn module_count(&self) -> usize {
         self.modules.len()
     }
+
+    /// Initialize all modules in dependency order.
+    pub async fn init_all(&self) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+        for module in &self.modules {
+            module.init().await?;
+        }
+        Ok(())
+    }
+
+    /// Shutdown all modules in reverse order.
+    pub async fn shutdown_all(&self) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+        for module in self.modules.iter().rev() {
+            module.shutdown().await?;
+        }
+        Ok(())
+    }
+
+    /// Check health of all modules.
+    pub async fn health_check_all(&self) -> Vec<(String, ModuleHealth)> {
+        let mut results = Vec::new();
+        for module in &self.modules {
+            let health = module.health_check().await;
+            results.push((module.name().to_string(), health));
+        }
+        results
+    }
+
+    /// Check if all modules are healthy.
+    pub async fn all_healthy(&self) -> bool {
+        let results = self.health_check_all().await;
+        results.iter().all(|(_, h)| *h == ModuleHealth::Healthy)
+    }
+
+    /// Get modules that have dependencies.
+    pub fn modules_with_dependencies(&self) -> Vec<(&str, Vec<&str>)> {
+        self.modules
+            .iter()
+            .map(|m| (m.name(), m.dependencies()))
+            .filter(|(_, deps)| !deps.is_empty())
+            .collect()
+    }
 }
 
 impl Default for ModuleBuilder {
@@ -83,6 +158,7 @@ impl EmptyModule {
     }
 }
 
+#[async_trait]
 impl Module for EmptyModule {
     fn name(&self) -> &str {
         &self.name
@@ -113,6 +189,7 @@ impl RouteModule {
     }
 }
 
+#[async_trait]
 impl Module for RouteModule {
     fn name(&self) -> &str {
         &self.name
@@ -127,35 +204,6 @@ impl Module for RouteModule {
     }
 }
 
-/// A module with state.
-pub struct StateModule {
-    name: String,
-    state: Option<Box<dyn Any + Send + Sync>>,
-}
-
-impl StateModule {
-    pub fn new(name: impl Into<String>, state: Box<dyn Any + Send + Sync>) -> Self {
-        Self {
-            name: name.into(),
-            state: Some(state),
-        }
-    }
-}
-
-impl Module for StateModule {
-    fn name(&self) -> &str {
-        &self.name
-    }
-
-    fn state(&self) -> Option<Box<dyn Any + Send + Sync>> {
-        self.state.as_ref().map(|_s| {
-            // This is a simplification - in practice, you'd need to clone or Arc the state
-            // For now, we'll use a dummy approach
-            Box::new(format!("state from {}", self.name)) as Box<dyn Any + Send + Sync>
-        })
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -165,7 +213,7 @@ mod tests {
         let m = EmptyModule::new("test");
         assert_eq!(m.name(), "test");
         assert!(m.routes().is_none());
-        assert!(m.state().is_none());
+        assert!(m.dependencies().is_empty());
     }
 
     #[test]
@@ -220,5 +268,42 @@ mod tests {
                 .with_route("/test", "GET", "Test"));
         assert_eq!(builder.module_count(), 2);
         assert_eq!(builder.all_routes().len(), 1);
+    }
+
+    #[tokio::test]
+    async fn test_module_init_shutdown() {
+        let builder = ModuleBuilder::new()
+            .register(EmptyModule::new("mod1"))
+            .register(EmptyModule::new("mod2"));
+        assert!(builder.init_all().await.is_ok());
+        assert!(builder.shutdown_all().await.is_ok());
+    }
+
+    #[tokio::test]
+    async fn test_module_health_check() {
+        let builder = ModuleBuilder::new()
+            .register(EmptyModule::new("mod1"))
+            .register(EmptyModule::new("mod2"));
+        let results = builder.health_check_all().await;
+        assert_eq!(results.len(), 2);
+        assert!(builder.all_healthy().await);
+    }
+
+    #[test]
+    fn test_modules_with_dependencies() {
+        struct DepModule;
+        #[async_trait]
+        impl Module for DepModule {
+            fn name(&self) -> &str { "dep" }
+            fn dependencies(&self) -> Vec<&str> { vec!["base"] }
+        }
+
+        let builder = ModuleBuilder::new()
+            .register(EmptyModule::new("base"))
+            .register(DepModule);
+        let deps = builder.modules_with_dependencies();
+        assert_eq!(deps.len(), 1);
+        assert_eq!(deps[0].0, "dep");
+        assert_eq!(deps[0].1, vec!["base"]);
     }
 }
