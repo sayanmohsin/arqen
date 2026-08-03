@@ -4,6 +4,9 @@ use serde::{Deserialize, Serialize};
 
 use crate::thingd::traits::*;
 
+/// HTTP client implementation of [`ThingdBackend`].
+///
+/// Proxies all operations to a remote thingd server over HTTP.
 pub struct HttpThingdBackend {
     base_url: String,
     client: Client,

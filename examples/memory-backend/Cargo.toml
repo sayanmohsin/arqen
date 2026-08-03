@@ -4,6 +4,6 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-arqen = "0.2.0"
+arqen = { path = "../../crates/arqen" }
 tokio = { version = "1", features = ["full"] }
 serde_json = "1"

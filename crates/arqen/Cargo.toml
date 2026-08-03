@@ -8,6 +8,7 @@ homepage.workspace = true
 keywords.workspace = true
 categories.workspace = true
 description = "Backend infrastructure for agent-ready applications"
+readme = "../../README.md"
 
 [features]
 default = ["http-server", "thingd-native"]

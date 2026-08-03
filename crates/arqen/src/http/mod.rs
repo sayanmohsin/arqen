@@ -12,6 +12,7 @@ use tower_http::limit::RequestBodyLimitLayer;
 
 use crate::agent::ToolRegistry;
 
+/// Runtime configuration passed to all HTTP handlers.
 #[derive(Clone, Debug)]
 pub struct RuntimeInfo {
     pub storage_mode: String,

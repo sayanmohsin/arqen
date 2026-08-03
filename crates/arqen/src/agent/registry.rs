@@ -1,6 +1,9 @@
 use crate::agent::{AgentManifest, EndpointMetadata, JobMetadata, ToolMetadata};
 use std::collections::HashMap;
 
+/// Registry for agent tools, jobs, and endpoints.
+///
+/// Use [`register_tool!`] macro for ergonomic tool registration.
 #[derive(Debug)]
 pub struct ToolRegistry {
     tools: HashMap<String, ToolMetadata>,

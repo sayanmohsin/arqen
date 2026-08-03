@@ -156,10 +156,15 @@ async fn main() -> anyhow::Result<()> {
             arqen::logging::init_logging(&log, "pretty");
 
             let addr: SocketAddr = format!("{}:{}", host, port).parse()?;
-            let router = arqen::http::create_router_with_runtime(arqen::http::RuntimeInfo {
-                storage_mode: storage.clone(),
-                thingd_ready: storage != "http",
-            });
+            let router = arqen::http::create_router_with_runtime(arqen::http::RuntimeInfo::new(
+                storage.clone(),
+                arqen::ToolRegistry::new(
+                    "arqen-app",
+                    env!("CARGO_PKG_VERSION"),
+                    "An Arqen application",
+                    &storage,
+                ),
+            ));
 
             println!("╔══════════════════════════════════════════════╗");
             println!("║  Arqen v{}", env!("CARGO_PKG_VERSION"));
@@ -186,10 +191,15 @@ async fn main() -> anyhow::Result<()> {
             arqen::logging::init_logging(&log, "json");
 
             let addr: SocketAddr = format!("{}:{}", host, port).parse()?;
-            let router = arqen::http::create_router_with_runtime(arqen::http::RuntimeInfo {
-                storage_mode: storage.clone(),
-                thingd_ready: storage != "http",
-            });
+            let router = arqen::http::create_router_with_runtime(arqen::http::RuntimeInfo::new(
+                storage.clone(),
+                arqen::ToolRegistry::new(
+                    "arqen-app",
+                    env!("CARGO_PKG_VERSION"),
+                    "An Arqen application",
+                    &storage,
+                ),
+            ));
 
             println!("Arqen listening on {}", addr);
 

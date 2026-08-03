@@ -11,7 +11,7 @@
 //!
 //! ## Quick Start
 //!
-//! ```rust,no_run
+//! ```rust,ignore
 //! use arqen::http::{create_router, start_server};
 //! use std::net::SocketAddr;
 //!

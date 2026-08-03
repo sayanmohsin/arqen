@@ -18,8 +18,8 @@
 //! - **`NativeThingdStore`** wraps the real thingd engine synchronously and
 //!   exposes its full API through [`with_engine`](Self::with_engine) and
 //!   [`lock`](Self::lock). This gives application code direct access to
-//!   thingd's [`ObjectStore`], [`EventLog`], [`QueueStore`], and [`LinkStore`]
-//!   traits without lossy type conversions.
+//!   thingd's storage traits (ObjectStore, EventLog, QueueStore, LinkStore)
+//!   without lossy type conversions.
 //!
 //! Use `NativeThingdStore` when you need the complete thingd feature set
 //! (search, aggregation, vector search, links, etc.). Use `MemoryThingdBackend`

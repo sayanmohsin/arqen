@@ -3,6 +3,7 @@ use axum::http::StatusCode;
 #[cfg(feature = "http-server")]
 use axum::response::{IntoResponse, Response};
 
+/// Categorization of errors for HTTP response mapping and debugging.
 #[derive(Debug, Clone, PartialEq, thiserror::Error)]
 pub enum ErrorKind {
     #[error("not found")]
@@ -19,6 +20,7 @@ pub enum ErrorKind {
     External,
 }
 
+/// Application error type that maps to HTTP status codes.
 #[derive(Debug, thiserror::Error)]
 #[error("{kind}: {message}")]
 pub struct AppError {

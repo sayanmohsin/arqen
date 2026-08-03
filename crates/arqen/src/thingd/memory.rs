@@ -12,6 +12,9 @@ fn lock_mutex<'a, T>(mutex: &'a Mutex<T>, name: &'a str) -> Result<std::sync::Mu
         .map_err(|e| AppError::new(ErrorKind::Internal, format!("mutex lock poisoned ({name}): {e}")))
 }
 
+/// In-memory implementation of [`ThingdBackend`].
+///
+/// Useful for development, testing, and as a reference implementation.
 pub struct MemoryThingdBackend {
     objects: Mutex<HashMap<String, Vec<ThingdObject>>>,
     events: Mutex<HashMap<String, Vec<ThingdEvent>>>,
