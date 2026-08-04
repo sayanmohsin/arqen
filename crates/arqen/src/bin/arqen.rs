@@ -17,9 +17,11 @@ enum Commands {
     New {
         /// Project name
         name: String,
-        /// Template to use
-        #[arg(short, long, default_value = "thingd-app")]
-        template: String,
+    },
+    /// Generate code scaffolding
+    Generate {
+        #[command(subcommand)]
+        kind: GenerateKind,
     },
     /// Run the application in development mode
     Dev {
@@ -27,7 +29,7 @@ enum Commands {
         #[arg(long, default_value = "127.0.0.1")]
         host: String,
         /// Port to bind to
-        #[arg(short, long, default_value = "3000")]
+        #[arg(short, long, default_value = "8888")]
         port: u16,
         /// Log level
         #[arg(short, long, default_value = "info")]
@@ -42,7 +44,7 @@ enum Commands {
         #[arg(long, default_value = "127.0.0.1")]
         host: String,
         /// Port to bind to
-        #[arg(short, long, default_value = "3000")]
+        #[arg(short, long, default_value = "8888")]
         port: u16,
         /// Log level
         #[arg(short, long, default_value = "info")]
@@ -57,60 +59,117 @@ enum Commands {
     Doctor,
 }
 
-fn generate_project(name: &str, template: &str) -> anyhow::Result<()> {
+#[derive(Subcommand)]
+enum GenerateKind {
+    /// Generate a new module
+    Module {
+        /// Module name
+        name: String,
+    },
+    /// Generate a new tool
+    Tool {
+        /// Tool name
+        name: String,
+    },
+    /// Generate a new job handler
+    Job {
+        /// Job name
+        name: String,
+    },
+}
+
+fn generate_project(name: &str) -> anyhow::Result<()> {
     let project_dir = Path::new(name);
     if project_dir.exists() {
         anyhow::bail!("Directory '{}' already exists", name);
     }
 
-    fs::create_dir_all(project_dir.join("src"))?;
+    // Create directory structure
+    fs::create_dir_all(project_dir.join("src").join("app"))?;
+    fs::create_dir_all(project_dir.join("src").join("routes"))?;
 
+    // Cargo.toml
     let cargo_toml = format!(
         r#"[package]
 name = "{}"
 version = "0.1.0"
-edition = "2021"
+edition = "2024"
+rust-version = "1.96"
 
 [dependencies]
-arqen = {{ version = "0.3", features = ["logging"] }}
+arqen = {{ version = "0.3", features = ["logging", "http-server"] }}
 tokio = {{ version = "1", features = ["full"] }}
 serde = {{ version = "1", features = ["derive"] }}
 serde_json = "1"
+async-trait = "0.1"
 "#,
         name
     );
     fs::write(project_dir.join("Cargo.toml"), cargo_toml)?;
 
-    let main_rs = r#"use arqen::http::create_router;
-use std::net::SocketAddr;
+    // src/main.rs
+    let main_rs = format!(
+        r#"use arqen::app::ArqenApp;
+use arqen::module::Module;
+
+mod app;
 
 #[tokio::main]
-async fn main() -> Result<(), Box<dyn std::error::Error>> {
+async fn main() -> Result<(), Box<dyn std::error::Error>> {{
     arqen::logging::init_logging("info", "pretty");
 
-    let addr: SocketAddr = "127.0.0.1:3000".parse()?;
-    let router = create_router();
-
-    println!("Starting on {}", addr);
-
-    arqen::http::start_server(addr, router).await?;
-    Ok(())
-}
-"#;
+    ArqenApp::builder()
+        .name("{name}")
+        .module(app::AppModule)
+        .build()?
+        .start()
+        .await
+}}
+"#
+    );
     fs::write(project_dir.join("src").join("main.rs"), main_rs)?;
 
+    // src/app/mod.rs
+    let app_mod = r#"use arqen::module::{Module, ModuleHealth};
+
+pub struct AppModule;
+
+#[async_trait::async_trait]
+impl Module for AppModule {
+    fn name(&self) -> &str {
+        "app"
+    }
+
+    async fn health_check(&self) -> ModuleHealth {
+        ModuleHealth::Healthy
+    }
+}
+"#;
+    fs::write(project_dir.join("src").join("app").join("mod.rs"), app_mod)?;
+
+    // src/routes/mod.rs
+    let routes_mod = r#"pub mod health;
+"#;
+    fs::write(project_dir.join("src").join("routes").join("mod.rs"), routes_mod)?;
+
+    // src/routes/health.rs
+    let health_route = r#"use axum::Json;
+use serde_json::{json, Value};
+
+pub async fn health() -> Json<Value> {
+    Json(json!({"status": "ok"}))
+}
+"#;
+    fs::write(
+        project_dir.join("src").join("routes").join("health.rs"),
+        health_route,
+    )?;
+
+    // README.md
     let readme = format!(
-        r#"# {}
+        r#"# {name}
 
-An Arqen application generated with the `{}` template. Arqen is a Rust-first
-backend framework for agent-ready applications with typed tools, jobs,
-discoverable APIs, health checks, and thingd integration.
-
-## Package model
-
-This project depends on the single published `arqen` package. The framework
-library and CLI are distributed together; there is no separate `arqen-cli`
-package.
+An Arqen application.
 
 ## Getting started
 
@@ -118,65 +177,219 @@ package.
 cargo run
 ```
 
-The server starts on http://127.0.0.1:3000 with in-memory storage and pretty
-development logging.
+The server starts on http://127.0.0.1:8888 with in-memory storage.
 
 ## Endpoints
 
 - GET /health - Liveness check
 - GET /ready - Readiness check
-- GET /agent - Agent/application summary
-- GET /agent/manifest - Machine-readable tools and endpoint manifest
-- GET /docs - HTTP endpoint summary
+- GET /agent - Agent description
+- GET /agent/manifest - Agent manifest
+- GET /docs - API documentation
 
-## Configuration
-
-Arqen loads configuration in this order:
-
-```text
-CLI flags → ARQEN_* environment variables → arqen.toml → defaults
-```
-
-Useful environment variables include:
+## Adding modules
 
 ```bash
-ARQEN_HOST=127.0.0.1
-ARQEN_PORT=3000
-ARQEN_STORAGE_MODE=memory
-ARQEN_LOG_LEVEL=info
-ARQEN_LOG_FORMAT=pretty
+arqen generate module users
 ```
 
-Use `ARQEN_STORAGE_MODE=persistent` with `ARQEN_PERSISTENT_PATH` for native
-durable storage, or `ARQEN_STORAGE_MODE=http` with `ARQEN_THINGD_URL` for a
-thingd HTTP service. Validate the chosen mode and recovery behavior before
-production use.
+This creates `src/users/mod.rs` with a module stub. Register it in `src/app/mod.rs`:
 
-## Development
+```rust
+mod users;
 
-The generated application has no integrated file watcher. Run an external
-watcher if needed, for example:
+// In AppModule::dependencies():
+fn dependencies(&self) -> Vec<&str> {{
+    vec!["users"]
+}}
+```
+
+## Adding tools
 
 ```bash
-cargo watch -x run
+arqen generate tool get_user
 ```
 
-## Next steps
+This creates `src/tools/get_user.rs` with a tool definition. Register it in your module's `register()` method.
 
-- Add application routes and typed domain services.
-- Register tools and permissions in the agent manifest.
-- Add validation and authentication to protected routes.
-- Replace memory storage with a validated durable thingd deployment.
-- Run the application and framework tests before release.
+## Adding jobs
 
-Documentation: https://sayanmohsin.github.io/arqen/
-"#,
-        name, template
+```bash
+arqen generate job send_email
+```
+
+This creates `src/jobs/send_email.rs` with a job handler.
+"#
     );
     fs::write(project_dir.join("README.md"), readme)?;
 
-    println!("Created project '{}' with template '{}'", name, template);
+    println!("Created project '{}'", name);
+    println!();
+    println!("Next steps:");
+    println!("  cd {}", name);
+    println!("  cargo run");
     Ok(())
+}
+
+fn generate_module(name: &str) -> anyhow::Result<()> {
+    let src_dir = Path::new("src");
+    if !src_dir.exists() {
+        anyhow::bail!("No src/ directory found. Run this from an Arqen project root.");
+    }
+
+    let module_dir = src_dir.join(name);
+    if module_dir.exists() {
+        anyhow::bail!("Module '{}' already exists", name);
+    }
+
+    fs::create_dir_all(&module_dir)?;
+
+    let module_rs = format!(
+        r#"use arqen::module::{{Module, ModuleContext, ModuleHealth}};
+use arqen::core::AppError;
+
+pub struct {module_name}Module;
+
+#[async_trait::async_trait]
+impl Module for {module_name}Module {{
+    fn name(&self) -> &str {{
+        "{name}"
+    }}
+
+    fn register(&self, _ctx: &mut ModuleContext<'_>) -> Result<(), AppError> {{
+        // Register tools: ctx.tools.register_tool(...)
+        // Register jobs: ctx.register_job(...)
+        Ok(())
+    }}
+
+    async fn health_check(&self) -> ModuleHealth {{
+        ModuleHealth::Healthy
+    }}
+}}
+"#,
+        module_name = to_pascal_case(name),
+        name = name,
+    );
+    fs::write(module_dir.join("mod.rs"), module_rs)?;
+
+    println!("Created module '{name}' at src/{name}/mod.rs");
+    println!();
+    println!("Register in src/app/mod.rs:");
+    println!("  pub mod {name};");
+    println!();
+    println!("Add to AppModule::dependencies():");
+    println!("  fn dependencies(&self) -> Vec<&str> {{ vec![\"{name}\"] }}");
+    Ok(())
+}
+
+fn generate_tool(name: &str) -> anyhow::Result<()> {
+    let src_dir = Path::new("src");
+    if !src_dir.exists() {
+        anyhow::bail!("No src/ directory found. Run this from an Arqen project root.");
+    }
+
+    let tools_dir = src_dir.join("tools");
+    fs::create_dir_all(&tools_dir)?;
+
+    let tool_file = tools_dir.join(format!("{}.rs", name));
+    if tool_file.exists() {
+        anyhow::bail!("Tool '{}' already exists", name);
+    }
+
+    let tool_rs = format!(
+        r#"use arqen::agent::{{ToolEffect, ToolMetadata}};
+use arqen::core::AppError;
+use arqen::module::ModuleContext;
+
+pub fn tool_metadata() -> ToolMetadata {{
+    ToolMetadata {{
+        name: "{name}".to_string(),
+        description: "TODO: describe what this tool does".to_string(),
+        input: serde_json::json!({{
+            "type": "object",
+            "properties": {{}},
+            "required": []
+        }}),
+        output: serde_json::json!({{
+            "type": "object"
+        }}),
+        scopes: vec![],
+        effect: ToolEffect::Read,
+        idempotent: true,
+        enqueues_job: None,
+        timeout: None,
+    }}
+}}
+
+pub fn register(ctx: &mut ModuleContext<'_>) -> Result<(), AppError> {{
+    ctx.tools.register_tool(tool_metadata());
+    Ok(())
+}}
+"#
+    );
+    fs::write(&tool_file, tool_rs)?;
+
+    println!("Created tool '{name}' at src/tools/{name}.rs");
+    println!();
+    println!("Register in your module's register() method:");
+    println!("  crate::tools::{name}::register(ctx)?;");
+    Ok(())
+}
+
+fn generate_job(name: &str) -> anyhow::Result<()> {
+    let src_dir = Path::new("src");
+    if !src_dir.exists() {
+        anyhow::bail!("No src/ directory found. Run this from an Arqen project root.");
+    }
+
+    let jobs_dir = src_dir.join("jobs");
+    fs::create_dir_all(&jobs_dir)?;
+
+    let job_file = jobs_dir.join(format!("{}.rs", name));
+    if job_file.exists() {
+        anyhow::bail!("Job '{}' already exists", name);
+    }
+
+    let job_rs = format!(
+        r#"use arqen::core::AppError;
+use arqen::jobs::JobHandler;
+
+pub struct {handler_name}Handler;
+
+#[async_trait::async_trait]
+impl JobHandler for {handler_name}Handler {{
+    async fn handle(&self, payload: serde_json::Value) -> Result<(), AppError> {{
+        // TODO: implement job processing
+        tracing::info!(payload = %payload, "Processing job");
+        Ok(())
+    }}
+}}
+"#,
+        handler_name = to_pascal_case(name),
+    );
+    fs::write(&job_file, job_rs)?;
+
+    println!("Created job handler '{name}' at src/jobs/{name}.rs");
+    println!();
+    println!("Spawn a job:");
+    println!("  ctx.tools.register_job(arqen::JobMetadata {{");
+    println!("      name: \"{name}\".to_string(),");
+    println!("      queue: \"default\".to_string(),");
+    println!("      ..Default::default()");
+    println!("  }}));");
+    Ok(())
+}
+
+fn to_pascal_case(s: &str) -> String {
+    s.split('_')
+        .map(|word| {
+            let mut chars = word.chars();
+            match chars.next() {
+                None => String::new(),
+                Some(c) => c.to_uppercase().to_string() + &chars.as_str().to_lowercase(),
+            }
+        })
+        .collect()
 }
 
 #[tokio::main]
@@ -184,9 +397,14 @@ async fn main() -> anyhow::Result<()> {
     let cli = Cli::parse();
 
     match cli.command {
-        Commands::New { name, template } => {
-            generate_project(&name, &template)?;
+        Commands::New { name } => {
+            generate_project(&name)?;
         }
+        Commands::Generate { kind } => match kind {
+            GenerateKind::Module { name } => generate_module(&name)?,
+            GenerateKind::Tool { name } => generate_tool(&name)?,
+            GenerateKind::Job { name } => generate_job(&name)?,
+        },
         Commands::Dev {
             host,
             port,

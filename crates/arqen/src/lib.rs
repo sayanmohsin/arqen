@@ -25,6 +25,7 @@
 //! ```
 
 pub mod agent;
+pub mod app;
 pub mod auth;
 pub mod config;
 pub mod core;
@@ -33,6 +34,7 @@ pub mod jobs;
 pub mod module;
 pub mod observability;
 pub mod openapi;
+pub mod prelude;
 pub mod state;
 pub mod thingd;
 
@@ -71,8 +73,9 @@ pub use validation::{FieldError, Validate, Validated, ValidationErrors};
 
 #[cfg(feature = "http-server")]
 pub use http::{
-    Authenticated, auth_middleware, create_router, create_router_with_state,
-    create_router_with_state_and_routes, nest_routes, optional_auth_middleware,
+    Authenticated, HttpModule, auth_middleware, create_router, create_router_with_state,
+    create_router_with_state_and_routes, merge_module_routes, nest_routes,
+    optional_auth_middleware,
 };
 #[cfg(feature = "logging")]
 pub use logging::{init_logging, init_logging_with_config};

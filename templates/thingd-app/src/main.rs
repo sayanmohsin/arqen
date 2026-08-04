@@ -1,15 +1,27 @@
-use arqen::http::create_router;
-use std::net::SocketAddr;
+use arqen::app::ArqenApp;
+use arqen::module::Module;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     arqen::logging::init_logging("info", "pretty");
-    
-    let addr: SocketAddr = "127.0.0.1:3000".parse()?;
-    let router = create_router();
-    
-    println!("Starting {{project_name}} on {}", addr);
-    
-    arqen::http::start_server(addr, router).await?;
-    Ok(())
+
+    ArqenApp::builder()
+        .name("{{project_name}}")
+        .module(AppModule)
+        .build()?
+        .start()
+        .await
+}
+
+struct AppModule;
+
+#[async_trait::async_trait]
+impl Module for AppModule {
+    fn name(&self) -> &str {
+        "app"
+    }
+
+    async fn health_check(&self) -> arqen::module::ModuleHealth {
+        arqen::module::ModuleHealth::Healthy
+    }
 }

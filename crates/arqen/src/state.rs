@@ -7,6 +7,7 @@ use std::sync::Arc;
 use crate::agent::ToolRegistry;
 use crate::config::{AppConfig, ConfigError};
 use crate::health::HealthRegistry;
+use crate::module::{Module, ModuleBuilder, ModuleGraphError};
 use crate::thingd::{MemoryThingdBackend, ThingdBackend};
 
 /// Application state shared across all handlers.
@@ -98,6 +99,44 @@ impl AppStateBuilder {
         self
     }
 
+    /// Register modules and auto-configure tool and health registries.
+    ///
+    /// This validates the module graph, registers tools and health checks
+    /// from each module, and sets up the health registry. Modules are
+    /// registered in dependency order.
+    ///
+    /// # Errors
+    ///
+    /// Returns `ModuleGraphError` if the module graph has duplicates,
+    /// missing dependencies, or cycles.
+    pub fn with_modules<M: Module + 'static>(
+        mut self,
+        modules: Vec<M>,
+    ) -> Result<Self, ModuleGraphError> {
+        let mut module_builder = ModuleBuilder::new();
+        for module in modules {
+            module_builder = module_builder.register(module);
+        }
+        module_builder.validate()?;
+
+        // Create fresh registries and register module capabilities
+        let mut tools = ToolRegistry::new(
+            &format!("{}-app", env!("CARGO_PKG_NAME")),
+            env!("CARGO_PKG_VERSION"),
+            "An Arqen application",
+            "memory",
+        );
+        let mut health = HealthRegistry::new();
+
+        // Safe to unwrap: we already validated the module graph above
+        module_builder.register_all(&mut tools, &mut health).ok();
+
+        self.tool_registry = Some(Arc::new(tools));
+        self.health_registry = Some(Arc::new(health));
+
+        Ok(self)
+    }
+
     /// Build the `AppState`.
     ///
     /// If no storage is provided, creates a `MemoryThingdBackend`.
@@ -187,5 +226,73 @@ mod tests {
             .unwrap();
 
         assert_eq!(state.tool_registry.generate_manifest().name, "test-app");
+    }
+
+    #[test]
+    fn test_app_state_builder_with_modules() {
+        use crate::agent::{ToolEffect, ToolMetadata};
+        use crate::module::{ModuleContext, ModuleHealth};
+
+        struct UsersModule;
+
+        #[async_trait::async_trait]
+        impl crate::module::Module for UsersModule {
+            fn name(&self) -> &str {
+                "users"
+            }
+
+            fn register(&self, ctx: &mut ModuleContext<'_>) -> Result<(), crate::core::AppError> {
+                ctx.tools.register_tool(ToolMetadata {
+                    name: "get_user".to_string(),
+                    description: "Get a user by ID".to_string(),
+                    input: serde_json::json!({"type": "object"}),
+                    output: serde_json::json!({"type": "object"}),
+                    scopes: vec!["read:users".to_string()],
+                    effect: ToolEffect::Read,
+                    idempotent: true,
+                    enqueues_job: None,
+                    timeout: None,
+                });
+                Ok(())
+            }
+
+            async fn health_check(&self) -> ModuleHealth {
+                ModuleHealth::Healthy
+            }
+        }
+
+        let state = AppState::builder()
+            .with_modules(vec![UsersModule])
+            .unwrap()
+            .build()
+            .unwrap();
+
+        // Tool was registered
+        assert!(state.tool_registry.get_tool("get_user").is_some());
+
+        // Health registry was created with module's health check
+        let health = state.health_registry.unwrap();
+        let rt = tokio::runtime::Runtime::new().unwrap();
+        let report = rt.block_on(health.check_liveness());
+        assert_eq!(report.checks.len(), 1);
+        assert_eq!(report.checks[0].name, "users");
+    }
+
+    #[test]
+    fn test_app_state_builder_with_modules_validation_error() {
+        struct DepModule;
+
+        #[async_trait::async_trait]
+        impl crate::module::Module for DepModule {
+            fn name(&self) -> &str {
+                "app"
+            }
+            fn dependencies(&self) -> Vec<&str> {
+                vec!["nonexistent"]
+            }
+        }
+
+        let result = AppState::builder().with_modules(vec![DepModule]);
+        assert!(result.is_err());
     }
 }
