@@ -2,6 +2,74 @@ use arqen::thingd::MemoryThingdBackend;
 use arqen::thingd::*;
 use serde_json::json;
 
+#[cfg(feature = "http-server")]
+mod http_composition {
+    use arqen::AppState;
+    use axum::Router;
+    use axum::body::Body;
+    use axum::extract::FromRef;
+    use axum::extract::State;
+    use axum::http::{Request, StatusCode};
+    use axum::routing::get;
+    use tower::ServiceExt;
+
+    #[derive(Clone)]
+    struct CustomState {
+        arqen: AppState,
+        label: String,
+    }
+
+    impl FromRef<CustomState> for AppState {
+        fn from_ref(state: &CustomState) -> Self {
+            state.arqen.clone()
+        }
+    }
+
+    async fn app_handler(State(state): State<CustomState>) -> String {
+        state.label
+    }
+
+    #[tokio::test]
+    async fn test_builtin_routes_mount_on_custom_state() {
+        let app_state = AppState::builder().build().unwrap();
+
+        let router: Router<CustomState> =
+            arqen::http::builtin_routes(&app_state).route("/api/hello", get(app_handler));
+        let router = router.with_state(CustomState {
+            arqen: app_state,
+            label: "hello".to_string(),
+        });
+
+        for path in ["/health", "/ready", "/agent", "/agent/manifest", "/docs"] {
+            let response = router
+                .clone()
+                .oneshot(Request::builder().uri(path).body(Body::empty()).unwrap())
+                .await
+                .unwrap();
+            assert_eq!(
+                response.status(),
+                StatusCode::OK,
+                "path {path} should respond"
+            );
+        }
+
+        let response = router
+            .oneshot(
+                Request::builder()
+                    .uri("/api/hello")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(response.status(), StatusCode::OK);
+        let body = axum::body::to_bytes(response.into_body(), 1024)
+            .await
+            .unwrap();
+        assert_eq!(&body[..], b"hello");
+    }
+}
+
 async fn create_backend() -> Box<dyn ThingdBackend> {
     Box::new(MemoryThingdBackend::new())
 }

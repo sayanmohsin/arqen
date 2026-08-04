@@ -10,6 +10,7 @@ pub use middleware_log::logging_middleware;
 pub use module::{HttpModule, merge_module_routes};
 pub use routes::{agent, agent_manifest, docs, health, ready};
 
+use axum::extract::FromRef;
 use axum::{Router, http::StatusCode, middleware, routing::get};
 use std::net::SocketAddr;
 use tokio::net::TcpListener;
@@ -25,6 +26,77 @@ pub fn create_router() -> Router {
         .build()
         .expect("failed to build default state");
     create_router_with_state(state)
+}
+
+/// Build Arqen's built-in routes without resolving state.
+///
+/// Returns a [`Router<S>`] containing the built-in Arqen routes (`/health`,
+/// `/ready`, `/agent`, `/agent/manifest`, `/docs`) and standard middleware
+/// (CORS, timeout, body limit, correlation ID, request logging), leaving the
+/// router's state unresolved.
+///
+/// The generic state `S` lets applications with arbitrary typed state mount
+/// the built-in routes. The built-in handlers extract an [`AppState`] sub-state
+/// from `S`, so `S` must expose one via [`FromRef`]. When `S` is [`AppState`]
+/// itself the blanket `FromRef` impl applies.
+///
+/// # Example
+///
+/// ```rust,ignore
+/// use arqen::http::builtin_routes;
+/// use arqen::AppState;
+/// use axum::{Router, routing::get, extract::FromRef};
+///
+/// #[derive(Clone)]
+/// struct MyState {
+///     arqen: AppState,
+/// }
+///
+/// impl FromRef<MyState> for AppState {
+///     fn from_ref(state: &MyState) -> Self {
+///         state.arqen.clone()
+///     }
+/// }
+///
+/// async fn my_handler() -> &'static str { "hello" }
+///
+/// let app_state = AppState::builder().build().unwrap();
+///
+/// let router: Router<MyState> = builtin_routes(&app_state)
+///     .route("/api/hello", get(my_handler));
+/// let router = router.with_state(MyState { arqen: app_state });
+/// // Built-in: GET /health, GET /ready, GET /agent, GET /agent/manifest, GET /docs
+/// // App:      GET /api/hello
+/// ```
+pub fn builtin_routes<S>(state: &AppState) -> Router<S>
+where
+    S: Clone + Send + Sync + 'static,
+    AppState: FromRef<S>,
+{
+    let cors = CorsLayer::new()
+        .allow_origin(Any)
+        .allow_methods(Any)
+        .allow_headers(Any);
+
+    let timeout = TimeoutLayer::with_status_code(
+        StatusCode::GATEWAY_TIMEOUT,
+        state.config.server.request_timeout,
+    );
+    let body_limit = RequestBodyLimitLayer::new(state.config.server.max_body_size);
+
+    Router::new()
+        .route("/health", get(routes::health))
+        .route("/ready", get(routes::ready))
+        .route("/agent", get(routes::agent))
+        .route("/agent/manifest", get(routes::agent_manifest))
+        .route("/docs", get(routes::docs))
+        .layer(body_limit)
+        .layer(timeout)
+        .layer(cors)
+        .layer(middleware::from_fn(
+            middleware_correlation::correlation_id_middleware,
+        ))
+        .layer(middleware::from_fn(middleware_log::logging_middleware))
 }
 
 /// Create a router with the given app state.
@@ -44,32 +116,10 @@ pub fn create_router() -> Router {
 ///     .nest("/api/v1", my_routes)
 ///     .merge(arqen_router);
 /// ```
+///
+/// For applications that use arbitrary typed state, see [`builtin_routes`].
 pub fn create_router_with_state(state: AppState) -> Router {
-    let cors = CorsLayer::new()
-        .allow_origin(Any)
-        .allow_methods(Any)
-        .allow_headers(Any);
-
-    let timeout = TimeoutLayer::with_status_code(
-        StatusCode::GATEWAY_TIMEOUT,
-        state.config.server.request_timeout,
-    );
-    let body_limit = RequestBodyLimitLayer::new(state.config.server.max_body_size);
-
-    Router::new()
-        .route("/health", get(routes::health))
-        .route("/ready", get(routes::ready))
-        .route("/agent", get(routes::agent))
-        .route("/agent/manifest", get(routes::agent_manifest))
-        .route("/docs", get(routes::docs))
-        .with_state(state)
-        .layer(body_limit)
-        .layer(timeout)
-        .layer(cors)
-        .layer(middleware::from_fn(
-            middleware_correlation::correlation_id_middleware,
-        ))
-        .layer(middleware::from_fn(middleware_log::logging_middleware))
+    builtin_routes::<AppState>(&state).with_state(state)
 }
 
 /// Create a router with the given app state, merged with application routes.
@@ -78,6 +128,9 @@ pub fn create_router_with_state(state: AppState) -> Router {
 /// It combines the built-in Arqen routes with user-provided routes in a single
 /// call. Application routes are merged at the root level, so you can use
 /// [`axum::Router::nest`] inside `app_routes` to namespace them.
+///
+/// For applications that use arbitrary typed state, use [`builtin_routes`] and
+/// merge your routes into the resulting [`Router`] yourself.
 ///
 /// # Example
 ///
@@ -166,6 +219,7 @@ async fn shutdown_signal() {
 mod tests {
     use super::*;
     use axum::body::Body;
+    use axum::extract::State;
     use axum::http::{Request, StatusCode};
     use axum::routing::get;
     use tower::ServiceExt;
@@ -327,5 +381,61 @@ mod tests {
             .await
             .unwrap();
         assert_eq!(response.status(), StatusCode::NOT_FOUND);
+    }
+
+    #[derive(Clone)]
+    struct CustomState {
+        arqen: AppState,
+        custom: String,
+    }
+
+    impl FromRef<CustomState> for AppState {
+        fn from_ref(state: &CustomState) -> Self {
+            state.arqen.clone()
+        }
+    }
+
+    async fn custom_state_handler(State(state): State<CustomState>) -> String {
+        state.custom
+    }
+
+    fn custom_state_router() -> Router<CustomState> {
+        let app_state = AppState::builder().build().unwrap();
+        builtin_routes::<CustomState>(&app_state).route("/custom", get(custom_state_handler))
+    }
+
+    #[tokio::test]
+    async fn test_builtin_routes_with_custom_state() {
+        let app_state = AppState::builder().build().unwrap();
+        let router = custom_state_router().with_state(CustomState {
+            arqen: app_state,
+            custom: "hello".to_string(),
+        });
+
+        for path in ["/health", "/ready", "/agent", "/agent/manifest", "/docs"] {
+            let response = router
+                .clone()
+                .oneshot(Request::builder().uri(path).body(Body::empty()).unwrap())
+                .await
+                .unwrap();
+            assert_eq!(
+                response.status(),
+                StatusCode::OK,
+                "path {path} should respond"
+            );
+        }
+
+        let app = router
+            .oneshot(
+                Request::builder()
+                    .uri("/custom")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(app.status(), StatusCode::OK);
+        let body = axum::body::to_bytes(app.into_body(), 1024).await.unwrap();
+        assert_eq!(&body[..], b"hello");
     }
 }
