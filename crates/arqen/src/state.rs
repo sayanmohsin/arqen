@@ -7,7 +7,7 @@ use std::sync::Arc;
 use crate::agent::ToolRegistry;
 use crate::config::{AppConfig, ConfigError};
 use crate::health::HealthRegistry;
-use crate::module::{Module, ModuleBuilder, ModuleGraphError};
+use crate::module::{Module, ModuleBuilder, ModuleError};
 use crate::thingd::{MemoryThingdBackend, ThingdBackend};
 
 /// Application state shared across all handlers.
@@ -107,12 +107,12 @@ impl AppStateBuilder {
     ///
     /// # Errors
     ///
-    /// Returns `ModuleGraphError` if the module graph has duplicates,
-    /// missing dependencies, or cycles.
+    /// Returns `ModuleError` if the module graph has duplicates, missing
+    /// dependencies, cycles, or if a module's `register()` call fails.
     pub fn with_modules<M: Module + 'static>(
         mut self,
         modules: Vec<M>,
-    ) -> Result<Self, ModuleGraphError> {
+    ) -> Result<Self, ModuleError> {
         let mut module_builder = ModuleBuilder::new();
         for module in modules {
             module_builder = module_builder.register(module);
@@ -128,8 +128,7 @@ impl AppStateBuilder {
         );
         let mut health = HealthRegistry::new();
 
-        // Safe to unwrap: we already validated the module graph above
-        module_builder.register_all(&mut tools, &mut health).ok();
+        module_builder.register_all(&mut tools, &mut health)?;
 
         self.tool_registry = Some(Arc::new(tools));
         self.health_registry = Some(Arc::new(health));

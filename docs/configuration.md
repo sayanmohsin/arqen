@@ -7,7 +7,7 @@ Arqen applications are configured through environment variables and optional con
 | Variable | Description | Default |
 |---|---|---|
 | `ARQEN_HOST` | Bind address for the HTTP server | `127.0.0.1` |
-| `ARQEN_PORT` | Port for the HTTP server | `3000` |
+| `ARQEN_PORT` | Port for the HTTP server | `8888` |
 | `ARQEN_STORAGE_MODE` | thingd storage mode (`memory`, `persistent`, `http`) | `memory` |
 | `ARQEN_PERSISTENT_PATH` | Native durable thingd storage path | unset; required for `persistent` |
 | `ARQEN_THINGD_URL` | thingd HTTP service URL | unset; required for `http` |
@@ -36,7 +36,7 @@ Example `arqen.toml`:
 ```toml
 [server]
 host = "127.0.0.1"
-port = 3000
+port = 8888
 
 [logging]
 level = "info"
@@ -69,10 +69,10 @@ When an Arqen application starts, it prints a banner with essential information:
 ```text
 ╔══════════════════════════════════════════════╗
 ║  Arqen v0.3.0                               ║
-║  API:        http://127.0.0.1:3000           ║
-║  Health:     http://127.0.0.1:3000/health    ║
-║  Docs:       http://127.0.0.1:3000/docs      ║
-║  Agent:      http://127.0.0.1:3000/agent     ║
+║  API:        http://127.0.0.1:8888           ║
+║  Health:     http://127.0.0.1:8888/health    ║
+║  Docs:       http://127.0.0.1:8888/docs      ║
+║  Agent:      http://127.0.0.1:8888/agent     ║
 ║  Storage:    memory                          ║
 ║  Workers:    enabled                         ║
 ║  Hot reload: external cargo-watch (dev only) ║

@@ -60,7 +60,7 @@ manifests.
 ## Start locally
 
 ```bash
-cargo run -p arqen --features cli --bin arqen -- new hello-api --template thingd-app
+cargo run -p arqen --features cli --bin arqen -- new hello-api
 cd hello-api
 cargo run
 ```
@@ -69,7 +69,7 @@ Or run the workspace server directly:
 
 ```bash
 cargo run -p arqen --features cli --bin arqen -- dev --storage memory
-curl http://127.0.0.1:3000/health
+curl http://127.0.0.1:8888/health
 ```
 
 ## Architecture

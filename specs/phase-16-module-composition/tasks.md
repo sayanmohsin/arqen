@@ -1,12 +1,21 @@
 # Tasks
 
-- [ ] Define `Module` trait for module composition
-- [ ] Create `ModuleBuilder` for registering modules
-- [ ] Implement `AuthModule` (routes, middleware, state)
-- [ ] Implement `StorageModule` (routes, middleware, state)
-- [ ] Implement `AgentModule` (routes, middleware, state)
-- [ ] Create `AppBuilder` for composing modules
-- [ ] Add module state composition
-- [ ] Add module layer composition
-- [ ] Add module tests (composition, state, layers)
-- [ ] Update examples to use module composition
+- [x] Define `Module` trait with lifecycle hooks (name, routes, dependencies, register, init, shutdown, health_check)
+- [x] Create `ModuleBuilder` with dependency validation (duplicates, missing deps, cycle detection via DFS)
+- [x] Implement topological ordering for dependency-resolved initialization/shutdown
+- [x] Create `ModuleContext` for tool and health registration
+- [x] Define `ModuleHealth` enum (Healthy, Degraded, Unhealthy)
+- [x] Define `ModuleGraphError` enum (DuplicateModule, MissingDependency, DependencyCycle)
+- [x] Define `ModuleError` enum (Graph, Registration) for top-level module errors
+- [x] Implement `register_all()` for registering tools and health checks in dependency order
+- [x] Implement `init_all()` and `shutdown_all()` lifecycle methods on ModuleBuilder
+- [x] Create `HttpModule` trait (feature-gated on http-server) for HTTP route composition
+- [x] Implement `merge_module_routes()` for combining module routers
+- [x] Create `ArqenApp` / `ArqenAppBuilder` with builder pattern
+- [x] Wire async lifecycle in `ArqenApp::start()` (init → server → shutdown)
+- [x] Implement best-effort shutdown with logging
+- [x] Add `AppStateBuilder::with_modules()` for module registration
+- [x] Add CLI generators: `arqen new`, `arqen generate module/tool/job`
+- [x] Add prelude module for ergonomic re-exports
+- [x] Write comprehensive tests (243+ passing)
+- [x] Verify no hidden DI, no automatic handler discovery, explicit AppState composition

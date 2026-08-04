@@ -9,10 +9,11 @@ use std::sync::Arc;
 
 use async_trait::async_trait;
 
+use crate::HealthCheck;
 use crate::agent::ToolRegistry;
+use crate::config::ConfigError;
 use crate::core::{AppError, ErrorKind};
 use crate::health::{HealthRegistry, HealthStatus};
-use crate::HealthCheck;
 
 /// Errors from module graph validation.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -46,6 +47,69 @@ impl fmt::Display for ModuleGraphError {
 }
 
 impl std::error::Error for ModuleGraphError {}
+
+/// Top-level error for module operations.
+///
+/// Combines graph validation errors (configuration-time) with registration
+/// errors (runtime `Module::register()` failures). Registration failures
+/// are actionable application errors, not internal errors.
+#[derive(Debug)]
+pub enum ModuleError {
+    /// The module graph has structural problems (duplicates, missing deps, cycles).
+    Graph(ModuleGraphError),
+    /// A module's `register()` call failed.
+    Registration {
+        /// Name of the module that failed registration.
+        module: String,
+        /// Description of the failure.
+        message: String,
+    },
+    /// Application configuration failed while building the module-based app.
+    Configuration(ConfigError),
+}
+
+impl fmt::Display for ModuleError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            ModuleError::Graph(e) => write!(f, "{e}"),
+            ModuleError::Registration { module, message } => {
+                write!(f, "module '{module}' registration failed: {message}")
+            }
+            ModuleError::Configuration(error) => write!(f, "configuration failed: {error}"),
+        }
+    }
+}
+
+impl std::error::Error for ModuleError {
+    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+        match self {
+            ModuleError::Graph(e) => Some(e),
+            ModuleError::Registration { .. } => None,
+            ModuleError::Configuration(error) => Some(error),
+        }
+    }
+}
+
+impl From<ModuleGraphError> for ModuleError {
+    fn from(e: ModuleGraphError) -> Self {
+        ModuleError::Graph(e)
+    }
+}
+
+impl From<AppError> for ModuleError {
+    fn from(e: AppError) -> Self {
+        ModuleError::Registration {
+            module: String::new(),
+            message: e.to_string(),
+        }
+    }
+}
+
+impl From<ConfigError> for ModuleError {
+    fn from(error: ConfigError) -> Self {
+        ModuleError::Configuration(error)
+    }
+}
 
 /// Trait for application modules.
 #[async_trait]

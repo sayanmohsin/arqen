@@ -11,6 +11,6 @@ pub use crate::app::ArqenApp;
 pub use crate::config::AppConfig;
 pub use crate::core::{AppError, ErrorKind};
 pub use crate::jobs::JobHandler;
-pub use crate::module::{Module, ModuleContext, ModuleHealth};
+pub use crate::module::{Module, ModuleContext, ModuleError, ModuleHealth};
 
 pub use async_trait::async_trait;

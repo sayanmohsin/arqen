@@ -47,7 +47,7 @@ focused on one package.
 From a checkout:
 
 ```bash
-cargo run -p arqen --features cli --bin arqen -- new hello-api --template thingd-app
+cargo run -p arqen --features cli --bin arqen -- new hello-api
 cd hello-api
 cargo run
 ```
@@ -56,7 +56,7 @@ For the workspace server itself:
 
 ```bash
 cargo run -p arqen --features cli --bin arqen -- dev --storage memory
-curl http://127.0.0.1:3000/health
+curl http://127.0.0.1:8888/health
 ```
 
 The current CLI also supports `start`, `check`, and `doctor`. `dev` currently

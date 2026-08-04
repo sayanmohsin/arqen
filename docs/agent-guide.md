@@ -15,8 +15,8 @@ result.
 Run an application and inspect:
 
 ```bash
-curl http://127.0.0.1:3000/agent
-curl http://127.0.0.1:3000/agent/manifest
+curl http://127.0.0.1:8888/agent
+curl http://127.0.0.1:8888/agent/manifest
 ```
 
 The manifest is a public description of endpoints, tools, jobs, and runtime

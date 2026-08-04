@@ -21,7 +21,8 @@ arqen/
       src/openapi.rs
       src/state.rs
       src/testutil.rs
-  templates/
+  # `arqen new` writes the starter structure directly; there is no checked-in
+  # template directory.
   examples/
   docs/
 ```
@@ -30,4 +31,5 @@ Keep the modules composable inside the public `arqen` crate. Core types stay
 independent of Axum and model providers; the thingd module owns storage and
 queue adapters. The CLI is enabled with the `cli` feature and is not a second
 published package. Templates should be replaceable without changing
+application domain code. Generated scaffolding is replaceable without changing
 application domain code.

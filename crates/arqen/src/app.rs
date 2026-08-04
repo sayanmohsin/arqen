@@ -9,7 +9,7 @@ use std::sync::Arc;
 
 use crate::config::AppConfig;
 use crate::http::{create_router_with_state, start_server};
-use crate::module::{Module, ModuleBuilder, ModuleGraphError};
+use crate::module::{Module, ModuleBuilder, ModuleError};
 use crate::state::AppState;
 
 /// A convenience wrapper for building and running Arqen applications.
@@ -43,6 +43,7 @@ use crate::state::AppState;
 /// ```
 pub struct ArqenApp {
     state: AppState,
+    module_builder: ModuleBuilder,
 }
 
 impl ArqenApp {
@@ -56,8 +57,25 @@ impl ArqenApp {
         &self.state
     }
 
+    /// Get a reference to the module builder.
+    pub fn module_builder(&self) -> &ModuleBuilder {
+        &self.module_builder
+    }
+
     /// Start the server and run until shutdown signal.
+    ///
+    /// Lifecycle:
+    /// 1. Initialize all modules in dependency order
+    /// 2. Start the HTTP server
+    /// 3. Wait for `ctrl_c` or server error
+    /// 4. Shutdown all modules in reverse dependency order (best-effort)
     pub async fn start(self) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+        // 1. Initialize modules in dependency order
+        if let Err(e) = self.module_builder.init_all().await {
+            tracing::error!(error = %e, "module initialization failed");
+            return Err(e);
+        }
+
         let addr: SocketAddr = format!(
             "{}:{}",
             self.state.config.server.host, self.state.config.server.port
@@ -67,7 +85,25 @@ impl ArqenApp {
         let router = create_router_with_state(self.state);
 
         tracing::info!("Starting Arqen app on {}", addr);
-        start_server(addr, router).await
+
+        // 2. Start server, wait for shutdown signal
+        let server_result = tokio::select! {
+            result = start_server(addr, router) => result,
+            _ = tokio::signal::ctrl_c() => {
+                tracing::info!("shutdown signal received");
+                Ok(())
+            }
+        };
+
+        // 3. Best-effort shutdown: always attempt every module, log errors
+        if let Err(e) = self.module_builder.shutdown_all().await {
+            tracing::error!(error = %e, "module shutdown failed");
+            if server_result.is_ok() {
+                return Err(e);
+            }
+        }
+
+        server_result
     }
 }
 
@@ -120,10 +156,14 @@ impl ArqenAppBuilder {
     ///
     /// # Errors
     ///
-    /// Returns `ModuleGraphError` if the module graph is invalid.
-    pub fn build(self) -> Result<ArqenApp, ModuleGraphError> {
+    /// Returns `ModuleError` if the module graph is invalid or if a
+    /// module's `register()` call fails.
+    pub fn build(self) -> Result<ArqenApp, ModuleError> {
         if let Some(state) = self.state {
-            return Ok(ArqenApp { state });
+            return Ok(ArqenApp {
+                state,
+                module_builder: ModuleBuilder::new(),
+            });
         }
 
         let mut builder = AppState::builder();
@@ -132,9 +172,10 @@ impl ArqenAppBuilder {
             builder = builder.with_config(config);
         }
 
-        // Validate module graph if modules are present
+        let mut module_builder = ModuleBuilder::new();
+
+        // Validate module graph and register tools/health if modules are present
         if !self.modules.is_empty() {
-            let mut module_builder = ModuleBuilder::new();
             for module in &self.modules {
                 module_builder = module_builder.register_arc(module.clone());
             }
@@ -148,20 +189,19 @@ impl ArqenAppBuilder {
                 "memory",
             );
             let mut health = crate::health::HealthRegistry::new();
-            module_builder
-                .register_all(&mut tools, &mut health)
-                .ok();
+            module_builder.register_all(&mut tools, &mut health)?;
 
             builder = builder
                 .with_tool_registry(tools)
                 .with_health_registry(health);
         }
 
-        let state = builder
-            .build()
-            .map_err(|e| ModuleGraphError::DuplicateModule(e.to_string()))?;
+        let state = builder.build().map_err(ModuleError::from)?;
 
-        Ok(ArqenApp { state })
+        Ok(ArqenApp {
+            state,
+            module_builder,
+        })
     }
 }
 
@@ -188,15 +228,14 @@ mod tests {
     fn test_arqen_app_builder_no_modules() {
         let app = ArqenApp::builder().build().unwrap();
         assert_eq!(app.state.config.server.port, 8888);
+        assert_eq!(app.module_builder.module_count(), 0);
     }
 
     #[test]
     fn test_arqen_app_builder_with_module() {
-        let app = ArqenApp::builder()
-            .module(TestModule)
-            .build()
-            .unwrap();
+        let app = ArqenApp::builder().module(TestModule).build().unwrap();
         assert_eq!(app.state.config.server.port, 8888);
+        assert_eq!(app.module_builder.module_count(), 1);
     }
 
     #[test]
@@ -217,6 +256,7 @@ mod tests {
         let state = AppState::builder().build().unwrap();
         let app = ArqenApp::builder().state(state).build().unwrap();
         assert_eq!(app.state.config.server.port, 8888);
+        assert_eq!(app.module_builder.module_count(), 0);
     }
 
     #[test]
@@ -234,5 +274,12 @@ mod tests {
 
         let result = ArqenApp::builder().module(DepModule).build();
         assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_arqen_app_module_builder_accessor() {
+        let app = ArqenApp::builder().module(TestModule).build().unwrap();
+        assert_eq!(app.module_builder().module_count(), 1);
+        assert_eq!(app.module_builder().module_names(), vec!["test"]);
     }
 }

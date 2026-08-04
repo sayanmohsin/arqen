@@ -72,6 +72,7 @@ pub fn merge_module_routes(
 mod tests {
     use super::*;
     use async_trait::async_trait;
+    use axum::routing::get;
 
     struct TestModule;
 
@@ -88,6 +89,42 @@ mod tests {
         }
     }
 
+    struct UsersModule;
+
+    #[async_trait]
+    impl crate::module::Module for UsersModule {
+        fn name(&self) -> &str {
+            "users"
+        }
+    }
+
+    impl HttpModule for UsersModule {
+        fn router(&self) -> Router<AppState> {
+            async fn list_users() -> &'static str {
+                "ok"
+            }
+            Router::new().route("/users", get(list_users))
+        }
+    }
+
+    struct JobsModule;
+
+    #[async_trait]
+    impl crate::module::Module for JobsModule {
+        fn name(&self) -> &str {
+            "jobs"
+        }
+    }
+
+    impl HttpModule for JobsModule {
+        fn router(&self) -> Router<AppState> {
+            async fn list_jobs() -> &'static str {
+                "ok"
+            }
+            Router::new().route("/jobs", get(list_jobs))
+        }
+    }
+
     #[test]
     fn test_http_module_router() {
         let module = TestModule;
@@ -95,9 +132,33 @@ mod tests {
     }
 
     #[test]
-    fn test_merge_module_routes() {
+    fn test_merge_module_routes_empty_list() {
+        let base = Router::new();
+        let modules: Vec<Box<dyn HttpModule>> = vec![];
+        let _router = merge_module_routes(base, &modules);
+    }
+
+    #[test]
+    fn test_merge_module_routes_single() {
         let base = Router::new();
         let modules: Vec<Box<dyn HttpModule>> = vec![Box::new(TestModule)];
+        let _router = merge_module_routes(base, &modules);
+    }
+
+    #[test]
+    fn test_merge_module_routes_multiple() {
+        let base = Router::new();
+        let modules: Vec<Box<dyn HttpModule>> = vec![Box::new(UsersModule), Box::new(JobsModule)];
+        let _router = merge_module_routes(base, &modules);
+    }
+
+    #[test]
+    fn test_merge_module_routes_with_base_routes() {
+        async fn health() -> &'static str {
+            "ok"
+        }
+        let base = Router::new().route("/health", get(health));
+        let modules: Vec<Box<dyn HttpModule>> = vec![Box::new(UsersModule)];
         let _router = merge_module_routes(base, &modules);
     }
 }

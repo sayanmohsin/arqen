@@ -18,10 +18,10 @@ design exists; it does not mean every production path is complete.
 | Durable jobs and workers | Available / partial | Queue semantics, retries, leases, idempotency, dead letters, shutdown hooks, structured job logging, and metrics exist; production workloads need failure testing. |
 | Observability | Available / partial | Structured logging, correlation IDs, request metrics, percentiles, uptime, error rate, and status breakdowns exist. OpenTelemetry/Prometheus exporters are not included. |
 | OpenAPI helpers | Available / partial | OpenAPI 3.0.3 generation, security schemes, schemas, and Swagger HTML generation exist; applications must wire and validate their public route document. |
-| Module composition | Available / early | Explicit module registration, dependency ordering, lifecycle hooks, and health hooks exist; Arqen intentionally does not provide hidden automatic DI. |
+| Module composition | Available | `Module` trait with lifecycle hooks (`init`, `shutdown`, `register`, `health_check`), `ModuleBuilder` with dependency validation (duplicates, missing deps, cycle detection), topological ordering, `ModuleContext` for tool/health registration, `ModuleError` for graph and registration errors, `HttpModule` trait for HTTP route composition (feature-gated), `ArqenApp` builder with async lifecycle (init → server → shutdown), CLI generators (`arqen new`, `arqen generate module/tool/job`). No hidden DI, no automatic handler discovery, no framework coupling. |
 | Testing utilities | Available / early | `TestApp`, mock auth, fixtures, request builders, response readers, and assertion macros exist. |
 | Cloud adapter | Future | Depends on a public thingd-cloud customer contract. |
-| CLI `new`, `dev`, `start`, `check`, `doctor` | Available / early | Commands live in the `arqen` package; `dev` does not include an integrated watcher. |
+| CLI `new`, `dev`, `start`, `check`, `doctor`, `generate` | Available / early | Commands live in the `arqen` package; `new` generates module-based apps; `generate` creates modules, tools, and jobs; `dev` does not include an integrated watcher. |
 | Node.js support | Future direction | Planned through HTTP, SDKs, templates, and manifests; no Node package is promised yet. |
 | GitHub Pages docs | Available | Built and deployed from `main`; content follows the active repository documentation. |
 

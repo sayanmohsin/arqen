@@ -46,7 +46,7 @@ arqen/
       src/openapi.rs  # OpenAPI generation helpers
       src/state.rs    # Explicit application state
       src/testutil.rs # Test application and request helpers
-  templates/          # Project templates
+  # CLI-generated project scaffolding is defined in src/bin/arqen.rs
   examples/           # Example applications
   docs/               # Documentation
   specs/              # Phase specifications
@@ -58,4 +58,5 @@ arqen/
 - `arqen::thingd` owns storage and queue adapters.
 - `arqen::jobs` depends on core and thingd contracts.
 - `arqen::http` depends on core and agent modules.
-- The CLI is optional and feature-gated; templates are replaceable without changing application domain code.
+- The CLI is optional and feature-gated; `arqen new` and `arqen generate`
+  create replaceable application scaffolding without changing domain code.

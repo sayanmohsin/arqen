@@ -150,7 +150,10 @@ impl Module for AppModule {
     // src/routes/mod.rs
     let routes_mod = r#"pub mod health;
 "#;
-    fs::write(project_dir.join("src").join("routes").join("mod.rs"), routes_mod)?;
+    fs::write(
+        project_dir.join("src").join("routes").join("mod.rs"),
+        routes_mod,
+    )?;
 
     // src/routes/health.rs
     let health_route = r#"use axum::Json;
@@ -258,7 +261,6 @@ impl Module for {module_name}Module {{
 
     fn register(&self, _ctx: &mut ModuleContext<'_>) -> Result<(), AppError> {{
         // Register tools: ctx.tools.register_tool(...)
-        // Register jobs: ctx.register_job(...)
         Ok(())
     }}
 
@@ -371,12 +373,10 @@ impl JobHandler for {handler_name}Handler {{
 
     println!("Created job handler '{name}' at src/jobs/{name}.rs");
     println!();
-    println!("Spawn a job:");
-    println!("  ctx.tools.register_job(arqen::JobMetadata {{");
-    println!("      name: \"{name}\".to_string(),");
-    println!("      queue: \"default\".to_string(),");
-    println!("      ..Default::default()");
-    println!("  }}));");
+    println!("Next steps:");
+    println!("  1. Add `pub mod {name};` to src/jobs/mod.rs.");
+    println!("  2. Register the job metadata with your application's ToolRegistry.");
+    println!("  3. Configure a worker for the job queue and start it from your app.");
     Ok(())
 }
 

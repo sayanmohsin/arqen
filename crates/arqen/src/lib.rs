@@ -17,7 +17,7 @@
 //!
 //! #[tokio::main]
 //! async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-//!     let addr: SocketAddr = "127.0.0.1:3000".parse()?;
+//!     let addr: SocketAddr = "127.0.0.1:8888".parse()?;
 //!     let router = create_router();
 //!     start_server(addr, router).await?;
 //!     Ok(())
@@ -59,6 +59,9 @@ pub use config::{
 };
 pub use core::{AppError, ErrorKind};
 pub use jobs::{JobConfig, JobHandler, JobWorker, Worker};
+pub use module::{
+    Module, ModuleBuilder, ModuleContext, ModuleError, ModuleGraphError, ModuleHealth,
+};
 pub use state::{AppState, AppStateBuilder};
 pub use thingd::{MemoryThingdBackend, ThingdBackend};
 
