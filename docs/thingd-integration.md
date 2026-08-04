@@ -13,12 +13,13 @@ The adapter boundary should support:
 - full-text and vector search when enabled;
 - links for relationships.
 
-Planned implementations:
+Implemented and planned adapter paths:
 
 ```text
 ThingdBackend
-  +-- MemoryThingdBackend
-  +-- HttpThingdBackend
+  +-- MemoryThingdBackend (implemented)
+  +-- NativeThingdStore (implemented)
+  +-- HttpThingdBackend (implemented; public-contract validation required)
   +-- CloudThingdBackend (optional, future)
 ```
 
@@ -27,3 +28,7 @@ Switching implementations must not change application domain services.
 ## Adapter contract
 
 See [adapter-contract.md](adapter-contract.md) for the full trait definition, data types, and implementation details.
+
+Native durable and HTTP modes should be treated as deployment-specific paths
+until recovery, timeout, retry, and compatibility tests have been run against
+the target thingd version. Cloud hosting is not implemented by this package.

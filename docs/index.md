@@ -43,9 +43,11 @@ features:
 ---
 
 ::: warning Early-stage project
-Arqen is Rust-first and actively maturing. Native durable thingd migration,
-public HTTP parity, and CLI/template completion are still project gates. Check
-the [feature status](./feature-status.md) before adopting a capability.
+Arqen is Rust-first and actively maturing. The core framework and CLI are
+implemented in one package, but production adoption still requires validating
+durability, public thingd compatibility, security, and operational behavior for
+the application being built. Check the [feature status](./feature-status.md)
+before adopting a capability.
 :::
 
 ## Rust-first implementation, language-agnostic direction
@@ -58,7 +60,7 @@ manifests.
 ## Start locally
 
 ```bash
-cargo run -p arqen-cli -- new hello-api --template thingd-app
+cargo run -p arqen --features cli --bin arqen -- new hello-api --template thingd-app
 cd hello-api
 cargo run
 ```
@@ -66,7 +68,7 @@ cargo run
 Or run the workspace server directly:
 
 ```bash
-cargo run -p arqen-cli -- dev --storage memory
+cargo run -p arqen --features cli --bin arqen -- dev --storage memory
 curl http://127.0.0.1:3000/health
 ```
 

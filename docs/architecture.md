@@ -17,7 +17,7 @@ Arqen thingd adapter
       |
       +-- MemoryThingdBackend for development
       +-- HttpThingdBackend for durable deployment
-      +-- CloudThingdBackend (optional, future)
+      +-- CloudThingdBackend (optional, future public contract)
 ```
 
 Application code depends on domain repositories and job interfaces. It should not depend directly on HTTP clients, provider SDKs, or private cloud modules.
@@ -31,14 +31,21 @@ The public library is one Cargo package with composable internal modules:
 ```text
 arqen/
   crates/
-    arqen/            # Single public Cargo package
+    arqen/            # Single Cargo package, library and CLI
+      src/bin/arqen.rs# Feature-gated CLI binary
       src/core/       # Core types, traits, and errors
       src/http/       # Axum HTTP server, middleware, and routes
       src/agent/      # Agent tool definitions and manifest generation
-      src/thingd/     # thingd adapters (memory, HTTP, cloud)
+      src/auth/       # Authentication adapters and policies
+      src/thingd/     # thingd adapters (memory, native, HTTP)
       src/jobs/       # Durable job types and worker runtime
       src/logging/    # Tracing setup and redaction
-  cli/arqen-cli/      # CLI binary
+      src/config.rs   # Layered typed configuration
+      src/health.rs   # Health and readiness checks
+      src/module.rs   # Explicit module composition
+      src/openapi.rs  # OpenAPI generation helpers
+      src/state.rs    # Explicit application state
+      src/testutil.rs # Test application and request helpers
   templates/          # Project templates
   examples/           # Example applications
   docs/               # Documentation
@@ -51,4 +58,4 @@ arqen/
 - `arqen::thingd` owns storage and queue adapters.
 - `arqen::jobs` depends on core and thingd contracts.
 - `arqen::http` depends on core and agent modules.
-- The CLI and templates are replaceable without changing application domain code.
+- The CLI is optional and feature-gated; templates are replaceable without changing application domain code.

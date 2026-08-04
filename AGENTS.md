@@ -1,6 +1,9 @@
 # Arqen agent notes
 
-Arqen is a production-ready backend framework for agent-ready applications. It provides a single crate with library and CLI binary.
+Arqen is an early-stage backend framework for agent-ready applications. It
+provides a single Cargo package containing the library and feature-gated CLI
+binary. Production use still requires application-specific durability,
+security, compatibility, and operational validation.
 
 ## Architecture
 
@@ -96,6 +99,7 @@ Arqen is a production-ready backend framework for agent-ready applications. It p
 
 ## Testing
 
-- 176 lib tests + 8 contract tests = 184 total
-- `cargo test -p arqen` runs all tests
-- `cargo run -p arqen --features cli` runs CLI
+- The current suite contains 186 library/binary tests plus 8 contract tests.
+- `cargo test -p arqen --all-features` runs the package tests.
+- `cargo clippy -p arqen --all-targets --all-features -- -D warnings` is the lint gate.
+- `cargo run -p arqen --features cli --bin arqen -- --help` runs the CLI.

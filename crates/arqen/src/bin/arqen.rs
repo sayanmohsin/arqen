@@ -21,7 +21,7 @@ enum Commands {
         #[arg(short, long, default_value = "thingd-app")]
         template: String,
     },
-    /// Run the application in development mode with hot reload
+    /// Run the application in development mode
     Dev {
         /// Host to bind to
         #[arg(long, default_value = "127.0.0.1")]
@@ -72,7 +72,7 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-arqen = "0.3"
+arqen = {{ version = "0.3", features = ["logging"] }}
 tokio = {{ version = "1", features = ["full"] }}
 serde = {{ version = "1", features = ["derive"] }}
 serde_json = "1"
@@ -102,7 +102,15 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let readme = format!(
         r#"# {}
 
-An Arqen application generated with the `{}` template.
+An Arqen application generated with the `{}` template. Arqen is a Rust-first
+backend framework for agent-ready applications with typed tools, jobs,
+discoverable APIs, health checks, and thingd integration.
+
+## Package model
+
+This project depends on the single published `arqen` package. The framework
+library and CLI are distributed together; there is no separate `arqen-cli`
+package.
 
 ## Getting started
 
@@ -110,12 +118,58 @@ An Arqen application generated with the `{}` template.
 cargo run
 ```
 
-The server will start on http://127.0.0.1:3000
+The server starts on http://127.0.0.1:3000 with in-memory storage and pretty
+development logging.
 
 ## Endpoints
 
 - GET /health - Liveness check
 - GET /ready - Readiness check
+- GET /agent - Agent/application summary
+- GET /agent/manifest - Machine-readable tools and endpoint manifest
+- GET /docs - HTTP endpoint summary
+
+## Configuration
+
+Arqen loads configuration in this order:
+
+```text
+CLI flags → ARQEN_* environment variables → arqen.toml → defaults
+```
+
+Useful environment variables include:
+
+```bash
+ARQEN_HOST=127.0.0.1
+ARQEN_PORT=3000
+ARQEN_STORAGE_MODE=memory
+ARQEN_LOG_LEVEL=info
+ARQEN_LOG_FORMAT=pretty
+```
+
+Use `ARQEN_STORAGE_MODE=persistent` with `ARQEN_PERSISTENT_PATH` for native
+durable storage, or `ARQEN_STORAGE_MODE=http` with `ARQEN_THINGD_URL` for a
+thingd HTTP service. Validate the chosen mode and recovery behavior before
+production use.
+
+## Development
+
+The generated application has no integrated file watcher. Run an external
+watcher if needed, for example:
+
+```bash
+cargo watch -x run
+```
+
+## Next steps
+
+- Add application routes and typed domain services.
+- Register tools and permissions in the agent manifest.
+- Add validation and authentication to protected routes.
+- Replace memory storage with a validated durable thingd deployment.
+- Run the application and framework tests before release.
+
+Documentation: https://sayanmohsin.github.io/arqen/
 "#,
         name, template
     );

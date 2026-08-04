@@ -19,11 +19,13 @@ programs, and agents alike.
 
 ## Status
 
-Arqen is early-stage. The repository contains working Rust crates and examples
-alongside contracts and planned work. The Rust implementation uses Axum,
-Tokio, Tower, tracing, and native thingd adapters. Native thingd migration,
-public HTTP parity, and CLI/template completion remain important maturity gates.
-Read the [feature status](docs/feature-status.md) before relying on a feature.
+Arqen is an early-stage framework with a working single-package implementation.
+The library, CLI, middleware, configuration, authentication, validation,
+health, jobs, observability, OpenAPI helpers, module composition, and testing
+utilities are available in the `arqen` package. Durable thingd behavior, public
+HTTP parity, security review, and application-specific integration still need
+to be validated for each production deployment. Read the [feature status](docs/feature-status.md)
+before relying on a feature.
 
 The public product positioning is language-agnostic. Rust is the first
 implementation; future Node.js support can arrive through the public HTTP API,
@@ -36,7 +38,7 @@ Most applications can start with the single public facade crate:
 
 ```toml
 [dependencies]
-arqen = "0.1"
+arqen = "0.3"
 ```
 
 The source remains modular internally, while the public distribution stays
@@ -45,7 +47,7 @@ focused on one package.
 From a checkout:
 
 ```bash
-cargo run -p arqen-cli -- new hello-api --template thingd-app
+cargo run -p arqen --features cli --bin arqen -- new hello-api --template thingd-app
 cd hello-api
 cargo run
 ```
@@ -53,7 +55,7 @@ cargo run
 For the workspace server itself:
 
 ```bash
-cargo run -p arqen-cli -- dev --storage memory
+cargo run -p arqen --features cli --bin arqen -- dev --storage memory
 curl http://127.0.0.1:3000/health
 ```
 
@@ -84,8 +86,8 @@ deployment modes:
 | Mode | Purpose | Current posture |
 |---|---|---|
 | Memory | Fast local development and tests | Available in the Rust workspace |
-| Native durable | Embedded durable thingd storage | In progress / migration gate |
-| HTTP sidecar | Separate thingd service boundary | Contract and adapter work exists; parity is still being hardened |
+| Native durable | Embedded durable thingd storage | Implemented; recovery and workload validation remain deployment responsibilities |
+| HTTP sidecar | Separate thingd service boundary | Implemented adapter; validate against the current public thingd contract |
 | Cloud | Optional hosted thingd service | Future, public-contract dependent |
 
 ## What makes Arqen distinct
