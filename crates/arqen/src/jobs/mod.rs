@@ -56,7 +56,9 @@ pub struct JobMetrics {
 impl JobMetrics {
     /// Get average processing time per job.
     pub fn avg_duration_ms(&self) -> u64 {
-        self.total_duration_ms.checked_div(self.processed).unwrap_or(0)
+        self.total_duration_ms
+            .checked_div(self.processed)
+            .unwrap_or(0)
     }
 }
 
@@ -176,7 +178,8 @@ impl JobWorker {
                                 duration_ms = duration_ms,
                                 "Job failed"
                             );
-                            if let Err(e) = self.thingd.nack_job(&self.config.queue, &job.id).await {
+                            if let Err(e) = self.thingd.nack_job(&self.config.queue, &job.id).await
+                            {
                                 error!(
                                     job_id = %job.id,
                                     error = %e,

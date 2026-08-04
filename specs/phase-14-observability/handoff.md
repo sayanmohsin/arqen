@@ -15,6 +15,7 @@
 - Propagated through traces and logs
 
 ## Usage
+
 ```rust
 let config = ObservabilityConfig {
     tracing: TracingConfig {

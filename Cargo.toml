@@ -1,10 +1,7 @@
 [workspace]
 resolver = "2"
-exclude = ["examples/minimal-api", "examples/memory-backend"]
-members = [
-    "crates/arqen",
-    "watchloom",
-]
+exclude = ["examples/minimal-api", "examples/memory-backend", "watchloom"]
+members = ["crates/arqen"]
 
 [workspace.package]
 version = "0.3.0"

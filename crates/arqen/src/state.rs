@@ -88,7 +88,9 @@ impl AppStateBuilder {
     pub fn build(self) -> Result<AppState, ConfigError> {
         let config = self.config.unwrap_or_default();
 
-        let storage = self.storage.unwrap_or_else(|| Arc::new(MemoryThingdBackend::new()));
+        let storage = self
+            .storage
+            .unwrap_or_else(|| Arc::new(MemoryThingdBackend::new()));
 
         let tool_registry = self.tool_registry.unwrap_or_else(|| {
             Arc::new(ToolRegistry::new(
@@ -99,9 +101,9 @@ impl AppStateBuilder {
             ))
         });
 
-        let storage_mode = self.storage_mode.unwrap_or_else(|| {
-            format!("{:?}", config.storage.mode).to_lowercase()
-        });
+        let storage_mode = self
+            .storage_mode
+            .unwrap_or_else(|| format!("{:?}", config.storage.mode).to_lowercase());
 
         let thingd_ready = self.thingd_ready.unwrap_or(true);
 
@@ -143,10 +145,7 @@ mod tests {
             ..Default::default()
         };
 
-        let state = AppState::builder()
-            .with_config(config)
-            .build()
-            .unwrap();
+        let state = AppState::builder().with_config(config).build().unwrap();
 
         assert_eq!(state.config.server.port, 8080);
     }
@@ -154,10 +153,7 @@ mod tests {
     #[tokio::test]
     async fn test_app_state_builder_with_storage() {
         let storage = Arc::new(MemoryThingdBackend::new());
-        let state = AppState::builder()
-            .with_storage(storage)
-            .build()
-            .unwrap();
+        let state = AppState::builder().with_storage(storage).build().unwrap();
 
         assert!(state.storage.count_objects("test").await.is_ok());
     }

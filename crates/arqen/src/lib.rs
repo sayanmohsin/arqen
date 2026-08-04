@@ -49,12 +49,11 @@ pub mod logging;
 
 // Re-export commonly used types at crate root
 pub use agent::{
-    AgentManifest, EndpointMetadata, JobMetadata, ToolEffect, ToolMetadata,
-    ToolRegistry,
+    AgentManifest, EndpointMetadata, JobMetadata, ToolEffect, ToolMetadata, ToolRegistry,
 };
 pub use config::{
-    AppConfig, AuthConfig, CliOverrides, HealthConfig, LoggingConfig, LogFormat,
-    Secret, ServerConfig, StorageConfig, StorageMode, WorkerConfig,
+    AppConfig, AuthConfig, CliOverrides, HealthConfig, LogFormat, LoggingConfig, Secret,
+    ServerConfig, StorageConfig, StorageMode, WorkerConfig,
 };
 pub use core::{AppError, ErrorKind};
 pub use jobs::{JobConfig, JobHandler, JobWorker, Worker};
@@ -68,13 +67,13 @@ pub use health::{HealthCheck, HealthRegistry, HealthReport, HealthStatus, ProbeT
 #[cfg(feature = "http-server")]
 pub use observability::{MetricsReport, RequestMetrics};
 #[cfg(feature = "http-server")]
-pub use validation::{FieldError, Validate, ValidationErrors, Validated};
+pub use validation::{FieldError, Validate, Validated, ValidationErrors};
 
 #[cfg(feature = "http-server")]
 pub use http::{create_router, create_router_with_state};
 #[cfg(feature = "logging")]
 pub use logging::{init_logging, init_logging_with_config};
-#[cfg(feature = "thingd-native")]
-pub use thingd::NativeThingdStore;
 #[cfg(feature = "http-client")]
 pub use thingd::HttpThingdBackend;
+#[cfg(feature = "thingd-native")]
+pub use thingd::NativeThingdStore;

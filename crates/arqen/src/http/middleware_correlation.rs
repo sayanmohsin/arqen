@@ -1,9 +1,4 @@
-use axum::{
-    extract::Request,
-    http::HeaderValue,
-    middleware::Next,
-    response::Response,
-};
+use axum::{extract::Request, http::HeaderValue, middleware::Next, response::Response};
 
 use crate::core::error::CorrelationId;
 
@@ -53,9 +48,7 @@ mod tests {
 
     #[test]
     fn test_correlation_id_generated_when_missing() {
-        let request = Request::builder()
-            .body(Body::empty())
-            .unwrap();
+        let request = Request::builder().body(Body::empty()).unwrap();
 
         let correlation_id = extract_or_generate_correlation_id(&request);
         assert!(!correlation_id.0.is_empty());
@@ -86,9 +79,7 @@ mod tests {
 
     #[test]
     fn test_extract_or_generate_generates_unique_ids() {
-        let request = Request::builder()
-            .body(Body::empty())
-            .unwrap();
+        let request = Request::builder().body(Body::empty()).unwrap();
 
         let id1 = extract_or_generate_correlation_id(&request);
         let id2 = extract_or_generate_correlation_id(&request);

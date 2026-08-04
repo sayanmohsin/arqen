@@ -37,11 +37,11 @@ pub async fn logging_middleware(request: Request, next: Next) -> Response {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use axum::Router;
     use axum::body::Body;
     use axum::http::{Request, StatusCode};
     use axum::response::IntoResponse;
     use axum::routing::get;
-    use axum::Router;
     use tower::ServiceExt;
 
     async fn handler() -> impl IntoResponse {
@@ -54,10 +54,7 @@ mod tests {
             .route("/test", get(handler))
             .layer(axum::middleware::from_fn(logging_middleware));
 
-        let request = Request::builder()
-            .uri("/test")
-            .body(Body::empty())
-            .unwrap();
+        let request = Request::builder().uri("/test").body(Body::empty()).unwrap();
 
         let response = app.oneshot(request).await.unwrap();
 
@@ -80,7 +77,12 @@ mod tests {
         let response = app.oneshot(request).await.unwrap();
 
         assert_eq!(response.status(), StatusCode::OK);
-        let request_id = response.headers().get("x-request-id").unwrap().to_str().unwrap();
+        let request_id = response
+            .headers()
+            .get("x-request-id")
+            .unwrap()
+            .to_str()
+            .unwrap();
         assert_eq!(request_id, "custom-id-123");
     }
 }

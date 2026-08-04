@@ -1,6 +1,11 @@
 use crate::core::error::CorrelationId;
 use crate::state::AppState;
-use axum::{Json, extract::{State, Extension}, http::StatusCode, response::IntoResponse};
+use axum::{
+    Json,
+    extract::{Extension, State},
+    http::StatusCode,
+    response::IntoResponse,
+};
 use serde_json::{Value, json};
 
 pub async fn health(

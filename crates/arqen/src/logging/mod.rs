@@ -1,6 +1,6 @@
 use tracing_subscriber::{EnvFilter, fmt};
 
-use crate::config::{LoggingConfig, LogFormat};
+use crate::config::{LogFormat, LoggingConfig};
 
 pub fn init_logging(log_level: &str, log_format: &str) {
     let filter = EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new(log_level));
@@ -19,8 +19,8 @@ pub fn init_logging(log_level: &str, log_format: &str) {
 }
 
 pub fn init_logging_with_config(config: &LoggingConfig) {
-    let filter = EnvFilter::try_from_default_env()
-        .unwrap_or_else(|_| EnvFilter::new(&config.level));
+    let filter =
+        EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new(&config.level));
 
     match config.format {
         LogFormat::Json => {

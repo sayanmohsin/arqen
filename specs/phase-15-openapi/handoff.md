@@ -5,6 +5,7 @@
 - `OpenApiGenerator::generate(router)` - generate OpenAPI spec
 
 ## Usage
+
 ```rust
 let generator = OpenApiGenerator::new("My API", "1.0.0")
     .with_description("My API description");

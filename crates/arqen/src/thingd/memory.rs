@@ -6,10 +6,16 @@ use uuid::Uuid;
 use crate::core::{AppError, ErrorKind};
 use crate::thingd::traits::*;
 
-fn lock_mutex<'a, T>(mutex: &'a Mutex<T>, name: &'a str) -> Result<std::sync::MutexGuard<'a, T>, AppError> {
-    mutex
-        .lock()
-        .map_err(|e| AppError::new(ErrorKind::Internal, format!("mutex lock poisoned ({name}): {e}")))
+fn lock_mutex<'a, T>(
+    mutex: &'a Mutex<T>,
+    name: &'a str,
+) -> Result<std::sync::MutexGuard<'a, T>, AppError> {
+    mutex.lock().map_err(|e| {
+        AppError::new(
+            ErrorKind::Internal,
+            format!("mutex lock poisoned ({name}): {e}"),
+        )
+    })
 }
 
 /// In-memory implementation of [`ThingdBackend`].
@@ -350,11 +356,7 @@ impl ThingdBackend for MemoryThingdBackend {
         Ok(())
     }
 
-    async fn search(
-        &self,
-        query: &str,
-        options: SearchOptions,
-    ) -> Result<SearchResults, AppError> {
+    async fn search(&self, query: &str, options: SearchOptions) -> Result<SearchResults, AppError> {
         let objects = lock_mutex(&self.objects, "objects")?;
         let mut all_objects: Vec<ThingdObject> = Vec::new();
 
@@ -548,7 +550,10 @@ mod tests {
         let backend = create_backend().await;
         let data = serde_json::json!({"name": "Alice", "age": 30});
 
-        let obj = backend.put_object("users", "user1", data.clone()).await.unwrap();
+        let obj = backend
+            .put_object("users", "user1", data.clone())
+            .await
+            .unwrap();
         assert_eq!(obj.id, "user1");
         assert_eq!(obj.collection, "users");
 
@@ -567,7 +572,10 @@ mod tests {
     #[tokio::test]
     async fn test_delete_object() {
         let backend = create_backend().await;
-        backend.put_object("users", "user1", serde_json::json!({"name": "Alice"})).await.unwrap();
+        backend
+            .put_object("users", "user1", serde_json::json!({"name": "Alice"}))
+            .await
+            .unwrap();
 
         backend.delete_object("users", "user1").await.unwrap();
         let result = backend.get_object("users", "user1").await.unwrap();
@@ -577,9 +585,26 @@ mod tests {
     #[tokio::test]
     async fn test_query_objects_with_filter() {
         let backend = create_backend().await;
-        backend.put_object("users", "u1", serde_json::json!({"name": "Alice", "age": 30})).await.unwrap();
-        backend.put_object("users", "u2", serde_json::json!({"name": "Bob", "age": 25})).await.unwrap();
-        backend.put_object("users", "u3", serde_json::json!({"name": "Charlie", "age": 35})).await.unwrap();
+        backend
+            .put_object(
+                "users",
+                "u1",
+                serde_json::json!({"name": "Alice", "age": 30}),
+            )
+            .await
+            .unwrap();
+        backend
+            .put_object("users", "u2", serde_json::json!({"name": "Bob", "age": 25}))
+            .await
+            .unwrap();
+        backend
+            .put_object(
+                "users",
+                "u3",
+                serde_json::json!({"name": "Charlie", "age": 35}),
+            )
+            .await
+            .unwrap();
 
         let filter = ThingdFilter {
             field: "age".to_string(),
@@ -595,8 +620,14 @@ mod tests {
         let backend = create_backend().await;
         assert_eq!(backend.count_objects("users").await.unwrap(), 0);
 
-        backend.put_object("users", "u1", serde_json::json!({})).await.unwrap();
-        backend.put_object("users", "u2", serde_json::json!({})).await.unwrap();
+        backend
+            .put_object("users", "u1", serde_json::json!({}))
+            .await
+            .unwrap();
+        backend
+            .put_object("users", "u2", serde_json::json!({}))
+            .await
+            .unwrap();
         assert_eq!(backend.count_objects("users").await.unwrap(), 2);
     }
 
@@ -604,13 +635,22 @@ mod tests {
     async fn test_append_and_read_events() {
         let backend = create_backend().await;
 
-        let event1 = backend.append_event("audit", "user.created", serde_json::json!({"id": "u1"})).await.unwrap();
-        let _event2 = backend.append_event("audit", "user.created", serde_json::json!({"id": "u2"})).await.unwrap();
+        let event1 = backend
+            .append_event("audit", "user.created", serde_json::json!({"id": "u1"}))
+            .await
+            .unwrap();
+        let _event2 = backend
+            .append_event("audit", "user.created", serde_json::json!({"id": "u2"}))
+            .await
+            .unwrap();
 
         let events = backend.read_events("audit", None, 10).await.unwrap();
         assert_eq!(events.len(), 2);
 
-        let events_from = backend.read_events("audit", Some(event1.id), 10).await.unwrap();
+        let events_from = backend
+            .read_events("audit", Some(event1.id), 10)
+            .await
+            .unwrap();
         assert_eq!(events_from.len(), 1);
     }
 
@@ -618,7 +658,10 @@ mod tests {
     async fn test_job_lifecycle() {
         let backend = create_backend().await;
 
-        let job = backend.push_job("queue", serde_json::json!({"task": "send_email"}), 3).await.unwrap();
+        let job = backend
+            .push_job("queue", serde_json::json!({"task": "send_email"}), 3)
+            .await
+            .unwrap();
         assert_eq!(job.state, JobState::Queued);
 
         let claimed = backend.claim_job("queue", "worker1", 60).await.unwrap();
@@ -662,7 +705,10 @@ mod tests {
     async fn test_create_and_get_links() {
         let backend = create_backend().await;
 
-        let link = backend.create_link("doc1", "doc2", "references").await.unwrap();
+        let link = backend
+            .create_link("doc1", "doc2", "references")
+            .await
+            .unwrap();
         assert_eq!(link.source_id, "doc1");
         assert_eq!(link.target_id, "doc2");
         assert_eq!(link.relation, "references");
@@ -678,23 +724,44 @@ mod tests {
     #[tokio::test]
     async fn test_search() {
         let backend = create_backend().await;
-        backend.put_object("docs", "d1", serde_json::json!({"title": "Rust guide"})).await.unwrap();
-        backend.put_object("docs", "d2", serde_json::json!({"title": "Python guide"})).await.unwrap();
-        backend.put_object("docs", "d3", serde_json::json!({"title": "Rust advanced"})).await.unwrap();
+        backend
+            .put_object("docs", "d1", serde_json::json!({"title": "Rust guide"}))
+            .await
+            .unwrap();
+        backend
+            .put_object("docs", "d2", serde_json::json!({"title": "Python guide"}))
+            .await
+            .unwrap();
+        backend
+            .put_object("docs", "d3", serde_json::json!({"title": "Rust advanced"}))
+            .await
+            .unwrap();
 
-        let results = backend.search("rust", SearchOptions {
-            limit: 10,
-            offset: 0,
-            filters: vec![],
-        }).await.unwrap();
+        let results = backend
+            .search(
+                "rust",
+                SearchOptions {
+                    limit: 10,
+                    offset: 0,
+                    filters: vec![],
+                },
+            )
+            .await
+            .unwrap();
         assert_eq!(results.total, 2);
     }
 
     #[tokio::test]
     async fn test_reset() {
         let backend = create_backend().await;
-        backend.put_object("users", "u1", serde_json::json!({})).await.unwrap();
-        backend.append_event("audit", "test", serde_json::json!({})).await.unwrap();
+        backend
+            .put_object("users", "u1", serde_json::json!({}))
+            .await
+            .unwrap();
+        backend
+            .append_event("audit", "test", serde_json::json!({}))
+            .await
+            .unwrap();
 
         backend.reset().await.unwrap();
 

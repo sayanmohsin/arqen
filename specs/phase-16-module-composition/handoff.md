@@ -6,6 +6,7 @@
 - `AppBuilder` for composing modules
 
 ## Usage
+
 ```rust
 let app = AppBuilder::new(config)
     .with_module(AuthModule::new(auth))
@@ -20,6 +21,7 @@ let app = AppBuilder::new(config)
 - `AgentModule` - tool registry and agent manifest
 
 ## Custom Modules
+
 ```rust
 pub struct MyModule;
 

@@ -48,10 +48,15 @@ pub struct NativeThingdStore {
     engine: Arc<Mutex<NativeThingdEngine>>,
 }
 
-fn lock_engine(store: &Mutex<NativeThingdEngine>) -> Result<MutexGuard<'_, NativeThingdEngine>, AppError> {
-    store
-        .lock()
-        .map_err(|e| AppError::new(ErrorKind::Internal, format!("thingd engine mutex poisoned: {e}")))
+fn lock_engine(
+    store: &Mutex<NativeThingdEngine>,
+) -> Result<MutexGuard<'_, NativeThingdEngine>, AppError> {
+    store.lock().map_err(|e| {
+        AppError::new(
+            ErrorKind::Internal,
+            format!("thingd engine mutex poisoned: {e}"),
+        )
+    })
 }
 
 impl NativeThingdStore {
@@ -79,7 +84,10 @@ impl NativeThingdStore {
     /// Keep the closure short: it holds the shared engine lock for its full
     /// duration. Application code should use this for thingd operations, not
     /// for network calls or other blocking work.
-    pub fn with_engine<R>(&self, operation: impl FnOnce(&mut NativeThingdEngine) -> R) -> Result<R, AppError> {
+    pub fn with_engine<R>(
+        &self,
+        operation: impl FnOnce(&mut NativeThingdEngine) -> R,
+    ) -> Result<R, AppError> {
         let mut engine = lock_engine(&self.engine)?;
         Ok(operation(&mut engine))
     }

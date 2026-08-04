@@ -4,10 +4,10 @@
 
 use std::sync::Arc;
 
+use axum::Router;
 use axum::body::Body;
 use axum::http::{Method, Request};
 use axum::response::Response;
-use axum::Router;
 use tower::ServiceExt;
 
 use crate::agent::ToolRegistry;
@@ -164,7 +164,9 @@ impl TestAppBuilder {
 
     /// Build the TestApp.
     pub fn build(self) -> TestApp {
-        let storage = self.storage.unwrap_or_else(|| Arc::new(MemoryThingdBackend::new()));
+        let storage = self
+            .storage
+            .unwrap_or_else(|| Arc::new(MemoryThingdBackend::new()));
 
         let registry = self.registry.unwrap_or_else(|| {
             ToolRegistry::new(
@@ -235,7 +237,10 @@ impl MockAuth {
 
 #[axum::async_trait]
 impl Authentication for MockAuth {
-    async fn authenticate(&self, _headers: &axum::http::HeaderMap) -> Result<AuthContext, AuthError> {
+    async fn authenticate(
+        &self,
+        _headers: &axum::http::HeaderMap,
+    ) -> Result<AuthContext, AuthError> {
         match &self.behavior {
             MockAuthBehavior::AlwaysSuccess(ctx) => Ok(ctx.clone()),
             MockAuthBehavior::AlwaysFail(err) => Err(err.clone()),
@@ -275,11 +280,7 @@ impl Fixtures {
     }
 
     /// Delete a test object.
-    pub async fn delete_object(
-        &self,
-        kind: &str,
-        id: &str,
-    ) -> Result<(), crate::core::AppError> {
+    pub async fn delete_object(&self, kind: &str, id: &str) -> Result<(), crate::core::AppError> {
         self.storage.delete_object(kind, id).await
     }
 
@@ -328,7 +329,10 @@ macro_rules! assert_response {
 #[macro_export]
 macro_rules! assert_error {
     ($response:expr, $code:expr) => {
-        assert_eq!($response.status(), $crate::core::error::ErrorCode::$code.status_code());
+        assert_eq!(
+            $response.status(),
+            $crate::core::error::ErrorCode::$code.status_code()
+        );
         let body = axum::body::to_bytes($response.into_body(), usize::MAX)
             .await
             .expect("failed to read body");
@@ -411,7 +415,10 @@ mod tests {
     #[tokio::test]
     async fn test_mock_auth_always_success() {
         let auth = MockAuth::always_success("user-123");
-        let ctx = auth.authenticate(&axum::http::HeaderMap::new()).await.unwrap();
+        let ctx = auth
+            .authenticate(&axum::http::HeaderMap::new())
+            .await
+            .unwrap();
         assert_eq!(ctx.subject, "user-123");
         assert_eq!(ctx.adapter, "mock");
     }
@@ -419,21 +426,30 @@ mod tests {
     #[tokio::test]
     async fn test_mock_auth_always_fail() {
         let auth = MockAuth::always_fail(AuthError::Invalid);
-        let err = auth.authenticate(&axum::http::HeaderMap::new()).await.unwrap_err();
+        let err = auth
+            .authenticate(&axum::http::HeaderMap::new())
+            .await
+            .unwrap_err();
         assert_eq!(err, AuthError::Invalid);
     }
 
     #[tokio::test]
     async fn test_mock_auth_always_missing() {
         let auth = MockAuth::always_missing();
-        let err = auth.authenticate(&axum::http::HeaderMap::new()).await.unwrap_err();
+        let err = auth
+            .authenticate(&axum::http::HeaderMap::new())
+            .await
+            .unwrap_err();
         assert_eq!(err, AuthError::Missing);
     }
 
     #[tokio::test]
     async fn test_mock_auth_always_invalid() {
         let auth = MockAuth::always_invalid();
-        let err = auth.authenticate(&axum::http::HeaderMap::new()).await.unwrap_err();
+        let err = auth
+            .authenticate(&axum::http::HeaderMap::new())
+            .await
+            .unwrap_err();
         assert_eq!(err, AuthError::Invalid);
     }
 
@@ -441,7 +457,10 @@ mod tests {
     async fn test_fixtures_create_object() {
         let storage = Arc::new(MemoryThingdBackend::new());
         let fixtures = Fixtures::new(storage);
-        let obj = fixtures.create_object("user", "user-1", json!({"name": "Alice"})).await.unwrap();
+        let obj = fixtures
+            .create_object("user", "user-1", json!({"name": "Alice"}))
+            .await
+            .unwrap();
         assert_eq!(obj.id, "user-1");
     }
 
@@ -449,7 +468,10 @@ mod tests {
     async fn test_fixtures_get_object() {
         let storage = Arc::new(MemoryThingdBackend::new());
         let fixtures = Fixtures::new(storage);
-        let obj = fixtures.create_object("user", "user-1", json!({"name": "Alice"})).await.unwrap();
+        let obj = fixtures
+            .create_object("user", "user-1", json!({"name": "Alice"}))
+            .await
+            .unwrap();
         let data = fixtures.get_object("user", &obj.id).await.unwrap();
         assert!(data.is_some());
         assert_eq!(data.unwrap()["name"], "Alice");

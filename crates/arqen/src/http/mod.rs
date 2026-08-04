@@ -2,14 +2,14 @@ pub mod middleware_correlation;
 pub mod middleware_log;
 pub mod routes;
 
-pub use middleware_correlation::{correlation_id_middleware, X_REQUEST_ID};
+pub use middleware_correlation::{X_REQUEST_ID, correlation_id_middleware};
 pub use middleware_log::logging_middleware;
 pub use routes::{agent, agent_manifest, docs, health, ready};
 
 use axum::{Router, http::StatusCode, middleware, routing::get};
 use std::net::SocketAddr;
 use tokio::net::TcpListener;
-use tower_http::cors::{CorsLayer, Any};
+use tower_http::cors::{Any, CorsLayer};
 use tower_http::limit::RequestBodyLimitLayer;
 use tower_http::timeout::TimeoutLayer;
 
@@ -17,7 +17,9 @@ use crate::state::AppState;
 
 /// Create the default Arqen router.
 pub fn create_router() -> Router {
-    let state = AppState::builder().build().expect("failed to build default state");
+    let state = AppState::builder()
+        .build()
+        .expect("failed to build default state");
     create_router_with_state(state)
 }
 
@@ -28,7 +30,10 @@ pub fn create_router_with_state(state: AppState) -> Router {
         .allow_methods(Any)
         .allow_headers(Any);
 
-    let timeout = TimeoutLayer::with_status_code(StatusCode::GATEWAY_TIMEOUT, state.config.server.request_timeout);
+    let timeout = TimeoutLayer::with_status_code(
+        StatusCode::GATEWAY_TIMEOUT,
+        state.config.server.request_timeout,
+    );
     let body_limit = RequestBodyLimitLayer::new(state.config.server.max_body_size);
 
     Router::new()
@@ -41,7 +46,9 @@ pub fn create_router_with_state(state: AppState) -> Router {
         .layer(body_limit)
         .layer(timeout)
         .layer(cors)
-        .layer(middleware::from_fn(middleware_correlation::correlation_id_middleware))
+        .layer(middleware::from_fn(
+            middleware_correlation::correlation_id_middleware,
+        ))
         .layer(middleware::from_fn(middleware_log::logging_middleware))
 }
 
@@ -142,10 +149,7 @@ mod tests {
     #[tokio::test]
     async fn test_docs_endpoint() {
         let router = create_router();
-        let request = Request::builder()
-            .uri("/docs")
-            .body(Body::empty())
-            .unwrap();
+        let request = Request::builder().uri("/docs").body(Body::empty()).unwrap();
 
         let response = router.oneshot(request).await.unwrap();
         assert_eq!(response.status(), StatusCode::OK);
@@ -164,7 +168,9 @@ mod tests {
 
         let response = router.oneshot(request).await.unwrap();
         assert!(
-            response.headers().contains_key("access-control-allow-origin"),
+            response
+                .headers()
+                .contains_key("access-control-allow-origin"),
             "CORS headers should be present"
         );
     }

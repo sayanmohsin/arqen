@@ -144,10 +144,7 @@ pub enum ThingdOperation {
         data: serde_json::Value,
     },
     /// Delete an object.
-    Delete {
-        collection: String,
-        id: String,
-    },
+    Delete { collection: String, id: String },
 }
 
 /// Result of a single batch operation.

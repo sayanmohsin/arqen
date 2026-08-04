@@ -46,9 +46,7 @@ impl From<AuthError> for AppError {
             AuthError::Missing | AuthError::Invalid | AuthError::Expired => {
                 AppError::new(ErrorKind::Authentication, e.to_string())
             }
-            AuthError::Unauthorized(msg) => {
-                AppError::new(ErrorKind::Authorization, msg)
-            }
+            AuthError::Unauthorized(msg) => AppError::new(ErrorKind::Authorization, msg),
         }
     }
 }
@@ -107,7 +105,8 @@ impl AuthContext {
 #[async_trait]
 pub trait Authentication: Send + Sync {
     /// Authenticate a request from headers.
-    async fn authenticate(&self, headers: &axum::http::HeaderMap) -> Result<AuthContext, AuthError>;
+    async fn authenticate(&self, headers: &axum::http::HeaderMap)
+    -> Result<AuthContext, AuthError>;
 }
 
 /// Constant-time string comparison to prevent timing attacks.
@@ -154,7 +153,11 @@ impl ApiKeyAuth {
     }
 
     /// Add a pre-hashed API key.
-    pub fn with_hashed_key(mut self, hashed_key: impl Into<String>, subject: impl Into<String>) -> Self {
+    pub fn with_hashed_key(
+        mut self,
+        hashed_key: impl Into<String>,
+        subject: impl Into<String>,
+    ) -> Self {
         self.keys.insert(hashed_key.into(), subject.into());
         self
     }
@@ -178,7 +181,10 @@ impl Default for ApiKeyAuth {
 #[cfg(feature = "http-server")]
 #[async_trait]
 impl Authentication for ApiKeyAuth {
-    async fn authenticate(&self, headers: &axum::http::HeaderMap) -> Result<AuthContext, AuthError> {
+    async fn authenticate(
+        &self,
+        headers: &axum::http::HeaderMap,
+    ) -> Result<AuthContext, AuthError> {
         // Try X-API-Key header first
         if let Some(key) = headers.get("x-api-key") {
             let key = key.to_str().map_err(|_| AuthError::Invalid)?;
@@ -230,7 +236,7 @@ pub struct JwtAuth {
 impl JwtAuth {
     /// Create a new JWT auth adapter with a secret key (HMAC).
     pub fn new_secret(secret: &[u8]) -> Self {
-        use jsonwebtoken::{Algorithm, Validation, DecodingKey};
+        use jsonwebtoken::{Algorithm, DecodingKey, Validation};
 
         let mut validation = Validation::new(Algorithm::HS256);
         validation.validate_exp = true;
@@ -245,7 +251,7 @@ impl JwtAuth {
 
     /// Create a new JWT auth adapter with RSA public key.
     pub fn new_rsa(public_key: &[u8]) -> Self {
-        use jsonwebtoken::{Algorithm, Validation, DecodingKey};
+        use jsonwebtoken::{Algorithm, DecodingKey, Validation};
 
         let mut validation = Validation::new(Algorithm::RS256);
         validation.validate_exp = true;
@@ -271,32 +277,32 @@ impl JwtAuth {
     }
 
     /// Decode and validate a JWT token.
-    pub fn validate_token(&self, token: &str) -> Result<jsonwebtoken::TokenData<serde_json::Value>, AuthError> {
-        jsonwebtoken::decode::<serde_json::Value>(
-            token,
-            &self.decoding_key,
-            &self.validation,
-        )
-        .map_err(|e| match e.kind() {
-            jsonwebtoken::errors::ErrorKind::ExpiredSignature => AuthError::Expired,
-            _ => AuthError::Invalid,
-        })
+    pub fn validate_token(
+        &self,
+        token: &str,
+    ) -> Result<jsonwebtoken::TokenData<serde_json::Value>, AuthError> {
+        jsonwebtoken::decode::<serde_json::Value>(token, &self.decoding_key, &self.validation)
+            .map_err(|e| match e.kind() {
+                jsonwebtoken::errors::ErrorKind::ExpiredSignature => AuthError::Expired,
+                _ => AuthError::Invalid,
+            })
     }
 }
 
 #[cfg(feature = "http-server")]
 #[async_trait]
 impl Authentication for JwtAuth {
-    async fn authenticate(&self, headers: &axum::http::HeaderMap) -> Result<AuthContext, AuthError> {
+    async fn authenticate(
+        &self,
+        headers: &axum::http::HeaderMap,
+    ) -> Result<AuthContext, AuthError> {
         let auth = headers
             .get("authorization")
             .ok_or(AuthError::Missing)?
             .to_str()
             .map_err(|_| AuthError::Invalid)?;
 
-        let token = auth
-            .strip_prefix("Bearer ")
-            .ok_or(AuthError::Invalid)?;
+        let token = auth.strip_prefix("Bearer ").ok_or(AuthError::Invalid)?;
 
         let token_data = self.validate_token(token)?;
         let claims = token_data.claims;
@@ -353,7 +359,10 @@ impl SessionAuth {
 #[cfg(feature = "http-server")]
 #[async_trait]
 impl Authentication for SessionAuth {
-    async fn authenticate(&self, headers: &axum::http::HeaderMap) -> Result<AuthContext, AuthError> {
+    async fn authenticate(
+        &self,
+        headers: &axum::http::HeaderMap,
+    ) -> Result<AuthContext, AuthError> {
         let cookie_header = headers
             .get("cookie")
             .ok_or(AuthError::Missing)?
@@ -363,12 +372,10 @@ impl Authentication for SessionAuth {
         for part in cookie_header.split(';') {
             let part = part.trim();
             if let Some((name, value)) = part.split_once('=')
-                && name == self.cookie_name {
-                    return self.sessions
-                        .get(value)
-                        .cloned()
-                        .ok_or(AuthError::Invalid);
-                }
+                && name == self.cookie_name
+            {
+                return self.sessions.get(value).cloned().ok_or(AuthError::Invalid);
+            }
         }
 
         Err(AuthError::Missing)
@@ -560,12 +567,12 @@ mod tests {
     #[test]
     fn test_require_role_policy() {
         let policy = RequireRole::new("admin");
-        let ctx = AuthContext::new("user-123", "test")
-            .with_claim("roles", serde_json::json!(["admin"]));
+        let ctx =
+            AuthContext::new("user-123", "test").with_claim("roles", serde_json::json!(["admin"]));
         assert!(policy.check(&ctx, "resource").is_ok());
 
-        let ctx = AuthContext::new("user-123", "test")
-            .with_claim("roles", serde_json::json!(["user"]));
+        let ctx =
+            AuthContext::new("user-123", "test").with_claim("roles", serde_json::json!(["user"]));
         assert!(policy.check(&ctx, "resource").is_err());
     }
 
@@ -575,12 +582,12 @@ mod tests {
             .with_policy(AllowAll)
             .with_policy(RequireRole::new("admin"));
 
-        let ctx = AuthContext::new("user-123", "test")
-            .with_claim("roles", serde_json::json!(["admin"]));
+        let ctx =
+            AuthContext::new("user-123", "test").with_claim("roles", serde_json::json!(["admin"]));
         assert!(policy.check(&ctx, "resource").is_ok());
 
-        let ctx = AuthContext::new("user-123", "test")
-            .with_claim("roles", serde_json::json!(["user"]));
+        let ctx =
+            AuthContext::new("user-123", "test").with_claim("roles", serde_json::json!(["user"]));
         assert!(policy.check(&ctx, "resource").is_err());
     }
 
@@ -590,12 +597,12 @@ mod tests {
             .with_policy(DenyAll)
             .with_policy(RequireRole::new("admin"));
 
-        let ctx = AuthContext::new("user-123", "test")
-            .with_claim("roles", serde_json::json!(["admin"]));
+        let ctx =
+            AuthContext::new("user-123", "test").with_claim("roles", serde_json::json!(["admin"]));
         assert!(policy.check(&ctx, "resource").is_ok());
 
-        let ctx = AuthContext::new("user-123", "test")
-            .with_claim("roles", serde_json::json!(["user"]));
+        let ctx =
+            AuthContext::new("user-123", "test").with_claim("roles", serde_json::json!(["user"]));
         assert!(policy.check(&ctx, "resource").is_err());
     }
 
@@ -626,8 +633,7 @@ mod http_tests {
 
     #[tokio::test]
     async fn test_api_key_auth_valid() {
-        let auth = ApiKeyAuth::new()
-            .with_key("test-key", "user-123");
+        let auth = ApiKeyAuth::new().with_key("test-key", "user-123");
 
         let mut headers = axum::http::HeaderMap::new();
         headers.insert("x-api-key", "test-key".parse().unwrap());
@@ -639,8 +645,7 @@ mod http_tests {
 
     #[tokio::test]
     async fn test_api_key_auth_invalid() {
-        let auth = ApiKeyAuth::new()
-            .with_key("test-key", "user-123");
+        let auth = ApiKeyAuth::new().with_key("test-key", "user-123");
 
         let mut headers = axum::http::HeaderMap::new();
         headers.insert("x-api-key", "wrong-key".parse().unwrap());
@@ -651,8 +656,7 @@ mod http_tests {
 
     #[tokio::test]
     async fn test_api_key_auth_missing() {
-        let auth = ApiKeyAuth::new()
-            .with_key("test-key", "user-123");
+        let auth = ApiKeyAuth::new().with_key("test-key", "user-123");
 
         let headers = axum::http::HeaderMap::new();
 
@@ -662,8 +666,7 @@ mod http_tests {
 
     #[tokio::test]
     async fn test_api_key_auth_bearer() {
-        let auth = ApiKeyAuth::new()
-            .with_key("test-key", "user-123");
+        let auth = ApiKeyAuth::new().with_key("test-key", "user-123");
 
         let mut headers = axum::http::HeaderMap::new();
         headers.insert("authorization", "Bearer test-key".parse().unwrap());
@@ -681,19 +684,28 @@ mod http_tests {
             "exp": 4102444800_i64,
             "iss": "test-issuer"
         });
-        let token = jsonwebtoken::encode(&header, &claims, &jsonwebtoken::EncodingKey::from_secret(secret))
-            .unwrap();
+        let token = jsonwebtoken::encode(
+            &header,
+            &claims,
+            &jsonwebtoken::EncodingKey::from_secret(secret),
+        )
+        .unwrap();
 
-        let auth = JwtAuth::new_secret(secret)
-            .with_issuer("test-issuer");
+        let auth = JwtAuth::new_secret(secret).with_issuer("test-issuer");
 
         let mut headers = axum::http::HeaderMap::new();
-        headers.insert("authorization", format!("Bearer {}", token).parse().unwrap());
+        headers.insert(
+            "authorization",
+            format!("Bearer {}", token).parse().unwrap(),
+        );
 
         let ctx = auth.authenticate(&headers).await.unwrap();
         assert_eq!(ctx.subject, "user-123");
         assert_eq!(ctx.adapter, "jwt");
-        assert_eq!(ctx.get_claim("iss"), Some(&serde_json::json!("test-issuer")));
+        assert_eq!(
+            ctx.get_claim("iss"),
+            Some(&serde_json::json!("test-issuer"))
+        );
     }
 
     #[tokio::test]
@@ -715,13 +727,20 @@ mod http_tests {
             "sub": "user-123",
             "exp": 4102444800_i64,
         });
-        let token = jsonwebtoken::encode(&header, &claims, &jsonwebtoken::EncodingKey::from_secret(b"wrong-secret"))
-            .unwrap();
+        let token = jsonwebtoken::encode(
+            &header,
+            &claims,
+            &jsonwebtoken::EncodingKey::from_secret(b"wrong-secret"),
+        )
+        .unwrap();
 
         let auth = JwtAuth::new_secret(b"correct-secret");
 
         let mut headers = axum::http::HeaderMap::new();
-        headers.insert("authorization", format!("Bearer {}", token).parse().unwrap());
+        headers.insert(
+            "authorization",
+            format!("Bearer {}", token).parse().unwrap(),
+        );
 
         let err = auth.authenticate(&headers).await.unwrap_err();
         assert_eq!(err, AuthError::Invalid);
@@ -731,8 +750,7 @@ mod http_tests {
     async fn test_session_auth_valid() {
         let ctx = AuthContext::new("user-123", "session");
 
-        let auth = SessionAuth::new("session_id")
-            .with_session("abc123", ctx);
+        let auth = SessionAuth::new("session_id").with_session("abc123", ctx);
 
         let mut headers = axum::http::HeaderMap::new();
         headers.insert("cookie", "session_id=abc123".parse().unwrap());

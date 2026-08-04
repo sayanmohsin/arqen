@@ -6,6 +6,7 @@
 - `HealthStatus` enum (Healthy, Degraded, Unhealthy)
 
 ## Usage
+
 ```rust
 let mut registry = HealthRegistry::new();
 registry.register(Arc::new(StorageHealthCheck::new(storage)));

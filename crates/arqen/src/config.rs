@@ -96,11 +96,21 @@ pub struct ServerConfig {
     pub shutdown_timeout: Duration,
 }
 
-fn default_host() -> String { "127.0.0.1".to_string() }
-fn default_port() -> u16 { 3000 }
-fn default_request_timeout() -> Duration { Duration::from_secs(30) }
-fn default_max_body_size() -> usize { 1024 * 1024 }
-fn default_shutdown_timeout() -> Duration { Duration::from_secs(10) }
+fn default_host() -> String {
+    "127.0.0.1".to_string()
+}
+fn default_port() -> u16 {
+    3000
+}
+fn default_request_timeout() -> Duration {
+    Duration::from_secs(30)
+}
+fn default_max_body_size() -> usize {
+    1024 * 1024
+}
+fn default_shutdown_timeout() -> Duration {
+    Duration::from_secs(10)
+}
 
 impl Default for ServerConfig {
     fn default() -> Self {
@@ -177,7 +187,9 @@ pub struct ApiKeyEntry {
     pub scopes: Vec<String>,
 }
 
-fn default_api_key_header() -> String { "X-API-Key".to_string() }
+fn default_api_key_header() -> String {
+    "X-API-Key".to_string()
+}
 
 impl Default for AuthConfig {
     fn default() -> Self {
@@ -207,11 +219,21 @@ pub struct WorkerConfig {
     pub concurrency: u32,
 }
 
-fn default_worker_queues() -> Vec<String> { vec!["default".to_string()] }
-fn default_poll_interval() -> Duration { Duration::from_secs(1) }
-fn default_lease_seconds() -> u32 { 30 }
-fn default_max_retries() -> u32 { 3 }
-fn default_worker_concurrency() -> u32 { 4 }
+fn default_worker_queues() -> Vec<String> {
+    vec!["default".to_string()]
+}
+fn default_poll_interval() -> Duration {
+    Duration::from_secs(1)
+}
+fn default_lease_seconds() -> u32 {
+    30
+}
+fn default_max_retries() -> u32 {
+    3
+}
+fn default_worker_concurrency() -> u32 {
+    4
+}
 
 impl Default for WorkerConfig {
     fn default() -> Self {
@@ -235,8 +257,12 @@ pub struct HealthConfig {
     pub startup_delay: Duration,
 }
 
-fn default_health_timeout() -> Duration { Duration::from_secs(5) }
-fn default_startup_delay() -> Duration { Duration::from_secs(1) }
+fn default_health_timeout() -> Duration {
+    Duration::from_secs(5)
+}
+fn default_startup_delay() -> Duration {
+    Duration::from_secs(1)
+}
 
 impl Default for HealthConfig {
     fn default() -> Self {
@@ -256,7 +282,9 @@ pub struct LoggingConfig {
     pub format: LogFormat,
 }
 
-fn default_log_level() -> String { "info".to_string() }
+fn default_log_level() -> String {
+    "info".to_string()
+}
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
@@ -277,8 +305,7 @@ impl Default for LoggingConfig {
 }
 
 /// Application configuration.
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[derive(Default)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct AppConfig {
     #[serde(default)]
     pub server: ServerConfig,
@@ -302,7 +329,6 @@ pub struct CliOverrides {
     pub log_level: Option<String>,
     pub storage_mode: Option<String>,
 }
-
 
 impl AppConfig {
     /// Load configuration with full precedence chain: CLI → env → file → defaults.
@@ -377,11 +403,13 @@ impl AppConfig {
                 "pretty" => LogFormat::Pretty,
                 "json" => LogFormat::Json,
                 "compact" => LogFormat::Compact,
-                _ => return Err(ConfigError::InvalidValue {
-                    field: "log_format".to_string(),
-                    value: format,
-                    expected: "pretty, json, or compact".to_string(),
-                }),
+                _ => {
+                    return Err(ConfigError::InvalidValue {
+                        field: "log_format".to_string(),
+                        value: format,
+                        expected: "pretty, json, or compact".to_string(),
+                    });
+                }
             };
         }
         if let Ok(enabled) = std::env::var("ARQEN_WORKER_ENABLED") {
@@ -391,11 +419,12 @@ impl AppConfig {
             self.worker.queues = queues.split(',').map(|s| s.trim().to_string()).collect();
         }
         if let Ok(interval) = std::env::var("ARQEN_WORKER_POLL_INTERVAL") {
-            self.worker.poll_interval = Duration::from_secs(interval.parse().map_err(|_| ConfigError::InvalidValue {
-                field: "worker_poll_interval".to_string(),
-                value: interval,
-                expected: "a valid u64 (seconds)".to_string(),
-            })?);
+            self.worker.poll_interval =
+                Duration::from_secs(interval.parse().map_err(|_| ConfigError::InvalidValue {
+                    field: "worker_poll_interval".to_string(),
+                    value: interval,
+                    expected: "a valid u64 (seconds)".to_string(),
+                })?);
         }
         if let Ok(lease) = std::env::var("ARQEN_WORKER_LEASE_SECONDS") {
             self.worker.lease_seconds = lease.parse().map_err(|_| ConfigError::InvalidValue {
@@ -412,32 +441,36 @@ impl AppConfig {
             })?;
         }
         if let Ok(concurrency) = std::env::var("ARQEN_WORKER_CONCURRENCY") {
-            self.worker.concurrency = concurrency.parse().map_err(|_| ConfigError::InvalidValue {
-                field: "worker_concurrency".to_string(),
-                value: concurrency,
-                expected: "a valid u32".to_string(),
-            })?;
+            self.worker.concurrency =
+                concurrency.parse().map_err(|_| ConfigError::InvalidValue {
+                    field: "worker_concurrency".to_string(),
+                    value: concurrency,
+                    expected: "a valid u32".to_string(),
+                })?;
         }
         if let Ok(timeout) = std::env::var("ARQEN_HEALTH_CHECK_TIMEOUT") {
-            self.health.check_timeout = Duration::from_secs(timeout.parse().map_err(|_| ConfigError::InvalidValue {
-                field: "health_check_timeout".to_string(),
-                value: timeout,
-                expected: "a valid u64 (seconds)".to_string(),
-            })?);
+            self.health.check_timeout =
+                Duration::from_secs(timeout.parse().map_err(|_| ConfigError::InvalidValue {
+                    field: "health_check_timeout".to_string(),
+                    value: timeout,
+                    expected: "a valid u64 (seconds)".to_string(),
+                })?);
         }
         if let Ok(delay) = std::env::var("ARQEN_HEALTH_STARTUP_DELAY") {
-            self.health.startup_delay = Duration::from_secs(delay.parse().map_err(|_| ConfigError::InvalidValue {
-                field: "health_startup_delay".to_string(),
-                value: delay,
-                expected: "a valid u64 (seconds)".to_string(),
-            })?);
+            self.health.startup_delay =
+                Duration::from_secs(delay.parse().map_err(|_| ConfigError::InvalidValue {
+                    field: "health_startup_delay".to_string(),
+                    value: delay,
+                    expected: "a valid u64 (seconds)".to_string(),
+                })?);
         }
         if let Ok(timeout) = std::env::var("ARQEN_REQUEST_TIMEOUT") {
-            self.server.request_timeout = Duration::from_secs(timeout.parse().map_err(|_| ConfigError::InvalidValue {
-                field: "request_timeout".to_string(),
-                value: timeout,
-                expected: "a valid u64 (seconds)".to_string(),
-            })?);
+            self.server.request_timeout =
+                Duration::from_secs(timeout.parse().map_err(|_| ConfigError::InvalidValue {
+                    field: "request_timeout".to_string(),
+                    value: timeout,
+                    expected: "a valid u64 (seconds)".to_string(),
+                })?);
         }
         if let Ok(size) = std::env::var("ARQEN_MAX_BODY_SIZE") {
             self.server.max_body_size = size.parse().map_err(|_| ConfigError::InvalidValue {
@@ -447,11 +480,12 @@ impl AppConfig {
             })?;
         }
         if let Ok(timeout) = std::env::var("ARQEN_SHUTDOWN_TIMEOUT") {
-            self.server.shutdown_timeout = Duration::from_secs(timeout.parse().map_err(|_| ConfigError::InvalidValue {
-                field: "shutdown_timeout".to_string(),
-                value: timeout,
-                expected: "a valid u64 (seconds)".to_string(),
-            })?);
+            self.server.shutdown_timeout =
+                Duration::from_secs(timeout.parse().map_err(|_| ConfigError::InvalidValue {
+                    field: "shutdown_timeout".to_string(),
+                    value: timeout,
+                    expected: "a valid u64 (seconds)".to_string(),
+                })?);
         }
         Ok(self)
     }
@@ -468,18 +502,20 @@ impl AppConfig {
             self.logging.level = level;
         }
         if let Some(mode) = cli.storage_mode
-            && let Ok(m) = StorageMode::parse_str(&mode) {
-                self.storage.mode = m;
-            }
+            && let Ok(m) = StorageMode::parse_str(&mode)
+        {
+            self.storage.mode = m;
+        }
         self
     }
 
     /// Load configuration from a TOML file.
     pub fn from_file(path: impl AsRef<std::path::Path>) -> Result<Self, ConfigError> {
-        let content = std::fs::read_to_string(path.as_ref()).map_err(|e| ConfigError::FileError {
-            path: path.as_ref().to_path_buf(),
-            source: e,
-        })?;
+        let content =
+            std::fs::read_to_string(path.as_ref()).map_err(|e| ConfigError::FileError {
+                path: path.as_ref().to_path_buf(),
+                source: e,
+            })?;
         let config: Self = toml::from_str(&content).map_err(ConfigError::ParseError)?;
         config.validate()?;
         Ok(config)
@@ -526,18 +562,24 @@ impl AppConfig {
     }
 }
 
-
 /// Configuration error type.
 #[derive(Debug, thiserror::Error)]
 pub enum ConfigError {
     #[error("invalid value for {field}: '{value}' (expected {expected})")]
-    InvalidValue { field: String, value: String, expected: String },
+    InvalidValue {
+        field: String,
+        value: String,
+        expected: String,
+    },
 
     #[error("missing required field '{field}': {context}")]
     MissingField { field: String, context: String },
 
     #[error("failed to read config file {}: {source}", path.display())]
-    FileError { path: PathBuf, source: std::io::Error },
+    FileError {
+        path: PathBuf,
+        source: std::io::Error,
+    },
 
     #[error("failed to parse config: {0}")]
     ParseError(#[from] toml::de::Error),
@@ -591,10 +633,19 @@ mod tests {
 
     #[test]
     fn test_storage_mode_from_str() {
-        assert_eq!(StorageMode::parse_str("memory").unwrap(), StorageMode::Memory);
-        assert_eq!(StorageMode::parse_str("persistent").unwrap(), StorageMode::Persistent);
+        assert_eq!(
+            StorageMode::parse_str("memory").unwrap(),
+            StorageMode::Memory
+        );
+        assert_eq!(
+            StorageMode::parse_str("persistent").unwrap(),
+            StorageMode::Persistent
+        );
         assert_eq!(StorageMode::parse_str("http").unwrap(), StorageMode::Http);
-        assert_eq!(StorageMode::parse_str("MEMORY").unwrap(), StorageMode::Memory);
+        assert_eq!(
+            StorageMode::parse_str("MEMORY").unwrap(),
+            StorageMode::Memory
+        );
         assert!(StorageMode::parse_str("invalid").is_err());
     }
 

@@ -92,7 +92,11 @@ pub struct ErrorContext {
 }
 
 impl ErrorContext {
-    pub fn new(correlation_id: CorrelationId, path: impl Into<String>, method: impl Into<String>) -> Self {
+    pub fn new(
+        correlation_id: CorrelationId,
+        path: impl Into<String>,
+        method: impl Into<String>,
+    ) -> Self {
         Self {
             correlation_id,
             path: path.into(),
@@ -116,7 +120,11 @@ pub struct ErrorResponse {
 }
 
 impl ErrorResponse {
-    pub fn new(code: ErrorCode, message: impl Into<String>, correlation_id: impl Into<String>) -> Self {
+    pub fn new(
+        code: ErrorCode,
+        message: impl Into<String>,
+        correlation_id: impl Into<String>,
+    ) -> Self {
         Self {
             error: ErrorBody {
                 code,
@@ -144,7 +152,11 @@ impl ErrorResponse {
     }
 
     pub fn redacted(correlation_id: impl Into<String>) -> Self {
-        Self::new(ErrorCode::Internal, "An internal error occurred", correlation_id)
+        Self::new(
+            ErrorCode::Internal,
+            "An internal error occurred",
+            correlation_id,
+        )
     }
 }
 
@@ -263,8 +275,12 @@ impl From<serde_json::Error> for AppError {
 impl From<std::io::Error> for AppError {
     fn from(e: std::io::Error) -> Self {
         match e.kind() {
-            std::io::ErrorKind::NotFound => AppError::new(ErrorKind::NotFound, format!("file not found: {e}")),
-            std::io::ErrorKind::PermissionDenied => AppError::new(ErrorKind::Authorization, format!("permission denied: {e}")),
+            std::io::ErrorKind::NotFound => {
+                AppError::new(ErrorKind::NotFound, format!("file not found: {e}"))
+            }
+            std::io::ErrorKind::PermissionDenied => {
+                AppError::new(ErrorKind::Authorization, format!("permission denied: {e}"))
+            }
             _ => AppError::new(ErrorKind::Internal, format!("IO error: {e}")),
         }
     }
@@ -284,7 +300,10 @@ impl From<toml::de::Error> for AppError {
 
 impl From<std::env::VarError> for AppError {
     fn from(e: std::env::VarError) -> Self {
-        AppError::new(ErrorKind::Internal, format!("environment variable error: {e}"))
+        AppError::new(
+            ErrorKind::Internal,
+            format!("environment variable error: {e}"),
+        )
     }
 }
 
@@ -319,15 +338,33 @@ mod tests {
     fn test_error_code_status_codes() {
         assert_eq!(ErrorCode::NotFound.status_code(), StatusCode::NOT_FOUND);
         assert_eq!(ErrorCode::Validation.status_code(), StatusCode::BAD_REQUEST);
-        assert_eq!(ErrorCode::Authentication.status_code(), StatusCode::UNAUTHORIZED);
-        assert_eq!(ErrorCode::Authorization.status_code(), StatusCode::FORBIDDEN);
+        assert_eq!(
+            ErrorCode::Authentication.status_code(),
+            StatusCode::UNAUTHORIZED
+        );
+        assert_eq!(
+            ErrorCode::Authorization.status_code(),
+            StatusCode::FORBIDDEN
+        );
         assert_eq!(ErrorCode::Conflict.status_code(), StatusCode::CONFLICT);
-        assert_eq!(ErrorCode::RateLimited.status_code(), StatusCode::TOO_MANY_REQUESTS);
-        assert_eq!(ErrorCode::Timeout.status_code(), StatusCode::GATEWAY_TIMEOUT);
+        assert_eq!(
+            ErrorCode::RateLimited.status_code(),
+            StatusCode::TOO_MANY_REQUESTS
+        );
+        assert_eq!(
+            ErrorCode::Timeout.status_code(),
+            StatusCode::GATEWAY_TIMEOUT
+        );
         assert_eq!(ErrorCode::Dependency.status_code(), StatusCode::BAD_GATEWAY);
-        assert_eq!(ErrorCode::Internal.status_code(), StatusCode::INTERNAL_SERVER_ERROR);
+        assert_eq!(
+            ErrorCode::Internal.status_code(),
+            StatusCode::INTERNAL_SERVER_ERROR
+        );
         assert_eq!(ErrorCode::External.status_code(), StatusCode::BAD_GATEWAY);
-        assert_eq!(ErrorCode::Unavailable.status_code(), StatusCode::SERVICE_UNAVAILABLE);
+        assert_eq!(
+            ErrorCode::Unavailable.status_code(),
+            StatusCode::SERVICE_UNAVAILABLE
+        );
     }
 
     #[test]
@@ -354,7 +391,12 @@ mod tests {
     #[test]
     fn test_error_response_with_details() {
         let details = serde_json::json!({"field": "email"});
-        let response = ErrorResponse::with_details(ErrorCode::Validation, "invalid email", "req-123", details.clone());
+        let response = ErrorResponse::with_details(
+            ErrorCode::Validation,
+            "invalid email",
+            "req-123",
+            details.clone(),
+        );
         assert_eq!(response.error.details, Some(details));
     }
 
@@ -427,7 +469,9 @@ mod tests {
 
     #[test]
     fn test_app_error_from_addr_parse() {
-        let addr_err = "not-an-address".parse::<std::net::SocketAddr>().unwrap_err();
+        let addr_err = "not-an-address"
+            .parse::<std::net::SocketAddr>()
+            .unwrap_err();
         let app_err: AppError = addr_err.into();
         assert_eq!(app_err.kind, ErrorKind::Validation);
     }
@@ -487,7 +531,12 @@ mod tests {
 
     #[test]
     fn test_error_response_json_with_details() {
-        let response = ErrorResponse::with_details(ErrorCode::Validation, "invalid", "req-123", serde_json::json!({"field": "email"}));
+        let response = ErrorResponse::with_details(
+            ErrorCode::Validation,
+            "invalid",
+            "req-123",
+            serde_json::json!({"field": "email"}),
+        );
         let json = serde_json::to_string(&response).unwrap();
         assert!(json.contains("details"));
         assert!(json.contains("email"));
@@ -500,7 +549,10 @@ mod tests {
         let correlation_id = CorrelationId::new();
         let response = err.to_response(&correlation_id);
         assert_eq!(response.error.code, ErrorCode::Timeout);
-        assert_eq!(response.error.code.status_code(), StatusCode::GATEWAY_TIMEOUT);
+        assert_eq!(
+            response.error.code.status_code(),
+            StatusCode::GATEWAY_TIMEOUT
+        );
     }
 
     #[cfg(feature = "http-server")]

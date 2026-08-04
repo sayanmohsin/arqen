@@ -353,11 +353,36 @@ pub fn default_spec() -> OpenApiSpec {
         .add_tag("health", Some("Health checks".to_string()))
         .add_tag("agent", Some("Agent operations".to_string()))
         .add_tag("docs", Some("Documentation".to_string()))
-        .add_get("/health", "health_check", Some("Liveness check".to_string()), vec!["health".to_string()])
-        .add_get("/ready", "readiness_check", Some("Readiness check".to_string()), vec!["health".to_string()])
-        .add_get("/agent", "agent_info", Some("Agent description".to_string()), vec!["agent".to_string()])
-        .add_get("/agent/manifest", "agent_manifest", Some("Agent manifest".to_string()), vec!["agent".to_string()])
-        .add_get("/docs", "api_docs", Some("API documentation".to_string()), vec!["docs".to_string()])
+        .add_get(
+            "/health",
+            "health_check",
+            Some("Liveness check".to_string()),
+            vec!["health".to_string()],
+        )
+        .add_get(
+            "/ready",
+            "readiness_check",
+            Some("Readiness check".to_string()),
+            vec!["health".to_string()],
+        )
+        .add_get(
+            "/agent",
+            "agent_info",
+            Some("Agent description".to_string()),
+            vec!["agent".to_string()],
+        )
+        .add_get(
+            "/agent/manifest",
+            "agent_manifest",
+            Some("Agent manifest".to_string()),
+            vec!["agent".to_string()],
+        )
+        .add_get(
+            "/docs",
+            "api_docs",
+            Some("API documentation".to_string()),
+            vec!["docs".to_string()],
+        )
         .build()
 }
 
@@ -415,7 +440,10 @@ mod tests {
     #[test]
     fn test_generator_with_license() {
         let spec = OpenApiGenerator::new("Test API", "1.0.0")
-            .with_license("MIT", Some("https://opensource.org/licenses/MIT".to_string()))
+            .with_license(
+                "MIT",
+                Some("https://opensource.org/licenses/MIT".to_string()),
+            )
             .build();
         assert!(spec.info.license.is_some());
         assert_eq!(spec.info.license.unwrap().name, "MIT");
@@ -433,7 +461,12 @@ mod tests {
     #[test]
     fn test_generator_add_get() {
         let spec = OpenApiGenerator::new("Test API", "1.0.0")
-            .add_get("/users", "list_users", Some("List users".to_string()), vec!["users".to_string()])
+            .add_get(
+                "/users",
+                "list_users",
+                Some("List users".to_string()),
+                vec!["users".to_string()],
+            )
             .build();
         assert!(spec.paths.contains_key("/users"));
     }

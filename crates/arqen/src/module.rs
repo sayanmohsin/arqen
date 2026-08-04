@@ -178,7 +178,12 @@ impl RouteModule {
         }
     }
 
-    pub fn with_route(mut self, path: impl Into<String>, method: impl Into<String>, desc: impl Into<String>) -> Self {
+    pub fn with_route(
+        mut self,
+        path: impl Into<String>,
+        method: impl Into<String>,
+        desc: impl Into<String>,
+    ) -> Self {
         self.routes.push(RouteEntry {
             path: path.into(),
             method: method.into(),
@@ -251,10 +256,8 @@ mod tests {
     #[test]
     fn test_module_builder_all_routes() {
         let builder = ModuleBuilder::new()
-            .register(RouteModule::new("api")
-                .with_route("/users", "GET", "List users"))
-            .register(RouteModule::new("admin")
-                .with_route("/admin", "GET", "Admin panel"));
+            .register(RouteModule::new("api").with_route("/users", "GET", "List users"))
+            .register(RouteModule::new("admin").with_route("/admin", "GET", "Admin panel"));
         let routes = builder.all_routes();
         assert_eq!(routes.len(), 2);
     }
@@ -263,8 +266,7 @@ mod tests {
     fn test_module_builder_mixed() {
         let builder = ModuleBuilder::new()
             .register(EmptyModule::new("empty"))
-            .register(RouteModule::new("routes")
-                .with_route("/test", "GET", "Test"));
+            .register(RouteModule::new("routes").with_route("/test", "GET", "Test"));
         assert_eq!(builder.module_count(), 2);
         assert_eq!(builder.all_routes().len(), 1);
     }
@@ -293,8 +295,12 @@ mod tests {
         struct DepModule;
         #[async_trait]
         impl Module for DepModule {
-            fn name(&self) -> &str { "dep" }
-            fn dependencies(&self) -> Vec<&str> { vec!["base"] }
+            fn name(&self) -> &str {
+                "dep"
+            }
+            fn dependencies(&self) -> Vec<&str> {
+                vec!["base"]
+            }
         }
 
         let builder = ModuleBuilder::new()

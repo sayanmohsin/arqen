@@ -5,6 +5,7 @@
 - Conflict (409), RateLimited (429), Internal (500), External (502), Unavailable (503)
 
 ## Response Format
+
 ```json
 {
   "error": {

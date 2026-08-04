@@ -2855,21 +2855,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "watchloom"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "arqen",
- "axum",
- "reqwest",
- "serde",
- "serde_json",
- "tokio",
- "tracing",
- "uuid",
-]
-
-[[package]]
 name = "web-sys"
 version = "0.3.103"
 source = "registry+https://github.com/rust-lang/crates.io-index"

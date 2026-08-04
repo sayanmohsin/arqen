@@ -119,9 +119,7 @@ pub struct HealthRegistry {
 impl HealthRegistry {
     /// Create a new health registry.
     pub fn new() -> Self {
-        Self {
-            checks: Vec::new(),
-        }
+        Self { checks: Vec::new() }
     }
 
     /// Register a health check.
@@ -148,7 +146,8 @@ impl HealthRegistry {
     async fn check_with_type(&self, probe_type: ProbeType) -> HealthReport {
         let checks_to_run: Vec<_> = match probe_type {
             ProbeType::Liveness => self.checks.clone(),
-            ProbeType::Readiness => self.checks
+            ProbeType::Readiness => self
+                .checks
                 .iter()
                 .filter(|c| c.required_for_readiness())
                 .cloned()
@@ -180,10 +179,9 @@ impl HealthRegistry {
                     HealthStatus::Unhealthy { .. } => {
                         overall_status = result.status.clone();
                     }
-                    HealthStatus::Degraded { .. }
-                        if overall_status.is_healthy() => {
-                            overall_status = result.status.clone();
-                        }
+                    HealthStatus::Degraded { .. } if overall_status.is_healthy() => {
+                        overall_status = result.status.clone();
+                    }
                     _ => {}
                 }
                 results.push(result);
@@ -333,33 +331,73 @@ mod tests {
     #[test]
     fn test_health_status_is_healthy() {
         assert!(HealthStatus::Healthy.is_healthy());
-        assert!(!HealthStatus::Degraded { reason: "test".to_string() }.is_healthy());
-        assert!(!HealthStatus::Unhealthy { reason: "test".to_string() }.is_healthy());
+        assert!(
+            !HealthStatus::Degraded {
+                reason: "test".to_string()
+            }
+            .is_healthy()
+        );
+        assert!(
+            !HealthStatus::Unhealthy {
+                reason: "test".to_string()
+            }
+            .is_healthy()
+        );
     }
 
     #[test]
     fn test_health_status_is_degraded() {
         assert!(!HealthStatus::Healthy.is_degraded());
-        assert!(HealthStatus::Degraded { reason: "test".to_string() }.is_degraded());
-        assert!(!HealthStatus::Unhealthy { reason: "test".to_string() }.is_degraded());
+        assert!(
+            HealthStatus::Degraded {
+                reason: "test".to_string()
+            }
+            .is_degraded()
+        );
+        assert!(
+            !HealthStatus::Unhealthy {
+                reason: "test".to_string()
+            }
+            .is_degraded()
+        );
     }
 
     #[test]
     fn test_health_status_is_unhealthy() {
         assert!(!HealthStatus::Healthy.is_unhealthy());
-        assert!(!HealthStatus::Degraded { reason: "test".to_string() }.is_unhealthy());
-        assert!(HealthStatus::Unhealthy { reason: "test".to_string() }.is_unhealthy());
+        assert!(
+            !HealthStatus::Degraded {
+                reason: "test".to_string()
+            }
+            .is_unhealthy()
+        );
+        assert!(
+            HealthStatus::Unhealthy {
+                reason: "test".to_string()
+            }
+            .is_unhealthy()
+        );
     }
 
     #[test]
     fn test_health_status_display() {
         assert_eq!(format!("{}", HealthStatus::Healthy), "healthy");
         assert_eq!(
-            format!("{}", HealthStatus::Degraded { reason: "slow".to_string() }),
+            format!(
+                "{}",
+                HealthStatus::Degraded {
+                    reason: "slow".to_string()
+                }
+            ),
             "degraded: slow"
         );
         assert_eq!(
-            format!("{}", HealthStatus::Unhealthy { reason: "down".to_string() }),
+            format!(
+                "{}",
+                HealthStatus::Unhealthy {
+                    reason: "down".to_string()
+                }
+            ),
             "unhealthy: down"
         );
     }
@@ -367,8 +405,20 @@ mod tests {
     #[test]
     fn test_health_status_http_codes() {
         assert_eq!(HealthStatus::Healthy.to_http_status(), 200);
-        assert_eq!(HealthStatus::Degraded { reason: "slow".to_string() }.to_http_status(), 200);
-        assert_eq!(HealthStatus::Unhealthy { reason: "down".to_string() }.to_http_status(), 503);
+        assert_eq!(
+            HealthStatus::Degraded {
+                reason: "slow".to_string()
+            }
+            .to_http_status(),
+            200
+        );
+        assert_eq!(
+            HealthStatus::Unhealthy {
+                reason: "down".to_string()
+            }
+            .to_http_status(),
+            503
+        );
     }
 
     #[tokio::test]
