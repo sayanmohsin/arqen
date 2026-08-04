@@ -70,7 +70,9 @@ pub use observability::{MetricsReport, RequestMetrics};
 pub use validation::{FieldError, Validate, Validated, ValidationErrors};
 
 #[cfg(feature = "http-server")]
-pub use http::{create_router, create_router_with_state};
+pub use http::{
+    create_router, create_router_with_state, create_router_with_state_and_routes, nest_routes,
+};
 #[cfg(feature = "logging")]
 pub use logging::{init_logging, init_logging_with_config};
 #[cfg(feature = "http-client")]
