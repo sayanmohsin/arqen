@@ -77,9 +77,9 @@ pub use validation::{FieldError, Validate, Validated, ValidationErrors};
 
 #[cfg(feature = "http-server")]
 pub use http::{
-    Authenticated, HttpModule, auth_middleware, builtin_routes, create_router,
-    create_router_with_state, create_router_with_state_and_routes, merge_module_routes,
-    nest_routes, optional_auth_middleware,
+    AuthGuard, Authenticated, HttpModule, RequireAuth, auth_middleware, builtin_routes,
+    create_router, create_router_with_state, create_router_with_state_and_routes,
+    merge_module_routes, nest_routes, optional_auth_middleware, require_auth_middleware,
 };
 #[cfg(feature = "logging")]
 pub use logging::{init_logging, init_logging_with_config};

@@ -6,6 +6,7 @@
 //! issuer, and audience checks.
 
 use std::collections::HashMap;
+use std::sync::Arc;
 
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
@@ -107,6 +108,19 @@ pub trait Authentication: Send + Sync {
     /// Authenticate a request from headers.
     async fn authenticate(&self, headers: &axum::http::HeaderMap)
     -> Result<AuthContext, AuthError>;
+}
+
+/// Blanket impl so adapters can be used behind `Arc`, e.g.
+/// `Arc<dyn Authentication>` and `Arc<ApiKeyAuth>`.
+#[cfg(feature = "http-server")]
+#[async_trait]
+impl<T: Authentication + ?Sized> Authentication for Arc<T> {
+    async fn authenticate(
+        &self,
+        headers: &axum::http::HeaderMap,
+    ) -> Result<AuthContext, AuthError> {
+        (**self).authenticate(headers).await
+    }
 }
 
 /// Constant-time string comparison to prevent timing attacks.
@@ -386,6 +400,14 @@ impl Authentication for SessionAuth {
 pub trait Policy: Send + Sync {
     /// Check if an auth context is authorized for a resource.
     fn check(&self, context: &AuthContext, resource: &str) -> Result<(), AuthError>;
+}
+
+/// Blanket impl so policies can be used behind `Arc`, e.g.
+/// `Arc<dyn Policy>` and `Arc<AllowAll>`.
+impl<T: Policy + ?Sized> Policy for Arc<T> {
+    fn check(&self, context: &AuthContext, resource: &str) -> Result<(), AuthError> {
+        (**self).check(context, resource)
+    }
 }
 
 /// Policy that allows all requests.
