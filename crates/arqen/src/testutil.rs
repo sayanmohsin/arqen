@@ -395,7 +395,7 @@ mod tests {
     #[tokio::test]
     async fn test_testapp_state() {
         let app = TestApp::builder().build();
-        assert_eq!(app.state().config.server.port, 3000);
+        assert_eq!(app.state().config.server.port, 8888);
     }
 
     #[tokio::test]

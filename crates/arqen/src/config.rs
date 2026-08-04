@@ -15,7 +15,7 @@
 //!
 //! All env vars use the `ARQEN_` prefix:
 //! - `ARQEN_HOST` - Server host (default: 127.0.0.1)
-//! - `ARQEN_PORT` - Server port (default: 3000)
+//! - `ARQEN_PORT` - Server port (default: 8888)
 //! - `ARQEN_STORAGE_MODE` - Storage mode: memory, persistent, http (default: memory)
 //! - `ARQEN_PERSISTENT_PATH` - Path for persistent storage
 //! - `ARQEN_THINGD_URL` - Thingd HTTP URL
@@ -100,7 +100,7 @@ fn default_host() -> String {
     "127.0.0.1".to_string()
 }
 fn default_port() -> u16 {
-    3000
+    8888
 }
 fn default_request_timeout() -> Duration {
     Duration::from_secs(30)
@@ -607,7 +607,7 @@ mod tests {
     fn test_default_config() {
         let config = AppConfig::default();
         assert_eq!(config.server.host, "127.0.0.1");
-        assert_eq!(config.server.port, 3000);
+        assert_eq!(config.server.port, 8888);
         assert_eq!(config.storage.mode, StorageMode::Memory);
         assert!(!config.auth.enabled);
         assert_eq!(config.logging.level, "info");
@@ -623,7 +623,7 @@ mod tests {
         config.server.port = 0;
         assert!(config.validate().is_err());
 
-        config.server.port = 3000;
+        config.server.port = 8888;
         config.storage.mode = StorageMode::Persistent;
         assert!(config.validate().is_err());
 
@@ -653,7 +653,7 @@ mod tests {
     fn test_address_parsing() {
         let config = AppConfig::default();
         let addr = config.address().unwrap();
-        assert_eq!(addr.port(), 3000);
+        assert_eq!(addr.port(), 8888);
     }
 
     #[test]
@@ -763,7 +763,7 @@ concurrency = 8
         let config = AppConfig {
             server: ServerConfig {
                 host: "not-a-host".to_string(),
-                port: 3000,
+                port: 8888,
                 ..Default::default()
             },
             ..Default::default()

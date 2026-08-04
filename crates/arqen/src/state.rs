@@ -131,7 +131,7 @@ mod tests {
     #[test]
     fn test_app_state_builder_defaults() {
         let state = AppState::builder().build().unwrap();
-        assert_eq!(state.config.server.port, 3000);
+        assert_eq!(state.config.server.port, 8888);
         assert_eq!(state.config.storage.mode, StorageMode::Memory);
     }
 
