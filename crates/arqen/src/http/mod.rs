@@ -12,8 +12,10 @@ use std::sync::Arc;
 use tokio::net::TcpListener;
 use tower_http::cors::{CorsLayer, Any};
 use tower_http::limit::RequestBodyLimitLayer;
+use tower_http::timeout::TimeoutLayer;
 
 use crate::agent::ToolRegistry;
+use crate::config::ServerConfig;
 
 /// Runtime configuration passed to all HTTP handlers.
 #[derive(Clone, Debug)]
@@ -21,6 +23,7 @@ pub struct RuntimeInfo {
     pub storage_mode: String,
     pub thingd_ready: bool,
     pub registry: Arc<ToolRegistry>,
+    pub server: ServerConfig,
 }
 
 impl RuntimeInfo {
@@ -29,7 +32,13 @@ impl RuntimeInfo {
             storage_mode: storage_mode.into(),
             thingd_ready: true,
             registry: Arc::new(registry),
+            server: ServerConfig::default(),
         }
+    }
+
+    pub fn with_config(mut self, config: ServerConfig) -> Self {
+        self.server = config;
+        self
     }
 }
 
@@ -39,6 +48,7 @@ impl Default for RuntimeInfo {
             storage_mode: "memory".to_string(),
             thingd_ready: true,
             registry: Arc::new(ToolRegistry::default()),
+            server: ServerConfig::default(),
         }
     }
 }
@@ -53,6 +63,9 @@ pub fn create_router_with_runtime(runtime: RuntimeInfo) -> Router {
         .allow_methods(Any)
         .allow_headers(Any);
 
+    let timeout = TimeoutLayer::new(runtime.server.request_timeout);
+    let body_limit = RequestBodyLimitLayer::new(runtime.server.max_body_size);
+
     Router::new()
         .route("/health", get(routes::health))
         .route("/ready", get(routes::ready))
@@ -60,7 +73,8 @@ pub fn create_router_with_runtime(runtime: RuntimeInfo) -> Router {
         .route("/agent/manifest", get(routes::agent_manifest))
         .route("/docs", get(routes::docs))
         .layer(Extension(runtime))
-        .layer(RequestBodyLimitLayer::new(1024 * 1024))
+        .layer(body_limit)
+        .layer(timeout)
         .layer(cors)
         .layer(middleware::from_fn(middleware_correlation::correlation_id_middleware))
         .layer(middleware::from_fn(middleware_log::logging_middleware))
