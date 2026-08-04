@@ -602,4 +602,37 @@ mod tests {
 
         assert_eq!(response.status(), StatusCode::SERVICE_UNAVAILABLE);
     }
+
+    #[tokio::test]
+    async fn test_ready_response_includes_check_details_and_correlation_id() {
+        let mut registry = HealthRegistry::new();
+        registry.register(Arc::new(AlwaysUnhealthy::new("down")));
+        let state = AppState::builder()
+            .with_health_registry(registry)
+            .build()
+            .unwrap();
+        let router = test_router(state);
+
+        let response = router
+            .oneshot(
+                Request::builder()
+                    .uri("/ready")
+                    .header("x-request-id", "ready-corr-1")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(response.status(), StatusCode::SERVICE_UNAVAILABLE);
+        let body = axum::body::to_bytes(response.into_body(), 4096)
+            .await
+            .unwrap();
+        let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
+
+        assert_eq!(json["status"], "not_ready");
+        assert_eq!(json["correlation_id"], "ready-corr-1");
+        assert_eq!(json["checks"]["always_unhealthy"]["status"], "unhealthy");
+        assert!(json["checks"]["always_unhealthy"]["reason"].is_string());
+    }
 }
