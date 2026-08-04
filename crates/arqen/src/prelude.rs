@@ -6,7 +6,9 @@
 //! use arqen::prelude::*;
 //! ```
 
-pub use crate::agent::{JobMetadata, ToolEffect, ToolMetadata, ToolRegistry};
+pub use crate::agent::{
+    JobMetadata, ToolContext, ToolEffect, ToolHandler, ToolMetadata, ToolOutcome, ToolRegistry,
+};
 pub use crate::app::ArqenApp;
 pub use crate::config::AppConfig;
 pub use crate::core::{AppError, ErrorKind};

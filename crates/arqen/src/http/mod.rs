@@ -11,7 +11,12 @@ pub use module::{HttpModule, merge_module_routes};
 pub use routes::{agent, agent_manifest, docs, health, ready};
 
 use axum::extract::FromRef;
-use axum::{Router, http::StatusCode, middleware, routing::get};
+use axum::{
+    Router,
+    http::StatusCode,
+    middleware,
+    routing::{get, post},
+};
 use std::net::SocketAddr;
 use tokio::net::TcpListener;
 use tower_http::cors::{Any, CorsLayer};
@@ -89,6 +94,7 @@ where
         .route("/ready", get(routes::ready))
         .route("/agent", get(routes::agent))
         .route("/agent/manifest", get(routes::agent_manifest))
+        .route("/agent/tools/:name", post(routes::tool_invoke))
         .route("/docs", get(routes::docs))
         .layer(body_limit)
         .layer(timeout)

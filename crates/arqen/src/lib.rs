@@ -51,7 +51,8 @@ pub mod logging;
 
 // Re-export commonly used types at crate root
 pub use agent::{
-    AgentManifest, EndpointMetadata, JobMetadata, ToolEffect, ToolMetadata, ToolRegistry,
+    AgentManifest, EndpointMetadata, JobMetadata, ToolContext, ToolEffect, ToolHandler,
+    ToolMetadata, ToolOutcome, ToolRegistry,
 };
 pub use config::{
     AppConfig, AuthConfig, CliOverrides, HealthConfig, LogFormat, LoggingConfig, Secret,

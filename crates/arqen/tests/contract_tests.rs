@@ -70,6 +70,130 @@ mod http_composition {
     }
 }
 
+#[cfg(feature = "http-server")]
+mod tool_invoke {
+    use arqen::{
+        AppError, AppState, ToolContext, ToolEffect, ToolHandler, ToolMetadata, ToolRegistry,
+    };
+    use axum::body::Body;
+    use axum::http::{Request, StatusCode};
+    use tower::ServiceExt;
+
+    struct EchoHandler;
+
+    #[async_trait::async_trait]
+    impl ToolHandler for EchoHandler {
+        async fn execute(
+            &self,
+            _ctx: &ToolContext,
+            input: serde_json::Value,
+        ) -> Result<serde_json::Value, AppError> {
+            Ok(input)
+        }
+    }
+
+    fn tool_state() -> AppState {
+        let mut registry = ToolRegistry::new("contract-app", "1.0.0", "Contract app", "memory");
+        registry.register_tool(ToolMetadata {
+            name: "echo".to_string(),
+            description: "Echo input".to_string(),
+            input: serde_json::json!({
+                "type": "object",
+                "properties": {"msg": {"type": "string"}},
+                "required": ["msg"]
+            }),
+            output: serde_json::json!({"type": "object"}),
+            scopes: vec![],
+            effect: ToolEffect::Read,
+            idempotent: true,
+            enqueues_job: None,
+            timeout: Some(5),
+        });
+        registry.register_handler("echo", EchoHandler);
+        AppState::builder()
+            .with_tool_registry(registry)
+            .build()
+            .unwrap()
+    }
+
+    #[tokio::test]
+    async fn test_tool_invoke_through_builtin_router() {
+        let state = tool_state();
+        let router = arqen::http::create_router_with_state(state);
+
+        let response = router
+            .oneshot(
+                Request::builder()
+                    .method("POST")
+                    .uri("/agent/tools/echo")
+                    .header("content-type", "application/json")
+                    .body(Body::from(serde_json::json!({"msg": "hi"}).to_string()))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(response.status(), StatusCode::OK);
+        let body = axum::body::to_bytes(response.into_body(), 4096)
+            .await
+            .unwrap();
+        let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
+        assert_eq!(json["tool"], "echo");
+        assert_eq!(json["output"]["msg"], "hi");
+    }
+
+    #[tokio::test]
+    async fn test_tool_invoke_matches_manifest_names() {
+        let state = tool_state();
+        let router = arqen::http::create_router_with_state(state);
+
+        let manifest = router
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .uri("/agent/manifest")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(manifest.status(), StatusCode::OK);
+        let body = axum::body::to_bytes(manifest.into_body(), 4096)
+            .await
+            .unwrap();
+        let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
+
+        let tool_names: Vec<&str> = json["tools"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|t| t["name"].as_str().unwrap())
+            .collect();
+        assert!(tool_names.contains(&"echo"));
+
+        let invoke_paths: Vec<&str> = json["endpoints"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|e| e["path"].as_str().unwrap())
+            .collect();
+        assert!(invoke_paths.contains(&"/agent/tools/echo"));
+
+        let invoked = router
+            .oneshot(
+                Request::builder()
+                    .method("POST")
+                    .uri("/agent/tools/echo")
+                    .header("content-type", "application/json")
+                    .body(Body::from(serde_json::json!({"msg": "ok"}).to_string()))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(invoked.status(), StatusCode::OK);
+    }
+}
+
 async fn create_backend() -> Box<dyn ThingdBackend> {
     Box::new(MemoryThingdBackend::new())
 }

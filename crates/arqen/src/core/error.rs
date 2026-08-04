@@ -21,6 +21,7 @@ pub enum ErrorCode {
     Internal,
     External,
     Unavailable,
+    NotImpl,
 }
 
 impl ErrorCode {
@@ -41,6 +42,7 @@ impl ErrorCode {
             ErrorCode::Internal => StatusCode::INTERNAL_SERVER_ERROR,
             ErrorCode::External => StatusCode::BAD_GATEWAY,
             ErrorCode::Unavailable => StatusCode::SERVICE_UNAVAILABLE,
+            ErrorCode::NotImpl => StatusCode::NOT_IMPLEMENTED,
         }
     }
 }
@@ -59,6 +61,7 @@ impl std::fmt::Display for ErrorCode {
             ErrorCode::Internal => write!(f, "internal"),
             ErrorCode::External => write!(f, "external"),
             ErrorCode::Unavailable => write!(f, "unavailable"),
+            ErrorCode::NotImpl => write!(f, "not_impl"),
         }
     }
 }
@@ -205,6 +208,8 @@ pub enum ErrorKind {
     External,
     #[error("unavailable")]
     Unavailable,
+    #[error("not implemented")]
+    NotImpl,
 }
 
 impl ErrorKind {
@@ -221,6 +226,7 @@ impl ErrorKind {
             ErrorKind::Internal => ErrorCode::Internal,
             ErrorKind::External => ErrorCode::External,
             ErrorKind::Unavailable => ErrorCode::Unavailable,
+            ErrorKind::NotImpl => ErrorCode::NotImpl,
         }
     }
 

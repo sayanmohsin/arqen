@@ -1,8 +1,13 @@
+pub mod execution;
 pub mod registry;
 pub mod schema;
 
+pub use execution::{ToolContext, ToolHandler, ToolOutcome, validate_against_schema};
 pub use registry::ToolRegistry;
 pub use schema::{Schema, SchemaGenerator};
+
+/// Default HTTP path template for invoking a tool by name.
+pub const AGENT_TOOL_INVOKE_PATH: &str = "/agent/tools/{name}";
 
 use serde::{Deserialize, Serialize};
 
