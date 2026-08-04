@@ -12,6 +12,7 @@
 ## Usage Patterns
 
 ### Simple module
+
 ```rust
 struct UsersModule;
 
@@ -23,6 +24,7 @@ impl Module for UsersModule {
 ```
 
 ### Module with dependencies and registration
+
 ```rust
 struct ApiModule;
 
@@ -38,6 +40,7 @@ impl Module for ApiModule {
 ```
 
 ### HTTP module
+
 ```rust
 struct UsersModule;
 
@@ -53,6 +56,7 @@ impl HttpModule for UsersModule {
 ```
 
 ### App composition
+
 ```rust
 ArqenApp::builder()
     .name("my-api")
