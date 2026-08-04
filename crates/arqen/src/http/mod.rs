@@ -6,7 +6,7 @@ pub use middleware_correlation::{correlation_id_middleware, X_REQUEST_ID};
 pub use middleware_log::logging_middleware;
 pub use routes::{agent, agent_manifest, docs, health, ready};
 
-use axum::{Router, extract::Extension, middleware, routing::get};
+use axum::{Router, extract::State, http::StatusCode, middleware, routing::get};
 use std::net::SocketAddr;
 use std::sync::Arc;
 use tokio::net::TcpListener;
@@ -16,55 +16,23 @@ use tower_http::timeout::TimeoutLayer;
 
 use crate::agent::ToolRegistry;
 use crate::config::ServerConfig;
+use crate::state::AppState;
 
-/// Runtime configuration passed to all HTTP handlers.
-#[derive(Clone, Debug)]
-pub struct RuntimeInfo {
-    pub storage_mode: String,
-    pub thingd_ready: bool,
-    pub registry: Arc<ToolRegistry>,
-    pub server: ServerConfig,
-}
-
-impl RuntimeInfo {
-    pub fn new(storage_mode: impl Into<String>, registry: ToolRegistry) -> Self {
-        Self {
-            storage_mode: storage_mode.into(),
-            thingd_ready: true,
-            registry: Arc::new(registry),
-            server: ServerConfig::default(),
-        }
-    }
-
-    pub fn with_config(mut self, config: ServerConfig) -> Self {
-        self.server = config;
-        self
-    }
-}
-
-impl Default for RuntimeInfo {
-    fn default() -> Self {
-        Self {
-            storage_mode: "memory".to_string(),
-            thingd_ready: true,
-            registry: Arc::new(ToolRegistry::default()),
-            server: ServerConfig::default(),
-        }
-    }
-}
-
+/// Create the default Arqen router.
 pub fn create_router() -> Router {
-    create_router_with_runtime(RuntimeInfo::default())
+    let state = AppState::builder().build().expect("failed to build default state");
+    create_router_with_state(state)
 }
 
-pub fn create_router_with_runtime(runtime: RuntimeInfo) -> Router {
+/// Create a router with the given app state.
+pub fn create_router_with_state(state: AppState) -> Router {
     let cors = CorsLayer::new()
         .allow_origin(Any)
         .allow_methods(Any)
         .allow_headers(Any);
 
-    let timeout = TimeoutLayer::new(runtime.server.request_timeout);
-    let body_limit = RequestBodyLimitLayer::new(runtime.server.max_body_size);
+    let timeout = TimeoutLayer::with_status_code(StatusCode::GATEWAY_TIMEOUT, state.config.server.request_timeout);
+    let body_limit = RequestBodyLimitLayer::new(state.config.server.max_body_size);
 
     Router::new()
         .route("/health", get(routes::health))
@@ -72,7 +40,7 @@ pub fn create_router_with_runtime(runtime: RuntimeInfo) -> Router {
         .route("/agent", get(routes::agent))
         .route("/agent/manifest", get(routes::agent_manifest))
         .route("/docs", get(routes::docs))
-        .layer(Extension(runtime))
+        .with_state(state)
         .layer(body_limit)
         .layer(timeout)
         .layer(cors)

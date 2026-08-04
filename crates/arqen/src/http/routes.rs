@@ -1,9 +1,12 @@
 use crate::core::error::CorrelationId;
-use crate::http::RuntimeInfo;
-use axum::{Json, extract::Extension, http::StatusCode, response::IntoResponse};
+use crate::state::AppState;
+use axum::{Json, extract::{State, Extension}, http::StatusCode, response::IntoResponse};
 use serde_json::{Value, json};
 
-pub async fn health(Extension(correlation_id): Extension<CorrelationId>) -> impl IntoResponse {
+pub async fn health(
+    State(_state): State<AppState>,
+    Extension(correlation_id): Extension<CorrelationId>,
+) -> impl IntoResponse {
     let body = Json(json!({
         "status": "ok",
         "correlation_id": correlation_id.to_string()
@@ -12,28 +15,28 @@ pub async fn health(Extension(correlation_id): Extension<CorrelationId>) -> impl
 }
 
 pub async fn ready(
-    Extension(runtime): Extension<RuntimeInfo>,
+    State(state): State<AppState>,
     Extension(correlation_id): Extension<CorrelationId>,
 ) -> impl IntoResponse {
-    let status = if runtime.thingd_ready {
+    let status = if state.thingd_ready {
         StatusCode::OK
     } else {
         StatusCode::SERVICE_UNAVAILABLE
     };
     let body = Json(json!({
-        "status": if runtime.thingd_ready { "ready" } else { "not_ready" },
-        "storage_mode": runtime.storage_mode,
-        "checks": { "thingd": if runtime.thingd_ready { "ok" } else { "unavailable" } },
+        "status": if state.thingd_ready { "ready" } else { "not_ready" },
+        "storage_mode": state.storage_mode,
+        "checks": { "thingd": if state.thingd_ready { "ok" } else { "unavailable" } },
         "correlation_id": correlation_id.to_string()
     }));
     (status, body)
 }
 
 pub async fn agent(
-    Extension(runtime): Extension<RuntimeInfo>,
+    State(state): State<AppState>,
     Extension(correlation_id): Extension<CorrelationId>,
 ) -> impl IntoResponse {
-    let manifest = runtime.registry.generate_manifest();
+    let manifest = state.tool_registry.generate_manifest();
     let body = Json(json!({
         "name": manifest.name,
         "version": manifest.version,
@@ -48,10 +51,10 @@ pub async fn agent(
 }
 
 pub async fn agent_manifest(
-    Extension(runtime): Extension<RuntimeInfo>,
+    State(state): State<AppState>,
     Extension(correlation_id): Extension<CorrelationId>,
 ) -> impl IntoResponse {
-    let manifest = runtime.registry.generate_manifest();
+    let manifest = state.tool_registry.generate_manifest();
     let tools: Vec<Value> = manifest
         .tools
         .iter()
@@ -110,7 +113,10 @@ pub async fn agent_manifest(
     (StatusCode::OK, body)
 }
 
-pub async fn docs(Extension(correlation_id): Extension<CorrelationId>) -> axum::response::Html<String> {
+pub async fn docs(
+    State(_state): State<AppState>,
+    Extension(correlation_id): Extension<CorrelationId>,
+) -> axum::response::Html<String> {
     axum::response::Html(
         format!(
             r#"<!DOCTYPE html>

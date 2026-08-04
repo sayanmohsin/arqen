@@ -62,7 +62,7 @@ pub use state::{AppState, AppStateBuilder};
 pub use thingd::{MemoryThingdBackend, ThingdBackend};
 
 #[cfg(feature = "http-server")]
-pub use http::{create_router, start_server};
+pub use http::{create_router, create_router_with_state};
 #[cfg(feature = "logging")]
 pub use logging::init_logging;
 #[cfg(feature = "thingd-native")]

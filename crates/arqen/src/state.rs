@@ -17,6 +17,10 @@ pub struct AppState {
     pub storage: Arc<dyn ThingdBackend>,
     /// Tool registry.
     pub tool_registry: Arc<ToolRegistry>,
+    /// Storage mode (memory, persistent, http).
+    pub storage_mode: String,
+    /// Whether thingd is ready.
+    pub thingd_ready: bool,
 }
 
 impl AppState {
@@ -31,6 +35,8 @@ pub struct AppStateBuilder {
     config: Option<AppConfig>,
     storage: Option<Arc<dyn ThingdBackend>>,
     tool_registry: Option<Arc<ToolRegistry>>,
+    storage_mode: Option<String>,
+    thingd_ready: Option<bool>,
 }
 
 impl AppStateBuilder {
@@ -40,6 +46,8 @@ impl AppStateBuilder {
             config: None,
             storage: None,
             tool_registry: None,
+            storage_mode: None,
+            thingd_ready: None,
         }
     }
 
@@ -61,6 +69,18 @@ impl AppStateBuilder {
         self
     }
 
+    /// Set the storage mode.
+    pub fn with_storage_mode(mut self, mode: impl Into<String>) -> Self {
+        self.storage_mode = Some(mode.into());
+        self
+    }
+
+    /// Set whether thingd is ready.
+    pub fn with_thingd_ready(mut self, ready: bool) -> Self {
+        self.thingd_ready = Some(ready);
+        self
+    }
+
     /// Build the `AppState`.
     ///
     /// If no storage is provided, creates a `MemoryThingdBackend`.
@@ -68,9 +88,7 @@ impl AppStateBuilder {
     pub fn build(self) -> Result<AppState, ConfigError> {
         let config = self.config.unwrap_or_default();
 
-        let storage = self.storage.unwrap_or_else(|| {
-            Arc::new(MemoryThingdBackend::new())
-        });
+        let storage = self.storage.unwrap_or_else(|| Arc::new(MemoryThingdBackend::new()));
 
         let tool_registry = self.tool_registry.unwrap_or_else(|| {
             Arc::new(ToolRegistry::new(
@@ -81,10 +99,18 @@ impl AppStateBuilder {
             ))
         });
 
+        let storage_mode = self.storage_mode.unwrap_or_else(|| {
+            format!("{:?}", config.storage.mode).to_lowercase()
+        });
+
+        let thingd_ready = self.thingd_ready.unwrap_or(true);
+
         Ok(AppState {
             config,
             storage,
             tool_registry,
+            storage_mode,
+            thingd_ready,
         })
     }
 }

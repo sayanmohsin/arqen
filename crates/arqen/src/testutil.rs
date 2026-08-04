@@ -182,7 +182,7 @@ impl TestAppBuilder {
             .build()
             .expect("failed to build AppState");
 
-        let router = crate::http::create_router();
+        let router = crate::http::create_router_with_state(state.clone());
 
         TestApp { state, router }
     }
