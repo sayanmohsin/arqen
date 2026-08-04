@@ -10,6 +10,7 @@ use axum::{Router, extract::Extension, middleware, routing::get};
 use std::net::SocketAddr;
 use std::sync::Arc;
 use tokio::net::TcpListener;
+use tower_http::cors::{CorsLayer, Any};
 use tower_http::limit::RequestBodyLimitLayer;
 
 use crate::agent::ToolRegistry;
@@ -47,6 +48,11 @@ pub fn create_router() -> Router {
 }
 
 pub fn create_router_with_runtime(runtime: RuntimeInfo) -> Router {
+    let cors = CorsLayer::new()
+        .allow_origin(Any)
+        .allow_methods(Any)
+        .allow_headers(Any);
+
     Router::new()
         .route("/health", get(routes::health))
         .route("/ready", get(routes::ready))
@@ -55,6 +61,7 @@ pub fn create_router_with_runtime(runtime: RuntimeInfo) -> Router {
         .route("/docs", get(routes::docs))
         .layer(Extension(runtime))
         .layer(RequestBodyLimitLayer::new(1024 * 1024))
+        .layer(cors)
         .layer(middleware::from_fn(middleware_correlation::correlation_id_middleware))
         .layer(middleware::from_fn(middleware_log::logging_middleware))
 }
