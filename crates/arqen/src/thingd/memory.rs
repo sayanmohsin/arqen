@@ -18,6 +18,64 @@ fn lock_mutex<'a, T>(
     })
 }
 
+/// Evaluate a single filter clause against an object.
+fn matches_filter(obj: &ThingdObject, filter: &ThingdFilter) -> bool {
+    let Some(value) = obj.data.get(&filter.field) else {
+        return false;
+    };
+    match filter.operator {
+        FilterOperator::Eq => *value == filter.value,
+        FilterOperator::Ne => *value != filter.value,
+        FilterOperator::Gt => {
+            if let (Some(a), Some(b)) = (value.as_f64(), filter.value.as_f64()) {
+                a > b
+            } else if let (Some(a), Some(b)) = (value.as_str(), filter.value.as_str()) {
+                a > b
+            } else {
+                false
+            }
+        }
+        FilterOperator::Lt => {
+            if let (Some(a), Some(b)) = (value.as_f64(), filter.value.as_f64()) {
+                a < b
+            } else if let (Some(a), Some(b)) = (value.as_str(), filter.value.as_str()) {
+                a < b
+            } else {
+                false
+            }
+        }
+        FilterOperator::Gte => {
+            if let (Some(a), Some(b)) = (value.as_f64(), filter.value.as_f64()) {
+                a >= b
+            } else if let (Some(a), Some(b)) = (value.as_str(), filter.value.as_str()) {
+                a >= b
+            } else {
+                false
+            }
+        }
+        FilterOperator::Lte => {
+            if let (Some(a), Some(b)) = (value.as_f64(), filter.value.as_f64()) {
+                a <= b
+            } else if let (Some(a), Some(b)) = (value.as_str(), filter.value.as_str()) {
+                a <= b
+            } else {
+                false
+            }
+        }
+        FilterOperator::Contains => {
+            if let Some(search_str) = filter.value.as_str() {
+                if let Some(value_str) = value.as_str() {
+                    value_str.contains(search_str)
+                } else {
+                    false
+                }
+            } else {
+                false
+            }
+        }
+    }
+}
+
 /// In-memory implementation of [`ThingdBackend`].
 ///
 /// Useful for development, testing, and as a reference implementation.
@@ -96,88 +154,24 @@ impl ThingdBackend for MemoryThingdBackend {
     async fn query_objects(
         &self,
         collection: &str,
-        filter: Option<ThingdFilter>,
+        options: QueryOptions,
     ) -> Result<Vec<ThingdObject>, AppError> {
         let objects = lock_mutex(&self.objects, "objects")?;
         let collection_objects = objects.get(collection).unwrap_or(&vec![]).clone();
 
-        if let Some(filter) = filter {
-            let filtered = collection_objects
-                .into_iter()
-                .filter(|obj| {
-                    if let Some(value) = obj.data.get(&filter.field) {
-                        match filter.operator {
-                            FilterOperator::Eq => *value == filter.value,
-                            FilterOperator::Ne => *value != filter.value,
-                            FilterOperator::Gt => {
-                                if let (Some(a), Some(b)) = (value.as_f64(), filter.value.as_f64())
-                                {
-                                    a > b
-                                } else if let (Some(a), Some(b)) =
-                                    (value.as_str(), filter.value.as_str())
-                                {
-                                    a > b
-                                } else {
-                                    false
-                                }
-                            }
-                            FilterOperator::Lt => {
-                                if let (Some(a), Some(b)) = (value.as_f64(), filter.value.as_f64())
-                                {
-                                    a < b
-                                } else if let (Some(a), Some(b)) =
-                                    (value.as_str(), filter.value.as_str())
-                                {
-                                    a < b
-                                } else {
-                                    false
-                                }
-                            }
-                            FilterOperator::Gte => {
-                                if let (Some(a), Some(b)) = (value.as_f64(), filter.value.as_f64())
-                                {
-                                    a >= b
-                                } else if let (Some(a), Some(b)) =
-                                    (value.as_str(), filter.value.as_str())
-                                {
-                                    a >= b
-                                } else {
-                                    false
-                                }
-                            }
-                            FilterOperator::Lte => {
-                                if let (Some(a), Some(b)) = (value.as_f64(), filter.value.as_f64())
-                                {
-                                    a <= b
-                                } else if let (Some(a), Some(b)) =
-                                    (value.as_str(), filter.value.as_str())
-                                {
-                                    a <= b
-                                } else {
-                                    false
-                                }
-                            }
-                            FilterOperator::Contains => {
-                                if let Some(search_str) = filter.value.as_str() {
-                                    if let Some(value_str) = value.as_str() {
-                                        value_str.contains(search_str)
-                                    } else {
-                                        false
-                                    }
-                                } else {
-                                    false
-                                }
-                            }
-                        }
-                    } else {
-                        false
-                    }
-                })
-                .collect();
-            Ok(filtered)
-        } else {
-            Ok(collection_objects)
-        }
+        let matched: Vec<ThingdObject> = collection_objects
+            .into_iter()
+            .filter(|obj| {
+                options
+                    .filters
+                    .iter()
+                    .all(|filter| matches_filter(obj, filter))
+            })
+            .skip(options.offset)
+            .take(options.limit.unwrap_or(usize::MAX))
+            .collect();
+
+        Ok(matched)
     }
 
     async fn batch_write(
@@ -611,8 +605,94 @@ mod tests {
             operator: FilterOperator::Gt,
             value: serde_json::json!(27),
         };
-        let results = backend.query_objects("users", Some(filter)).await.unwrap();
+        let results = backend
+            .query_objects("users", QueryOptions::filtered(vec![filter]))
+            .await
+            .unwrap();
         assert_eq!(results.len(), 2);
+    }
+
+    #[tokio::test]
+    async fn test_query_objects_multiple_filters_conjunctive() {
+        let backend = create_backend().await;
+        backend
+            .put_object(
+                "offers",
+                "o1",
+                serde_json::json!({"title_id": "t1", "country": "US", "season": 1}),
+            )
+            .await
+            .unwrap();
+        backend
+            .put_object(
+                "offers",
+                "o2",
+                serde_json::json!({"title_id": "t1", "country": "US", "season": 2}),
+            )
+            .await
+            .unwrap();
+        backend
+            .put_object(
+                "offers",
+                "o3",
+                serde_json::json!({"title_id": "t1", "country": "UK", "season": 1}),
+            )
+            .await
+            .unwrap();
+        backend
+            .put_object(
+                "offers",
+                "o4",
+                serde_json::json!({"title_id": "t2", "country": "US", "season": 1}),
+            )
+            .await
+            .unwrap();
+
+        let filters = vec![
+            ThingdFilter {
+                field: "title_id".to_string(),
+                operator: FilterOperator::Eq,
+                value: serde_json::json!("t1"),
+            },
+            ThingdFilter {
+                field: "country".to_string(),
+                operator: FilterOperator::Eq,
+                value: serde_json::json!("US"),
+            },
+        ];
+
+        let results = backend
+            .query_objects("offers", QueryOptions::filtered(filters))
+            .await
+            .unwrap();
+        assert_eq!(results.len(), 2);
+        assert!(results.iter().all(|o| o.id == "o1" || o.id == "o2"));
+    }
+
+    #[tokio::test]
+    async fn test_query_objects_pagination() {
+        let backend = create_backend().await;
+        for i in 1..=5 {
+            backend
+                .put_object("items", &format!("item{i}"), serde_json::json!({"n": i}))
+                .await
+                .unwrap();
+        }
+
+        let page = backend
+            .query_objects(
+                "items",
+                QueryOptions {
+                    filters: vec![],
+                    limit: Some(2),
+                    offset: 1,
+                },
+            )
+            .await
+            .unwrap();
+        assert_eq!(page.len(), 2);
+        assert_eq!(page[0].data["n"], 2);
+        assert_eq!(page[1].data["n"], 3);
     }
 
     #[tokio::test]

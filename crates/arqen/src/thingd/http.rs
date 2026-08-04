@@ -206,11 +206,10 @@ impl ThingdBackend for HttpThingdBackend {
     async fn query_objects(
         &self,
         collection: &str,
-        filter: Option<ThingdFilter>,
+        options: QueryOptions,
     ) -> Result<Vec<ThingdObject>, crate::core::AppError> {
         let path = format!("/collections/{}/objects", collection);
-        let body = serde_json::json!({ "filter": filter });
-        self.post(&path, body).await
+        self.post(&path, options).await
     }
 
     async fn count_objects(&self, collection: &str) -> Result<usize, crate::core::AppError> {

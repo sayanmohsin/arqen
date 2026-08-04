@@ -125,6 +125,28 @@ pub struct SearchOptions {
     pub filters: Vec<ThingdFilter>,
 }
 
+/// Options for querying objects within a single collection.
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct QueryOptions {
+    /// Filters to apply conjunctively (all must match).
+    pub filters: Vec<ThingdFilter>,
+    /// Maximum number of results. `None` returns all matches.
+    pub limit: Option<usize>,
+    /// Number of results to skip (pagination offset).
+    pub offset: usize,
+}
+
+impl QueryOptions {
+    /// Create options that apply the given conjunctive filters with no pagination.
+    pub fn filtered(filters: Vec<ThingdFilter>) -> Self {
+        Self {
+            filters,
+            limit: None,
+            offset: 0,
+        }
+    }
+}
+
 /// Results from a search or query operation.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SearchResults {
@@ -181,11 +203,15 @@ pub trait ThingdBackend: Send + Sync {
     /// Delete an object by collection and ID.
     async fn delete_object(&self, collection: &str, id: &str) -> Result<(), crate::core::AppError>;
 
-    /// Query objects in a collection with optional filtering.
+    /// Query objects in a collection.
+    ///
+    /// Filters are applied conjunctively (all must match). `limit`/`offset`
+    /// paginate at the storage layer. Pass [`QueryOptions::default()`] for all
+    /// objects in the collection.
     async fn query_objects(
         &self,
         collection: &str,
-        filter: Option<ThingdFilter>,
+        options: QueryOptions,
     ) -> Result<Vec<ThingdObject>, crate::core::AppError>;
 
     /// Count objects in a collection.

@@ -106,7 +106,13 @@ async fn test_object_crud() {
         operator: FilterOperator::Eq,
         value: json!("Alice Smith"),
     };
-    let results = backend.query_objects("users", Some(filter)).await.unwrap();
+    let results = backend
+        .query_objects(
+            "users",
+            arqen::thingd::traits::QueryOptions::filtered(vec![filter]),
+        )
+        .await
+        .unwrap();
     assert_eq!(results.len(), 1);
     assert_eq!(results[0].data["name"], "Alice Smith");
 
@@ -397,7 +403,10 @@ async fn test_filter_operators() {
         operator: FilterOperator::Eq,
         value: json!("Banana"),
     };
-    let results = backend.query_objects("items", Some(filter)).await.unwrap();
+    let results = backend
+        .query_objects("items", QueryOptions::filtered(vec![filter]))
+        .await
+        .unwrap();
     assert_eq!(results.len(), 1);
     assert_eq!(results[0].data["name"], "Banana");
 
@@ -407,7 +416,10 @@ async fn test_filter_operators() {
         operator: FilterOperator::Gt,
         value: json!(1.0),
     };
-    let results = backend.query_objects("items", Some(filter)).await.unwrap();
+    let results = backend
+        .query_objects("items", QueryOptions::filtered(vec![filter]))
+        .await
+        .unwrap();
     assert_eq!(results.len(), 1);
     assert_eq!(results[0].data["name"], "Cherry");
 
@@ -417,7 +429,67 @@ async fn test_filter_operators() {
         operator: FilterOperator::Contains,
         value: json!("pp"),
     };
-    let results = backend.query_objects("items", Some(filter)).await.unwrap();
+    let results = backend
+        .query_objects("items", QueryOptions::filtered(vec![filter]))
+        .await
+        .unwrap();
     assert_eq!(results.len(), 1);
     assert_eq!(results[0].data["name"], "Apple");
+}
+
+#[tokio::test]
+async fn test_query_objects_multiple_filters_and_pagination() {
+    let backend = create_backend().await;
+
+    for (id, title_id, country, season) in [
+        ("o1", "t1", "US", 1),
+        ("o2", "t1", "US", 2),
+        ("o3", "t1", "UK", 1),
+        ("o4", "t2", "US", 1),
+        ("o5", "t1", "US", 3),
+    ] {
+        backend
+            .put_object(
+                "offers",
+                id,
+                json!({"title_id": title_id, "country": country, "season": season}),
+            )
+            .await
+            .unwrap();
+    }
+
+    // Conjunctive filters: title_id = t1 AND country = US.
+    let filters = vec![
+        ThingdFilter {
+            field: "title_id".to_string(),
+            operator: FilterOperator::Eq,
+            value: json!("t1"),
+        },
+        ThingdFilter {
+            field: "country".to_string(),
+            operator: FilterOperator::Eq,
+            value: json!("US"),
+        },
+    ];
+
+    let all = backend
+        .query_objects("offers", QueryOptions::filtered(filters.clone()))
+        .await
+        .unwrap();
+    assert_eq!(all.len(), 3);
+
+    let page = backend
+        .query_objects(
+            "offers",
+            QueryOptions {
+                filters,
+                limit: Some(2),
+                offset: 1,
+            },
+        )
+        .await
+        .unwrap();
+    assert_eq!(page.len(), 2);
+    assert_eq!(page[0].id, "o2");
+    assert_eq!(page[1].id, "o5");
 }
