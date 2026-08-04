@@ -395,6 +395,72 @@ impl AppConfig {
         if let Ok(enabled) = std::env::var("ARQEN_WORKER_ENABLED") {
             self.worker.enabled = enabled == "true" || enabled == "1";
         }
+        if let Ok(queues) = std::env::var("ARQEN_WORKER_QUEUES") {
+            self.worker.queues = queues.split(',').map(|s| s.trim().to_string()).collect();
+        }
+        if let Ok(interval) = std::env::var("ARQEN_WORKER_POLL_INTERVAL") {
+            self.worker.poll_interval = Duration::from_secs(interval.parse().map_err(|_| ConfigError::InvalidValue {
+                field: "worker_poll_interval".to_string(),
+                value: interval,
+                expected: "a valid u64 (seconds)".to_string(),
+            })?);
+        }
+        if let Ok(lease) = std::env::var("ARQEN_WORKER_LEASE_SECONDS") {
+            self.worker.lease_seconds = lease.parse().map_err(|_| ConfigError::InvalidValue {
+                field: "worker_lease_seconds".to_string(),
+                value: lease,
+                expected: "a valid u32".to_string(),
+            })?;
+        }
+        if let Ok(retries) = std::env::var("ARQEN_WORKER_MAX_RETRIES") {
+            self.worker.max_retries = retries.parse().map_err(|_| ConfigError::InvalidValue {
+                field: "worker_max_retries".to_string(),
+                value: retries,
+                expected: "a valid u32".to_string(),
+            })?;
+        }
+        if let Ok(concurrency) = std::env::var("ARQEN_WORKER_CONCURRENCY") {
+            self.worker.concurrency = concurrency.parse().map_err(|_| ConfigError::InvalidValue {
+                field: "worker_concurrency".to_string(),
+                value: concurrency,
+                expected: "a valid u32".to_string(),
+            })?;
+        }
+        if let Ok(timeout) = std::env::var("ARQEN_HEALTH_CHECK_TIMEOUT") {
+            self.health.check_timeout = Duration::from_secs(timeout.parse().map_err(|_| ConfigError::InvalidValue {
+                field: "health_check_timeout".to_string(),
+                value: timeout,
+                expected: "a valid u64 (seconds)".to_string(),
+            })?);
+        }
+        if let Ok(delay) = std::env::var("ARQEN_HEALTH_STARTUP_DELAY") {
+            self.health.startup_delay = Duration::from_secs(delay.parse().map_err(|_| ConfigError::InvalidValue {
+                field: "health_startup_delay".to_string(),
+                value: delay,
+                expected: "a valid u64 (seconds)".to_string(),
+            })?);
+        }
+        if let Ok(timeout) = std::env::var("ARQEN_REQUEST_TIMEOUT") {
+            self.server.request_timeout = Duration::from_secs(timeout.parse().map_err(|_| ConfigError::InvalidValue {
+                field: "request_timeout".to_string(),
+                value: timeout,
+                expected: "a valid u64 (seconds)".to_string(),
+            })?);
+        }
+        if let Ok(size) = std::env::var("ARQEN_MAX_BODY_SIZE") {
+            self.server.max_body_size = size.parse().map_err(|_| ConfigError::InvalidValue {
+                field: "max_body_size".to_string(),
+                value: size,
+                expected: "a valid usize (bytes)".to_string(),
+            })?;
+        }
+        if let Ok(timeout) = std::env::var("ARQEN_SHUTDOWN_TIMEOUT") {
+            self.server.shutdown_timeout = Duration::from_secs(timeout.parse().map_err(|_| ConfigError::InvalidValue {
+                field: "shutdown_timeout".to_string(),
+                value: timeout,
+                expected: "a valid u64 (seconds)".to_string(),
+            })?);
+        }
         Ok(self)
     }
 
