@@ -1,7 +1,9 @@
+pub mod middleware_auth;
 pub mod middleware_correlation;
 pub mod middleware_log;
 pub mod routes;
 
+pub use middleware_auth::{Authenticated, auth_middleware, optional_auth_middleware};
 pub use middleware_correlation::{X_REQUEST_ID, correlation_id_middleware};
 pub use middleware_log::logging_middleware;
 pub use routes::{agent, agent_manifest, docs, health, ready};
