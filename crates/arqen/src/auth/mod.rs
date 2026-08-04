@@ -8,7 +8,6 @@
 use std::collections::HashMap;
 
 use async_trait::async_trait;
-use jsonwebtoken::{decode, decode_header, Algorithm, DecodingKey, Validation};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use subtle::ConstantTimeEq;
@@ -101,6 +100,10 @@ impl AuthContext {
 }
 
 /// Trait for authentication adapters.
+///
+/// This trait requires the `http-server` feature because it uses
+/// `axum::http::HeaderMap` for header extraction.
+#[cfg(feature = "http-server")]
 #[async_trait]
 pub trait Authentication: Send + Sync {
     /// Authenticate a request from headers.
@@ -127,11 +130,15 @@ pub fn hash_api_key(key: &str) -> String {
 ///
 /// Validates API keys from the `Authorization: Bearer <key>` header
 /// or `X-API-Key` header. Uses constant-time comparison to prevent timing attacks.
+///
+/// Requires the `http-server` feature.
+#[cfg(feature = "http-server")]
 pub struct ApiKeyAuth {
     /// Valid API key hashes mapped to subject IDs.
     keys: HashMap<String, String>,
 }
 
+#[cfg(feature = "http-server")]
 impl ApiKeyAuth {
     /// Create a new API key auth adapter.
     pub fn new() -> Self {
@@ -161,12 +168,14 @@ impl ApiKeyAuth {
     }
 }
 
+#[cfg(feature = "http-server")]
 impl Default for ApiKeyAuth {
     fn default() -> Self {
         Self::new()
     }
 }
 
+#[cfg(feature = "http-server")]
 #[async_trait]
 impl Authentication for ApiKeyAuth {
     async fn authenticate(&self, headers: &axum::http::HeaderMap) -> Result<AuthContext, AuthError> {
@@ -205,18 +214,24 @@ impl Authentication for ApiKeyAuth {
 /// Validates JWT tokens from the `Authorization: Bearer <token>` header
 /// using the `jsonwebtoken` crate with proper signature, expiry, issuer,
 /// and audience validation.
+///
+/// Requires the `http-server` feature.
+#[cfg(feature = "http-server")]
 pub struct JwtAuth {
     /// Decoding key for JWT validation.
-    decoding_key: DecodingKey,
+    decoding_key: jsonwebtoken::DecodingKey,
     /// Validation settings.
-    validation: Validation,
+    validation: jsonwebtoken::Validation,
     /// Optional issuer to validate.
     issuer: Option<String>,
 }
 
+#[cfg(feature = "http-server")]
 impl JwtAuth {
     /// Create a new JWT auth adapter with a secret key (HMAC).
     pub fn new_secret(secret: &[u8]) -> Self {
+        use jsonwebtoken::{Algorithm, Validation, DecodingKey};
+
         let mut validation = Validation::new(Algorithm::HS256);
         validation.validate_exp = true;
         validation.validate_nbf = true;
@@ -230,6 +245,8 @@ impl JwtAuth {
 
     /// Create a new JWT auth adapter with RSA public key.
     pub fn new_rsa(public_key: &[u8]) -> Self {
+        use jsonwebtoken::{Algorithm, Validation, DecodingKey};
+
         let mut validation = Validation::new(Algorithm::RS256);
         validation.validate_exp = true;
         validation.validate_nbf = true;
@@ -255,7 +272,7 @@ impl JwtAuth {
 
     /// Decode and validate a JWT token.
     pub fn validate_token(&self, token: &str) -> Result<jsonwebtoken::TokenData<serde_json::Value>, AuthError> {
-        decode::<serde_json::Value>(
+        jsonwebtoken::decode::<serde_json::Value>(
             token,
             &self.decoding_key,
             &self.validation,
@@ -267,6 +284,7 @@ impl JwtAuth {
     }
 }
 
+#[cfg(feature = "http-server")]
 #[async_trait]
 impl Authentication for JwtAuth {
     async fn authenticate(&self, headers: &axum::http::HeaderMap) -> Result<AuthContext, AuthError> {
@@ -305,6 +323,9 @@ impl Authentication for JwtAuth {
 /// Session-based authentication adapter.
 ///
 /// Validates sessions from cookies.
+///
+/// Requires the `http-server` feature.
+#[cfg(feature = "http-server")]
 pub struct SessionAuth {
     /// Valid session tokens mapped to auth contexts.
     sessions: HashMap<String, AuthContext>,
@@ -312,6 +333,7 @@ pub struct SessionAuth {
     cookie_name: String,
 }
 
+#[cfg(feature = "http-server")]
 impl SessionAuth {
     /// Create a new session auth adapter.
     pub fn new(cookie_name: impl Into<String>) -> Self {
@@ -328,6 +350,7 @@ impl SessionAuth {
     }
 }
 
+#[cfg(feature = "http-server")]
 #[async_trait]
 impl Authentication for SessionAuth {
     async fn authenticate(&self, headers: &axum::http::HeaderMap) -> Result<AuthContext, AuthError> {
@@ -521,134 +544,6 @@ mod tests {
         assert_ne!(hash1, hash3);
     }
 
-    #[tokio::test]
-    async fn test_api_key_auth_valid() {
-        let auth = ApiKeyAuth::new()
-            .with_key("test-key", "user-123");
-
-        let mut headers = axum::http::HeaderMap::new();
-        headers.insert("x-api-key", "test-key".parse().unwrap());
-
-        let ctx = auth.authenticate(&headers).await.unwrap();
-        assert_eq!(ctx.subject, "user-123");
-        assert_eq!(ctx.adapter, "api_key");
-    }
-
-    #[tokio::test]
-    async fn test_api_key_auth_invalid() {
-        let auth = ApiKeyAuth::new()
-            .with_key("test-key", "user-123");
-
-        let mut headers = axum::http::HeaderMap::new();
-        headers.insert("x-api-key", "wrong-key".parse().unwrap());
-
-        let err = auth.authenticate(&headers).await.unwrap_err();
-        assert_eq!(err, AuthError::Invalid);
-    }
-
-    #[tokio::test]
-    async fn test_api_key_auth_missing() {
-        let auth = ApiKeyAuth::new()
-            .with_key("test-key", "user-123");
-
-        let headers = axum::http::HeaderMap::new();
-
-        let err = auth.authenticate(&headers).await.unwrap_err();
-        assert_eq!(err, AuthError::Missing);
-    }
-
-    #[tokio::test]
-    async fn test_api_key_auth_bearer() {
-        let auth = ApiKeyAuth::new()
-            .with_key("test-key", "user-123");
-
-        let mut headers = axum::http::HeaderMap::new();
-        headers.insert("authorization", "Bearer test-key".parse().unwrap());
-
-        let ctx = auth.authenticate(&headers).await.unwrap();
-        assert_eq!(ctx.subject, "user-123");
-    }
-
-    #[test]
-    fn test_jwt_auth_decode() {
-        // Create a test JWT with HS256
-        let secret = b"test-secret";
-        let header = jsonwebtoken::Header::new(Algorithm::HS256);
-        let claims = serde_json::json!({
-            "sub": "user-123",
-            "exp": 4102444800_i64,
-            "iss": "test-issuer"
-        });
-        let token = jsonwebtoken::encode(&header, &claims, &jsonwebtoken::EncodingKey::from_secret(secret))
-            .unwrap();
-
-        let auth = JwtAuth::new_secret(secret)
-            .with_issuer("test-issuer");
-
-        let mut headers = axum::http::HeaderMap::new();
-        headers.insert("authorization", format!("Bearer {}", token).parse().unwrap());
-
-        let ctx = tokio_test::block_on(auth.authenticate(&headers)).unwrap();
-        assert_eq!(ctx.subject, "user-123");
-        assert_eq!(ctx.adapter, "jwt");
-        assert_eq!(ctx.get_claim("iss"), Some(&serde_json::json!("test-issuer")));
-    }
-
-    #[test]
-    fn test_jwt_auth_invalid_token() {
-        let secret = b"test-secret";
-        let auth = JwtAuth::new_secret(secret);
-
-        let mut headers = axum::http::HeaderMap::new();
-        headers.insert("authorization", "Bearer invalid-token".parse().unwrap());
-
-        let err = tokio_test::block_on(auth.authenticate(&headers)).unwrap_err();
-        assert_eq!(err, AuthError::Invalid);
-    }
-
-    #[test]
-    fn test_jwt_auth_wrong_secret() {
-        let header = jsonwebtoken::Header::new(Algorithm::HS256);
-        let claims = serde_json::json!({
-            "sub": "user-123",
-            "exp": 4102444800_i64,
-        });
-        let token = jsonwebtoken::encode(&header, &claims, &jsonwebtoken::EncodingKey::from_secret(b"wrong-secret"))
-            .unwrap();
-
-        let auth = JwtAuth::new_secret(b"correct-secret");
-
-        let mut headers = axum::http::HeaderMap::new();
-        headers.insert("authorization", format!("Bearer {}", token).parse().unwrap());
-
-        let err = tokio_test::block_on(auth.authenticate(&headers)).unwrap_err();
-        assert_eq!(err, AuthError::Invalid);
-    }
-
-    #[tokio::test]
-    async fn test_session_auth_valid() {
-        let ctx = AuthContext::new("user-123", "session");
-
-        let auth = SessionAuth::new("session_id")
-            .with_session("abc123", ctx);
-
-        let mut headers = axum::http::HeaderMap::new();
-        headers.insert("cookie", "session_id=abc123".parse().unwrap());
-
-        let ctx = auth.authenticate(&headers).await.unwrap();
-        assert_eq!(ctx.subject, "user-123");
-    }
-
-    #[tokio::test]
-    async fn test_session_auth_missing() {
-        let auth = SessionAuth::new("session_id");
-
-        let headers = axum::http::HeaderMap::new();
-
-        let err = auth.authenticate(&headers).await.unwrap_err();
-        assert_eq!(err, AuthError::Missing);
-    }
-
     #[test]
     fn test_allow_all_policy() {
         let policy = AllowAll;
@@ -723,5 +618,137 @@ mod tests {
 
         let err: AppError = AuthError::Unauthorized("denied".to_string()).into();
         assert_eq!(err.kind, ErrorKind::Authorization);
+    }
+}
+
+#[cfg(all(test, feature = "http-server"))]
+mod http_tests {
+    use super::*;
+
+    #[tokio::test]
+    async fn test_api_key_auth_valid() {
+        let auth = ApiKeyAuth::new()
+            .with_key("test-key", "user-123");
+
+        let mut headers = axum::http::HeaderMap::new();
+        headers.insert("x-api-key", "test-key".parse().unwrap());
+
+        let ctx = auth.authenticate(&headers).await.unwrap();
+        assert_eq!(ctx.subject, "user-123");
+        assert_eq!(ctx.adapter, "api_key");
+    }
+
+    #[tokio::test]
+    async fn test_api_key_auth_invalid() {
+        let auth = ApiKeyAuth::new()
+            .with_key("test-key", "user-123");
+
+        let mut headers = axum::http::HeaderMap::new();
+        headers.insert("x-api-key", "wrong-key".parse().unwrap());
+
+        let err = auth.authenticate(&headers).await.unwrap_err();
+        assert_eq!(err, AuthError::Invalid);
+    }
+
+    #[tokio::test]
+    async fn test_api_key_auth_missing() {
+        let auth = ApiKeyAuth::new()
+            .with_key("test-key", "user-123");
+
+        let headers = axum::http::HeaderMap::new();
+
+        let err = auth.authenticate(&headers).await.unwrap_err();
+        assert_eq!(err, AuthError::Missing);
+    }
+
+    #[tokio::test]
+    async fn test_api_key_auth_bearer() {
+        let auth = ApiKeyAuth::new()
+            .with_key("test-key", "user-123");
+
+        let mut headers = axum::http::HeaderMap::new();
+        headers.insert("authorization", "Bearer test-key".parse().unwrap());
+
+        let ctx = auth.authenticate(&headers).await.unwrap();
+        assert_eq!(ctx.subject, "user-123");
+    }
+
+    #[tokio::test]
+    async fn test_jwt_auth_decode() {
+        let secret = b"test-secret";
+        let header = jsonwebtoken::Header::new(jsonwebtoken::Algorithm::HS256);
+        let claims = serde_json::json!({
+            "sub": "user-123",
+            "exp": 4102444800_i64,
+            "iss": "test-issuer"
+        });
+        let token = jsonwebtoken::encode(&header, &claims, &jsonwebtoken::EncodingKey::from_secret(secret))
+            .unwrap();
+
+        let auth = JwtAuth::new_secret(secret)
+            .with_issuer("test-issuer");
+
+        let mut headers = axum::http::HeaderMap::new();
+        headers.insert("authorization", format!("Bearer {}", token).parse().unwrap());
+
+        let ctx = auth.authenticate(&headers).await.unwrap();
+        assert_eq!(ctx.subject, "user-123");
+        assert_eq!(ctx.adapter, "jwt");
+        assert_eq!(ctx.get_claim("iss"), Some(&serde_json::json!("test-issuer")));
+    }
+
+    #[tokio::test]
+    async fn test_jwt_auth_invalid_token() {
+        let secret = b"test-secret";
+        let auth = JwtAuth::new_secret(secret);
+
+        let mut headers = axum::http::HeaderMap::new();
+        headers.insert("authorization", "Bearer invalid-token".parse().unwrap());
+
+        let err = auth.authenticate(&headers).await.unwrap_err();
+        assert_eq!(err, AuthError::Invalid);
+    }
+
+    #[tokio::test]
+    async fn test_jwt_auth_wrong_secret() {
+        let header = jsonwebtoken::Header::new(jsonwebtoken::Algorithm::HS256);
+        let claims = serde_json::json!({
+            "sub": "user-123",
+            "exp": 4102444800_i64,
+        });
+        let token = jsonwebtoken::encode(&header, &claims, &jsonwebtoken::EncodingKey::from_secret(b"wrong-secret"))
+            .unwrap();
+
+        let auth = JwtAuth::new_secret(b"correct-secret");
+
+        let mut headers = axum::http::HeaderMap::new();
+        headers.insert("authorization", format!("Bearer {}", token).parse().unwrap());
+
+        let err = auth.authenticate(&headers).await.unwrap_err();
+        assert_eq!(err, AuthError::Invalid);
+    }
+
+    #[tokio::test]
+    async fn test_session_auth_valid() {
+        let ctx = AuthContext::new("user-123", "session");
+
+        let auth = SessionAuth::new("session_id")
+            .with_session("abc123", ctx);
+
+        let mut headers = axum::http::HeaderMap::new();
+        headers.insert("cookie", "session_id=abc123".parse().unwrap());
+
+        let ctx = auth.authenticate(&headers).await.unwrap();
+        assert_eq!(ctx.subject, "user-123");
+    }
+
+    #[tokio::test]
+    async fn test_session_auth_missing() {
+        let auth = SessionAuth::new("session_id");
+
+        let headers = axum::http::HeaderMap::new();
+
+        let err = auth.authenticate(&headers).await.unwrap_err();
+        assert_eq!(err, AuthError::Missing);
     }
 }

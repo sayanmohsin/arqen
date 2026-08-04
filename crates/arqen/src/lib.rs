@@ -35,6 +35,8 @@ pub mod observability;
 pub mod openapi;
 pub mod state;
 pub mod thingd;
+
+#[cfg(feature = "http-server")]
 pub mod validation;
 
 #[cfg(any(test, feature = "test-util"))]

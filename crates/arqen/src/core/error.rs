@@ -24,6 +24,10 @@ pub enum ErrorCode {
 }
 
 impl ErrorCode {
+    /// Convert to HTTP status code.
+    ///
+    /// Requires the `http-server` feature.
+    #[cfg(feature = "http-server")]
     pub fn status_code(&self) -> StatusCode {
         match self {
             ErrorCode::NotFound => StatusCode::NOT_FOUND,
@@ -298,6 +302,7 @@ mod tests {
         assert_eq!(format!("{}", ErrorCode::Internal), "internal");
     }
 
+    #[cfg(feature = "http-server")]
     #[test]
     fn test_error_code_status_codes() {
         assert_eq!(ErrorCode::NotFound.status_code(), StatusCode::NOT_FOUND);
@@ -476,6 +481,7 @@ mod tests {
         assert!(json.contains("email"));
     }
 
+    #[cfg(feature = "http-server")]
     #[test]
     fn test_timeout_error_mapping() {
         let err = AppError::new(ErrorKind::Timeout, "request timed out");
@@ -485,6 +491,7 @@ mod tests {
         assert_eq!(response.error.code.status_code(), StatusCode::GATEWAY_TIMEOUT);
     }
 
+    #[cfg(feature = "http-server")]
     #[test]
     fn test_dependency_error_mapping() {
         let err = AppError::new(ErrorKind::Dependency, "thingd unavailable");

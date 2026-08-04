@@ -22,7 +22,7 @@ http-server = ["dep:axum", "dep:tower", "dep:tower-http"]
 http-client = ["dep:reqwest"]
 thingd-native = ["dep:thingd"]
 logging = ["dep:tracing-subscriber"]
-test-util = ["dep:tower"]
+test-util = ["http-server", "dep:tower"]
 
 [dependencies]
 anyhow = "1"

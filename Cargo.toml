@@ -3,6 +3,7 @@ resolver = "2"
 exclude = ["examples/minimal-api", "examples/memory-backend"]
 members = [
     "crates/arqen",
+    "watchloom",
 ]
 
 [workspace.package]
