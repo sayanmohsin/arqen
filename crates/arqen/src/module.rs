@@ -3,7 +3,6 @@
 //! Provides a trait-based system for composing application modules with
 //! lifecycle hooks and dependency management.
 
-use std::any::Any;
 use std::sync::Arc;
 
 use async_trait::async_trait;

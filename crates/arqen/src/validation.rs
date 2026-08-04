@@ -269,11 +269,10 @@ mod tests {
 
             if let Err(e) = validators::required("email", &self.email) {
                 errors.push(e);
-            } else if let Some(ref email) = self.email {
-                if let Err(e) = validators::email("email", email) {
+            } else if let Some(ref email) = self.email
+                && let Err(e) = validators::email("email", email) {
                     errors.push(e);
                 }
-            }
 
             if let Some(ref name) = self.name {
                 if let Err(e) = validators::min_length("name", name, 3) {
@@ -284,11 +283,10 @@ mod tests {
                 }
             }
 
-            if let Some(age) = self.age {
-                if let Err(e) = validators::min_value("age", &age, &18) {
+            if let Some(age) = self.age
+                && let Err(e) = validators::min_value("age", &age, &18) {
                     errors.push(e);
                 }
-            }
 
             if errors.is_empty() {
                 Ok(())

@@ -362,14 +362,13 @@ impl Authentication for SessionAuth {
 
         for part in cookie_header.split(';') {
             let part = part.trim();
-            if let Some((name, value)) = part.split_once('=') {
-                if name == self.cookie_name {
+            if let Some((name, value)) = part.split_once('=')
+                && name == self.cookie_name {
                     return self.sessions
                         .get(value)
                         .cloned()
                         .ok_or(AuthError::Invalid);
                 }
-            }
         }
 
         Err(AuthError::Missing)

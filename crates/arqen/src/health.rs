@@ -180,11 +180,10 @@ impl HealthRegistry {
                     HealthStatus::Unhealthy { .. } => {
                         overall_status = result.status.clone();
                     }
-                    HealthStatus::Degraded { .. } => {
-                        if overall_status.is_healthy() {
+                    HealthStatus::Degraded { .. }
+                        if overall_status.is_healthy() => {
                             overall_status = result.status.clone();
                         }
-                    }
                     _ => {}
                 }
                 results.push(result);

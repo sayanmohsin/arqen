@@ -49,7 +49,7 @@ fn extract_or_generate_correlation_id(request: &Request) -> CorrelationId {
 mod tests {
     use super::*;
     use axum::body::Body;
-    use axum::http::{Request, StatusCode};
+    use axum::http::Request;
 
     #[test]
     fn test_correlation_id_generated_when_missing() {

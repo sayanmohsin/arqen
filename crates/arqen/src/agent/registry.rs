@@ -88,6 +88,50 @@ impl Default for ToolRegistry {
     }
 }
 
+// Helper macro for registering tools
+#[macro_export]
+macro_rules! register_tool {
+    ($registry:expr, $name:expr, $description:expr, $input:expr, $output:expr, $scopes:expr, $effect:expr, $idempotent:expr) => {
+        $registry.register_tool($crate::ToolMetadata {
+            name: $name.to_string(),
+            description: $description.to_string(),
+            input: $input,
+            output: $output,
+            scopes: $scopes,
+            effect: $effect,
+            idempotent: $idempotent,
+            enqueues_job: None,
+            timeout: None,
+        });
+    };
+    ($registry:expr, $name:expr, $description:expr, $input:expr, $output:expr, $scopes:expr, $effect:expr, $idempotent:expr, $job:expr) => {
+        $registry.register_tool($crate::ToolMetadata {
+            name: $name.to_string(),
+            description: $description.to_string(),
+            input: $input,
+            output: $output,
+            scopes: $scopes,
+            effect: $effect,
+            idempotent: $idempotent,
+            enqueues_job: Some($job.to_string()),
+            timeout: None,
+        });
+    };
+    ($registry:expr, $name:expr, $description:expr, $input:expr, $output:expr, $scopes:expr, $effect:expr, $idempotent:expr, $job:expr, $timeout:expr) => {
+        $registry.register_tool($crate::ToolMetadata {
+            name: $name.to_string(),
+            description: $description.to_string(),
+            input: $input,
+            output: $output,
+            scopes: $scopes,
+            effect: $effect,
+            idempotent: $idempotent,
+            enqueues_job: Some($job.to_string()),
+            timeout: Some($timeout),
+        });
+    };
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -185,48 +229,4 @@ mod tests {
         assert_eq!(tool.description, "Updated");
         assert!(matches!(tool.effect, ToolEffect::Write));
     }
-}
-
-// Helper macro for registering tools
-#[macro_export]
-macro_rules! register_tool {
-    ($registry:expr, $name:expr, $description:expr, $input:expr, $output:expr, $scopes:expr, $effect:expr, $idempotent:expr) => {
-        $registry.register_tool($crate::ToolMetadata {
-            name: $name.to_string(),
-            description: $description.to_string(),
-            input: $input,
-            output: $output,
-            scopes: $scopes,
-            effect: $effect,
-            idempotent: $idempotent,
-            enqueues_job: None,
-            timeout: None,
-        });
-    };
-    ($registry:expr, $name:expr, $description:expr, $input:expr, $output:expr, $scopes:expr, $effect:expr, $idempotent:expr, $job:expr) => {
-        $registry.register_tool($crate::ToolMetadata {
-            name: $name.to_string(),
-            description: $description.to_string(),
-            input: $input,
-            output: $output,
-            scopes: $scopes,
-            effect: $effect,
-            idempotent: $idempotent,
-            enqueues_job: Some($job.to_string()),
-            timeout: None,
-        });
-    };
-    ($registry:expr, $name:expr, $description:expr, $input:expr, $output:expr, $scopes:expr, $effect:expr, $idempotent:expr, $job:expr, $timeout:expr) => {
-        $registry.register_tool($crate::ToolMetadata {
-            name: $name.to_string(),
-            description: $description.to_string(),
-            input: $input,
-            output: $output,
-            scopes: $scopes,
-            effect: $effect,
-            idempotent: $idempotent,
-            enqueues_job: Some($job.to_string()),
-            timeout: Some($timeout),
-        });
-    };
 }

@@ -62,9 +62,18 @@ pub use state::{AppState, AppStateBuilder};
 pub use thingd::{MemoryThingdBackend, ThingdBackend};
 
 #[cfg(feature = "http-server")]
+pub use auth::{AuthContext, AuthError, Authentication};
+#[cfg(feature = "http-server")]
+pub use health::{HealthCheck, HealthRegistry, HealthReport, HealthStatus, ProbeType};
+#[cfg(feature = "http-server")]
+pub use observability::{MetricsReport, RequestMetrics};
+#[cfg(feature = "http-server")]
+pub use validation::{FieldError, Validate, ValidationErrors, Validated};
+
+#[cfg(feature = "http-server")]
 pub use http::{create_router, create_router_with_state};
 #[cfg(feature = "logging")]
-pub use logging::init_logging;
+pub use logging::{init_logging, init_logging_with_config};
 #[cfg(feature = "thingd-native")]
 pub use thingd::NativeThingdStore;
 #[cfg(feature = "http-client")]

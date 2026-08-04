@@ -6,16 +6,13 @@ pub use middleware_correlation::{correlation_id_middleware, X_REQUEST_ID};
 pub use middleware_log::logging_middleware;
 pub use routes::{agent, agent_manifest, docs, health, ready};
 
-use axum::{Router, extract::State, http::StatusCode, middleware, routing::get};
+use axum::{Router, http::StatusCode, middleware, routing::get};
 use std::net::SocketAddr;
-use std::sync::Arc;
 use tokio::net::TcpListener;
 use tower_http::cors::{CorsLayer, Any};
 use tower_http::limit::RequestBodyLimitLayer;
 use tower_http::timeout::TimeoutLayer;
 
-use crate::agent::ToolRegistry;
-use crate::config::ServerConfig;
 use crate::state::AppState;
 
 /// Create the default Arqen router.
@@ -85,4 +82,90 @@ async fn shutdown_signal() {
         () = terminate => {},
     }
     tracing::info!("shutdown signal received; draining requests");
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use axum::body::Body;
+    use axum::http::{Request, StatusCode};
+    use tower::ServiceExt;
+
+    #[tokio::test]
+    async fn test_create_router() {
+        let router = create_router();
+        let request = Request::builder()
+            .uri("/health")
+            .body(Body::empty())
+            .unwrap();
+
+        let response = router.oneshot(request).await.unwrap();
+        assert_eq!(response.status(), StatusCode::OK);
+    }
+
+    #[tokio::test]
+    async fn test_health_endpoint() {
+        let router = create_router();
+        let request = Request::builder()
+            .uri("/health")
+            .body(Body::empty())
+            .unwrap();
+
+        let response = router.oneshot(request).await.unwrap();
+        assert_eq!(response.status(), StatusCode::OK);
+    }
+
+    #[tokio::test]
+    async fn test_ready_endpoint() {
+        let router = create_router();
+        let request = Request::builder()
+            .uri("/ready")
+            .body(Body::empty())
+            .unwrap();
+
+        let response = router.oneshot(request).await.unwrap();
+        assert_eq!(response.status(), StatusCode::OK);
+    }
+
+    #[tokio::test]
+    async fn test_agent_endpoint() {
+        let router = create_router();
+        let request = Request::builder()
+            .uri("/agent")
+            .body(Body::empty())
+            .unwrap();
+
+        let response = router.oneshot(request).await.unwrap();
+        assert_eq!(response.status(), StatusCode::OK);
+    }
+
+    #[tokio::test]
+    async fn test_docs_endpoint() {
+        let router = create_router();
+        let request = Request::builder()
+            .uri("/docs")
+            .body(Body::empty())
+            .unwrap();
+
+        let response = router.oneshot(request).await.unwrap();
+        assert_eq!(response.status(), StatusCode::OK);
+    }
+
+    #[tokio::test]
+    async fn test_cors_headers() {
+        let router = create_router();
+        let request = Request::builder()
+            .method("OPTIONS")
+            .uri("/health")
+            .header("origin", "http://example.com")
+            .header("access-control-request-method", "GET")
+            .body(Body::empty())
+            .unwrap();
+
+        let response = router.oneshot(request).await.unwrap();
+        assert!(
+            response.headers().contains_key("access-control-allow-origin"),
+            "CORS headers should be present"
+        );
+    }
 }

@@ -56,11 +56,7 @@ pub struct JobMetrics {
 impl JobMetrics {
     /// Get average processing time per job.
     pub fn avg_duration_ms(&self) -> u64 {
-        if self.processed == 0 {
-            0
-        } else {
-            self.total_duration_ms / self.processed
-        }
+        self.total_duration_ms.checked_div(self.processed).unwrap_or(0)
     }
 }
 

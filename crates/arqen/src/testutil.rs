@@ -5,7 +5,7 @@
 use std::sync::Arc;
 
 use axum::body::Body;
-use axum::http::{Method, Request, StatusCode};
+use axum::http::{Method, Request};
 use axum::response::Response;
 use axum::Router;
 use tower::ServiceExt;
@@ -350,6 +350,7 @@ macro_rules! assert_json_contains {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use axum::http::StatusCode;
     use serde_json::json;
 
     #[tokio::test]

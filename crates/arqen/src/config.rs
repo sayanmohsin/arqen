@@ -133,7 +133,7 @@ pub enum StorageMode {
 }
 
 impl StorageMode {
-    pub fn from_str(s: &str) -> Result<Self, ConfigError> {
+    pub fn parse_str(s: &str) -> Result<Self, ConfigError> {
         match s.to_lowercase().as_str() {
             "memory" => Ok(Self::Memory),
             "persistent" => Ok(Self::Persistent),
@@ -278,6 +278,7 @@ impl Default for LoggingConfig {
 
 /// Application configuration.
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Default)]
 pub struct AppConfig {
     #[serde(default)]
     pub server: ServerConfig,
@@ -294,6 +295,7 @@ pub struct AppConfig {
 }
 
 /// CLI overrides for configuration (highest precedence).
+#[derive(Default)]
 pub struct CliOverrides {
     pub host: Option<String>,
     pub port: Option<u16>,
@@ -301,16 +303,6 @@ pub struct CliOverrides {
     pub storage_mode: Option<String>,
 }
 
-impl Default for CliOverrides {
-    fn default() -> Self {
-        Self {
-            host: None,
-            port: None,
-            log_level: None,
-            storage_mode: None,
-        }
-    }
-}
 
 impl AppConfig {
     /// Load configuration with full precedence chain: CLI → env → file → defaults.
@@ -362,7 +354,7 @@ impl AppConfig {
             })?;
         }
         if let Ok(mode) = std::env::var("ARQEN_STORAGE_MODE") {
-            self.storage.mode = StorageMode::from_str(&mode)?;
+            self.storage.mode = StorageMode::parse_str(&mode)?;
         }
         if let Ok(path) = std::env::var("ARQEN_PERSISTENT_PATH") {
             self.storage.persistent_path = Some(PathBuf::from(path));
@@ -475,11 +467,10 @@ impl AppConfig {
         if let Some(level) = cli.log_level {
             self.logging.level = level;
         }
-        if let Some(mode) = cli.storage_mode {
-            if let Ok(m) = StorageMode::from_str(&mode) {
+        if let Some(mode) = cli.storage_mode
+            && let Ok(m) = StorageMode::parse_str(&mode) {
                 self.storage.mode = m;
             }
-        }
         self
     }
 
@@ -535,18 +526,6 @@ impl AppConfig {
     }
 }
 
-impl Default for AppConfig {
-    fn default() -> Self {
-        Self {
-            server: ServerConfig::default(),
-            storage: StorageConfig::default(),
-            auth: AuthConfig::default(),
-            logging: LoggingConfig::default(),
-            worker: WorkerConfig::default(),
-            health: HealthConfig::default(),
-        }
-    }
-}
 
 /// Configuration error type.
 #[derive(Debug, thiserror::Error)]
@@ -612,11 +591,11 @@ mod tests {
 
     #[test]
     fn test_storage_mode_from_str() {
-        assert_eq!(StorageMode::from_str("memory").unwrap(), StorageMode::Memory);
-        assert_eq!(StorageMode::from_str("persistent").unwrap(), StorageMode::Persistent);
-        assert_eq!(StorageMode::from_str("http").unwrap(), StorageMode::Http);
-        assert_eq!(StorageMode::from_str("MEMORY").unwrap(), StorageMode::Memory);
-        assert!(StorageMode::from_str("invalid").is_err());
+        assert_eq!(StorageMode::parse_str("memory").unwrap(), StorageMode::Memory);
+        assert_eq!(StorageMode::parse_str("persistent").unwrap(), StorageMode::Persistent);
+        assert_eq!(StorageMode::parse_str("http").unwrap(), StorageMode::Http);
+        assert_eq!(StorageMode::parse_str("MEMORY").unwrap(), StorageMode::Memory);
+        assert!(StorageMode::parse_str("invalid").is_err());
     }
 
     #[test]

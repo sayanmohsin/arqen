@@ -81,24 +81,22 @@ serde_json = "1"
     );
     fs::write(project_dir.join("Cargo.toml"), cargo_toml)?;
 
-    let main_rs = format!(
-        r#"use arqen::http::create_router;
+    let main_rs = r#"use arqen::http::create_router;
 use std::net::SocketAddr;
 
 #[tokio::main]
-async fn main() -> Result<(), Box<dyn std::error::Error>> {{
+async fn main() -> Result<(), Box<dyn std::error::Error>> {
     arqen::logging::init_logging("info", "pretty");
 
     let addr: SocketAddr = "127.0.0.1:3000".parse()?;
     let router = create_router();
 
-    println!("Starting on {{}}", addr);
+    println!("Starting on {}", addr);
 
     arqen::http::start_server(addr, router).await?;
     Ok(())
-}}
-"#,
-    );
+}
+"#;
     fs::write(project_dir.join("src").join("main.rs"), main_rs)?;
 
     let readme = format!(
@@ -145,15 +143,16 @@ async fn main() -> anyhow::Result<()> {
             arqen::logging::init_logging(&log, "pretty");
 
             let addr: SocketAddr = format!("{}:{}", host, port).parse()?;
-            let router = arqen::http::create_router_with_runtime(arqen::http::RuntimeInfo::new(
-                storage.clone(),
-                arqen::ToolRegistry::new(
+            let state = arqen::AppState::builder()
+                .with_storage_mode(&storage)
+                .with_tool_registry(arqen::ToolRegistry::new(
                     "arqen-app",
                     env!("CARGO_PKG_VERSION"),
                     "An Arqen application",
                     &storage,
-                ),
-            ));
+                ))
+                .build()?;
+            let router = arqen::http::create_router_with_state(state);
 
             println!("Arqen v{}", env!("CARGO_PKG_VERSION"));
             println!("API:    http://{}", addr);
@@ -176,15 +175,16 @@ async fn main() -> anyhow::Result<()> {
             arqen::logging::init_logging(&log, "json");
 
             let addr: SocketAddr = format!("{}:{}", host, port).parse()?;
-            let router = arqen::http::create_router_with_runtime(arqen::http::RuntimeInfo::new(
-                storage.clone(),
-                arqen::ToolRegistry::new(
+            let state = arqen::AppState::builder()
+                .with_storage_mode(&storage)
+                .with_tool_registry(arqen::ToolRegistry::new(
                     "arqen-app",
                     env!("CARGO_PKG_VERSION"),
                     "An Arqen application",
                     &storage,
-                ),
-            ));
+                ))
+                .build()?;
+            let router = arqen::http::create_router_with_state(state);
 
             println!("Arqen listening on {}", addr);
 

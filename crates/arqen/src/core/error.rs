@@ -276,6 +276,18 @@ impl From<std::net::AddrParseError> for AppError {
     }
 }
 
+impl From<toml::de::Error> for AppError {
+    fn from(e: toml::de::Error) -> Self {
+        AppError::new(ErrorKind::Validation, format!("invalid TOML: {e}"))
+    }
+}
+
+impl From<std::env::VarError> for AppError {
+    fn from(e: std::env::VarError) -> Self {
+        AppError::new(ErrorKind::Internal, format!("environment variable error: {e}"))
+    }
+}
+
 #[cfg(feature = "http-client")]
 impl From<reqwest::Error> for AppError {
     fn from(e: reqwest::Error) -> Self {
