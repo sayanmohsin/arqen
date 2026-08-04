@@ -6,6 +6,7 @@ use std::sync::Arc;
 
 use crate::agent::ToolRegistry;
 use crate::config::{AppConfig, ConfigError};
+use crate::health::HealthRegistry;
 use crate::thingd::{MemoryThingdBackend, ThingdBackend};
 
 /// Application state shared across all handlers.
@@ -21,6 +22,8 @@ pub struct AppState {
     pub storage_mode: String,
     /// Whether thingd is ready.
     pub thingd_ready: bool,
+    /// Health registry for dependency checks (optional).
+    pub health_registry: Option<Arc<HealthRegistry>>,
 }
 
 impl AppState {
@@ -37,6 +40,7 @@ pub struct AppStateBuilder {
     tool_registry: Option<Arc<ToolRegistry>>,
     storage_mode: Option<String>,
     thingd_ready: Option<bool>,
+    health_registry: Option<Arc<HealthRegistry>>,
 }
 
 impl AppStateBuilder {
@@ -48,6 +52,7 @@ impl AppStateBuilder {
             tool_registry: None,
             storage_mode: None,
             thingd_ready: None,
+            health_registry: None,
         }
     }
 
@@ -81,6 +86,18 @@ impl AppStateBuilder {
         self
     }
 
+    /// Set the health registry for dependency checks.
+    pub fn with_health_registry(mut self, registry: HealthRegistry) -> Self {
+        self.health_registry = Some(Arc::new(registry));
+        self
+    }
+
+    /// Set the health registry (pre-wrapped in Arc).
+    pub fn with_health_registry_arc(mut self, registry: Arc<HealthRegistry>) -> Self {
+        self.health_registry = Some(registry);
+        self
+    }
+
     /// Build the `AppState`.
     ///
     /// If no storage is provided, creates a `MemoryThingdBackend`.
@@ -107,12 +124,15 @@ impl AppStateBuilder {
 
         let thingd_ready = self.thingd_ready.unwrap_or(true);
 
+        let health_registry = self.health_registry;
+
         Ok(AppState {
             config,
             storage,
             tool_registry,
             storage_mode,
             thingd_ready,
+            health_registry,
         })
     }
 }

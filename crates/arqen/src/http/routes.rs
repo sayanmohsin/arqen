@@ -1,4 +1,5 @@
 use crate::core::error::CorrelationId;
+use crate::health::HealthReport;
 use crate::state::AppState;
 use axum::{
     Json,
@@ -9,32 +10,55 @@ use axum::{
 use serde_json::{Value, json};
 
 pub async fn health(
-    State(_state): State<AppState>,
+    State(state): State<AppState>,
     Extension(correlation_id): Extension<CorrelationId>,
 ) -> impl IntoResponse {
-    let body = Json(json!({
-        "status": "ok",
-        "correlation_id": correlation_id.to_string()
-    }));
-    (StatusCode::OK, body)
+    if let Some(registry) = &state.health_registry {
+        let report = registry.check_liveness().await;
+        let status = StatusCode::from_u16(report.status.to_http_status()).unwrap_or(StatusCode::OK);
+        let body = Json(json!({
+            "status": format_health_status(&report),
+            "checks": format_checks(&report),
+            "correlation_id": correlation_id.to_string()
+        }));
+        (status, body)
+    } else {
+        let body = Json(json!({
+            "status": "ok",
+            "correlation_id": correlation_id.to_string()
+        }));
+        (StatusCode::OK, body)
+    }
 }
 
 pub async fn ready(
     State(state): State<AppState>,
     Extension(correlation_id): Extension<CorrelationId>,
 ) -> impl IntoResponse {
-    let status = if state.thingd_ready {
-        StatusCode::OK
+    if let Some(registry) = &state.health_registry {
+        let report = registry.check_readiness().await;
+        let status = StatusCode::from_u16(report.status.to_http_status()).unwrap_or(StatusCode::OK);
+        let body = Json(json!({
+            "status": format_health_status(&report),
+            "storage_mode": state.storage_mode,
+            "checks": format_checks(&report),
+            "correlation_id": correlation_id.to_string()
+        }));
+        (status, body)
     } else {
-        StatusCode::SERVICE_UNAVAILABLE
-    };
-    let body = Json(json!({
-        "status": if state.thingd_ready { "ready" } else { "not_ready" },
-        "storage_mode": state.storage_mode,
-        "checks": { "thingd": if state.thingd_ready { "ok" } else { "unavailable" } },
-        "correlation_id": correlation_id.to_string()
-    }));
-    (status, body)
+        let status = if state.thingd_ready {
+            StatusCode::OK
+        } else {
+            StatusCode::SERVICE_UNAVAILABLE
+        };
+        let body = Json(json!({
+            "status": if state.thingd_ready { "ready" } else { "not_ready" },
+            "storage_mode": state.storage_mode,
+            "checks": { "thingd": if state.thingd_ready { "ok" } else { "unavailable" } },
+            "correlation_id": correlation_id.to_string()
+        }));
+        (status, body)
+    }
 }
 
 pub async fn agent(
@@ -118,6 +142,38 @@ pub async fn agent_manifest(
     (StatusCode::OK, body)
 }
 
+fn format_health_status(report: &HealthReport) -> &'static str {
+    match &report.status {
+        crate::health::HealthStatus::Healthy => "ok",
+        crate::health::HealthStatus::Degraded { .. } => "degraded",
+        crate::health::HealthStatus::Unhealthy { .. } => "not_ready",
+    }
+}
+
+fn format_checks(report: &HealthReport) -> serde_json::Map<String, Value> {
+    let mut map = serde_json::Map::new();
+    for check in &report.checks {
+        let status_str = match &check.status {
+            crate::health::HealthStatus::Healthy => "healthy",
+            crate::health::HealthStatus::Degraded { .. } => "degraded",
+            crate::health::HealthStatus::Unhealthy { .. } => "unhealthy",
+        };
+        let value = match &check.status {
+            crate::health::HealthStatus::Healthy => {
+                json!({ "status": status_str, "duration_ms": check.duration_ms })
+            }
+            crate::health::HealthStatus::Degraded { reason } => {
+                json!({ "status": status_str, "reason": reason, "duration_ms": check.duration_ms })
+            }
+            crate::health::HealthStatus::Unhealthy { reason } => {
+                json!({ "status": status_str, "reason": reason, "duration_ms": check.duration_ms })
+            }
+        };
+        map.insert(check.name.clone(), value);
+    }
+    map
+}
+
 pub async fn docs(
     State(_state): State<AppState>,
     Extension(correlation_id): Extension<CorrelationId>,
@@ -166,4 +222,154 @@ pub async fn docs(
         )
         .to_string(),
     )
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::health::{AlwaysHealthy, AlwaysUnhealthy, HealthRegistry};
+    use crate::http::correlation_id_middleware;
+    use axum::Router;
+    use axum::body::Body;
+    use axum::http::{Request, StatusCode};
+    use axum::middleware;
+    use axum::routing::get;
+    use std::sync::Arc;
+    use tower::ServiceExt;
+
+    fn test_router(state: AppState) -> Router {
+        Router::new()
+            .route("/health", get(health))
+            .route("/ready", get(ready))
+            .layer(middleware::from_fn(correlation_id_middleware))
+            .with_state(state)
+    }
+
+    #[tokio::test]
+    async fn test_health_without_registry() {
+        let state = AppState::builder().build().unwrap();
+        let router = test_router(state);
+
+        let response = router
+            .oneshot(
+                Request::builder()
+                    .uri("/health")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(response.status(), StatusCode::OK);
+    }
+
+    #[tokio::test]
+    async fn test_health_with_registry_healthy() {
+        let mut registry = HealthRegistry::new();
+        registry.register(Arc::new(AlwaysHealthy));
+        let state = AppState::builder()
+            .with_health_registry(registry)
+            .build()
+            .unwrap();
+        let router = test_router(state);
+
+        let response = router
+            .oneshot(
+                Request::builder()
+                    .uri("/health")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(response.status(), StatusCode::OK);
+    }
+
+    #[tokio::test]
+    async fn test_health_with_registry_unhealthy() {
+        let mut registry = HealthRegistry::new();
+        registry.register(Arc::new(AlwaysUnhealthy::new("down")));
+        let state = AppState::builder()
+            .with_health_registry(registry)
+            .build()
+            .unwrap();
+        let router = test_router(state);
+
+        let response = router
+            .oneshot(
+                Request::builder()
+                    .uri("/health")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(response.status(), StatusCode::SERVICE_UNAVAILABLE);
+    }
+
+    #[tokio::test]
+    async fn test_ready_without_registry() {
+        let state = AppState::builder().build().unwrap();
+        let router = test_router(state);
+
+        let response = router
+            .oneshot(
+                Request::builder()
+                    .uri("/ready")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(response.status(), StatusCode::OK);
+    }
+
+    #[tokio::test]
+    async fn test_ready_with_registry_healthy() {
+        let mut registry = HealthRegistry::new();
+        registry.register(Arc::new(AlwaysHealthy));
+        let state = AppState::builder()
+            .with_health_registry(registry)
+            .build()
+            .unwrap();
+        let router = test_router(state);
+
+        let response = router
+            .oneshot(
+                Request::builder()
+                    .uri("/ready")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(response.status(), StatusCode::OK);
+    }
+
+    #[tokio::test]
+    async fn test_ready_with_registry_unhealthy() {
+        let mut registry = HealthRegistry::new();
+        registry.register(Arc::new(AlwaysUnhealthy::new("down")));
+        let state = AppState::builder()
+            .with_health_registry(registry)
+            .build()
+            .unwrap();
+        let router = test_router(state);
+
+        let response = router
+            .oneshot(
+                Request::builder()
+                    .uri("/ready")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(response.status(), StatusCode::SERVICE_UNAVAILABLE);
+    }
 }
