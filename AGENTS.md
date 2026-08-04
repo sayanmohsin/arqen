@@ -87,47 +87,16 @@ security, compatibility, and operational validation.
 - Response readers: `read_body()`
 - Macros: `assert_response!`, `assert_error!`, `assert_json_contains!`
 
-## Known gaps for consumers
+## Consumer APIs
 
-These are Arqen public API limitations that application authors must work
-around. They do not require changes to application domain code.
+Arqen provides convenience APIs for application authors:
 
-### Router composition
-`create_router_with_state()` returns a fully built `Router` with only the 5
-built-in routes. There is no public `register_routes()` or builder pattern.
-Consumers must use Axum's native `Router::merge()` or `Router::nest()` after
-calling `create_router_with_state()`.
-
-```rust
-let arqen_router = create_router_with_state(arqen_state);
-let app_router = Router::new()
-    .nest("/api/v1", my_routes)
-    .merge(arqen_router);
-```
-
-### Auth middleware
-`Authentication` trait and adapters (`ApiKeyAuth`, `JwtAuth`, `SessionAuth`)
-are fully implemented but not wired as Axum middleware. There is no
-`FromRequestParts` extractor for `AuthContext`. Consumers must write a
-middleware function that calls `authenticate()` and inserts `AuthContext`
-into request extensions.
-
-### Health registry
-`HealthRegistry` with parallel checks, timeouts, and readiness filtering
-exists but is not connected to the `/health` or `/ready` HTTP endpoints.
-The endpoints use a simple boolean flag (`state.thingd_ready`). Consumers
-who need custom health checks must extend the router or accept the
-boolean-based readiness.
-
-### Schema generation
-`SchemaGenerator` is a placeholder. Tool input/output schemas must be
-hand-written as `serde_json::Value`. The `Schema` trait has no
-implementors. Do not depend on automatic schema generation from Rust types.
-
-### OpenAPI
-`OpenApiGenerator` supports `add_get()` and `add_post()` but lacks
-`add_put()`, `add_delete()`, and `add_patch()`. Response schemas and
-parameters must be added manually to the `Operation` struct after building.
+- **Router composition**: `create_router_with_state_and_routes(state, app_routes)` and `nest_routes(state, prefix, app_routes)` for merging application routes with built-in routes.
+- **Auth middleware**: `auth_middleware` (enforcing) and `optional_auth_middleware` (passthrough) with `Authenticated` extractor for handlers.
+- **Health wiring**: Register `HealthCheck` implementations via `ModuleContext` in `Module::register()`. Checks run automatically on `/health` and `/ready`.
+- **OpenAPI CRUD**: `OpenApiGenerator` supports `add_get`, `add_post`, `add_put`, `add_delete`, `add_patch`.
+- **Module composition**: `Module` trait with `ModuleBuilder` for dependency-ordered registration, initialization, shutdown, and health checks. `HttpModule` for HTTP route modules.
+- **Schema generation**: `SchemaGenerator` is a placeholder. Tool input/output schemas must be hand-written as `serde_json::Value`.
 
 ## Watchloom integration
 
