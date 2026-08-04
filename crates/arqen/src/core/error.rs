@@ -84,6 +84,27 @@ impl std::fmt::Display for CorrelationId {
     }
 }
 
+// Correlation ID for the request currently being handled. Scoped by
+// `correlation_id_middleware` around each request so that error responses —
+// which do not receive the request itself — can propagate the request-scoped ID.
+#[cfg(feature = "http-server")]
+tokio::task_local! {
+    pub static REQUEST_CORRELATION_ID: CorrelationId;
+}
+
+#[cfg(feature = "http-server")]
+impl CorrelationId {
+    /// Return the correlation ID of the current request.
+    ///
+    /// Falls back to a freshly generated ID when no correlation middleware is
+    /// installed (i.e. outside a request scope).
+    pub fn current() -> Self {
+        REQUEST_CORRELATION_ID
+            .try_with(|id| id.clone())
+            .unwrap_or_else(|_| Self::new())
+    }
+}
+
 #[derive(Debug, Clone)]
 pub struct ErrorContext {
     pub correlation_id: CorrelationId,
@@ -252,7 +273,7 @@ impl AppError {
 #[cfg(feature = "http-server")]
 impl IntoResponse for AppError {
     fn into_response(self) -> Response {
-        let correlation_id = CorrelationId::new();
+        let correlation_id = CorrelationId::current();
         let status = self.kind.to_code().status_code();
         let response = self.to_redacted_response(&correlation_id);
         let body = axum::Json(response);

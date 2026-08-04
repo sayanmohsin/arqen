@@ -18,7 +18,7 @@ use axum::http::request::Parts;
 use axum::response::{IntoResponse, Response};
 
 use crate::auth::{AuthContext, AuthError, Authentication};
-use crate::core::error::{ErrorCode, ErrorResponse};
+use crate::core::error::{CorrelationId, ErrorCode, ErrorResponse};
 
 /// Axum extractor that requires authentication.
 ///
@@ -99,8 +99,8 @@ impl IntoResponse for AuthRejection {
             }
         };
 
-        let correlation_id = uuid::Uuid::new_v4().to_string();
-        let body = ErrorResponse::new(code, message, correlation_id);
+        let correlation_id = CorrelationId::current();
+        let body = ErrorResponse::new(code, message, correlation_id.0);
         (status, axum::Json(body)).into_response()
     }
 }
@@ -155,8 +155,8 @@ pub async fn auth_middleware(
                 }
             };
 
-            let correlation_id = uuid::Uuid::new_v4().to_string();
-            let body = ErrorResponse::new(code, message, correlation_id);
+            let correlation_id = CorrelationId::current();
+            let body = ErrorResponse::new(code, message, correlation_id.0);
             (status, axum::Json(body)).into_response()
         }
     }
