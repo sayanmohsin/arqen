@@ -277,6 +277,92 @@ impl OpenApiGenerator {
         self
     }
 
+    pub fn add_put(
+        mut self,
+        path: impl Into<String>,
+        operation_id: impl Into<String>,
+        summary: Option<String>,
+        tags: Vec<String>,
+        request_body: Option<RequestBody>,
+    ) -> Self {
+        let path_str = path.into();
+        let item = self.paths.entry(path_str).or_insert_with(|| PathItem {
+            get: None,
+            post: None,
+            put: None,
+            delete: None,
+            patch: None,
+        });
+        item.put = Some(Operation {
+            operation_id: operation_id.into(),
+            summary,
+            description: None,
+            tags,
+            responses: default_responses(),
+            security: None,
+            request_body,
+            parameters: Vec::new(),
+        });
+        self
+    }
+
+    pub fn add_delete(
+        mut self,
+        path: impl Into<String>,
+        operation_id: impl Into<String>,
+        summary: Option<String>,
+        tags: Vec<String>,
+    ) -> Self {
+        let path_str = path.into();
+        let item = self.paths.entry(path_str).or_insert_with(|| PathItem {
+            get: None,
+            post: None,
+            put: None,
+            delete: None,
+            patch: None,
+        });
+        item.delete = Some(Operation {
+            operation_id: operation_id.into(),
+            summary,
+            description: None,
+            tags,
+            responses: default_responses(),
+            security: None,
+            request_body: None,
+            parameters: Vec::new(),
+        });
+        self
+    }
+
+    pub fn add_patch(
+        mut self,
+        path: impl Into<String>,
+        operation_id: impl Into<String>,
+        summary: Option<String>,
+        tags: Vec<String>,
+        request_body: Option<RequestBody>,
+    ) -> Self {
+        let path_str = path.into();
+        let item = self.paths.entry(path_str).or_insert_with(|| PathItem {
+            get: None,
+            post: None,
+            put: None,
+            delete: None,
+            patch: None,
+        });
+        item.patch = Some(Operation {
+            operation_id: operation_id.into(),
+            summary,
+            description: None,
+            tags,
+            responses: default_responses(),
+            security: None,
+            request_body,
+            parameters: Vec::new(),
+        });
+        self
+    }
+
     pub fn add_schema(mut self, name: impl Into<String>, schema: Schema) -> Self {
         self.components.schemas.insert(name.into(), schema);
         self
@@ -469,6 +555,104 @@ mod tests {
             )
             .build();
         assert!(spec.paths.contains_key("/users"));
+        let item = spec.paths.get("/users").unwrap();
+        assert!(item.get.is_some());
+        assert_eq!(item.get.as_ref().unwrap().operation_id, "list_users");
+    }
+
+    #[test]
+    fn test_generator_add_post() {
+        let spec = OpenApiGenerator::new("Test API", "1.0.0")
+            .add_post(
+                "/users",
+                "create_user",
+                Some("Create user".to_string()),
+                vec!["users".to_string()],
+                None,
+            )
+            .build();
+        let item = spec.paths.get("/users").unwrap();
+        assert!(item.post.is_some());
+        assert_eq!(item.post.as_ref().unwrap().operation_id, "create_user");
+    }
+
+    #[test]
+    fn test_generator_add_put() {
+        let spec = OpenApiGenerator::new("Test API", "1.0.0")
+            .add_put(
+                "/users/{id}",
+                "update_user",
+                Some("Update user".to_string()),
+                vec!["users".to_string()],
+                None,
+            )
+            .build();
+        assert!(spec.paths.contains_key("/users/{id}"));
+        let item = spec.paths.get("/users/{id}").unwrap();
+        assert!(item.put.is_some());
+        assert_eq!(item.put.as_ref().unwrap().operation_id, "update_user");
+    }
+
+    #[test]
+    fn test_generator_add_delete() {
+        let spec = OpenApiGenerator::new("Test API", "1.0.0")
+            .add_delete(
+                "/users/{id}",
+                "delete_user",
+                Some("Delete user".to_string()),
+                vec!["users".to_string()],
+            )
+            .build();
+        assert!(spec.paths.contains_key("/users/{id}"));
+        let item = spec.paths.get("/users/{id}").unwrap();
+        assert!(item.delete.is_some());
+        assert_eq!(item.delete.as_ref().unwrap().operation_id, "delete_user");
+    }
+
+    #[test]
+    fn test_generator_add_patch() {
+        let spec = OpenApiGenerator::new("Test API", "1.0.0")
+            .add_patch(
+                "/users/{id}",
+                "patch_user",
+                Some("Patch user".to_string()),
+                vec!["users".to_string()],
+                None,
+            )
+            .build();
+        assert!(spec.paths.contains_key("/users/{id}"));
+        let item = spec.paths.get("/users/{id}").unwrap();
+        assert!(item.patch.is_some());
+        assert_eq!(item.patch.as_ref().unwrap().operation_id, "patch_user");
+    }
+
+    #[test]
+    fn test_generator_multiple_methods_on_same_path() {
+        let spec = OpenApiGenerator::new("Test API", "1.0.0")
+            .add_get(
+                "/users/{id}",
+                "get_user",
+                Some("Get user".to_string()),
+                vec!["users".to_string()],
+            )
+            .add_put(
+                "/users/{id}",
+                "update_user",
+                Some("Update user".to_string()),
+                vec!["users".to_string()],
+                None,
+            )
+            .add_delete(
+                "/users/{id}",
+                "delete_user",
+                Some("Delete user".to_string()),
+                vec!["users".to_string()],
+            )
+            .build();
+        let item = spec.paths.get("/users/{id}").unwrap();
+        assert!(item.get.is_some());
+        assert!(item.put.is_some());
+        assert!(item.delete.is_some());
     }
 
     #[test]
