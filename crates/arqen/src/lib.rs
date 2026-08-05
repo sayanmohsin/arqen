@@ -29,6 +29,8 @@ pub mod app;
 pub mod auth;
 pub mod config;
 pub mod core;
+#[cfg(feature = "cli")]
+pub mod dev;
 pub mod health;
 pub mod jobs;
 pub mod module;

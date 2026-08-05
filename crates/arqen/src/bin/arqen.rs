@@ -53,6 +53,18 @@ enum Commands {
         #[arg(short, long, default_value = "memory")]
         storage: String,
     },
+    /// Run and supervise local dev services defined in arqen.toml
+    Up {
+        /// Names of services to start (defaults to all)
+        #[arg(value_name = "SERVICE")]
+        services: Vec<String>,
+        /// Config file to read dev services from
+        #[arg(long, default_value = "arqen.toml")]
+        file: std::path::PathBuf,
+        /// Print the services that would be started without running them
+        #[arg(long)]
+        dry_run: bool,
+    },
     /// Run checks
     Check,
     /// Diagnose Rust, thingd, Docker, and environment setup
@@ -463,6 +475,13 @@ async fn main() -> anyhow::Result<()> {
             arqen::http::start_server(addr, router)
                 .await
                 .map_err(|e| anyhow::anyhow!(e))?;
+        }
+        Commands::Up {
+            services,
+            file,
+            dry_run,
+        } => {
+            arqen::dev::run_up(&file, &services, dry_run).await?;
         }
         Commands::Check => {
             println!("Running checks...");
