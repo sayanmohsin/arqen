@@ -1,30 +1,27 @@
-FROM rust:1.96 as builder
+FROM rust:1.96 AS builder
 
-WORKDIR /app
+WORKDIR /build
 
-# Build from the `/ancatag` parent context so the Compose Dockerfile path
-# remains stable. thingd is consumed from crates.io.
-COPY arqen/Cargo.toml arqen/Cargo.lock ./arqen/
-COPY arqen/crates/ ./arqen/crates/
-COPY arqen/cli/ ./arqen/cli/
-WORKDIR /app/arqen
+# Cache dependencies by copying manifests before the full source tree.
+COPY Cargo.toml Cargo.lock ./
+COPY crates/ ./crates/
 
-# Build dependencies (cached)
-RUN cargo build --release --bin arqen
+# The `arqen` binary requires the `cli` feature.
+RUN cargo build --release --bin arqen --features cli
 
-# Copy application code (if any)
-# For now, we just have the CLI
-
-# Runtime stage
-FROM debian:bookworm-slim as runtime
+FROM debian:trixie-slim AS runtime
 
 RUN apt-get update && apt-get install -y \
     ca-certificates \
+    curl \
     && rm -rf /var/lib/apt/lists/*
 
-COPY --from=builder /app/target/release/arqen /usr/local/bin/arqen
+COPY --from=builder /build/target/release/arqen /usr/local/bin/arqen
 
 EXPOSE 3000
+
+HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
+  CMD curl -fs http://127.0.0.1:3000/health || exit 1
 
 ENTRYPOINT ["arqen"]
 CMD ["start", "--host", "0.0.0.0", "--port", "3000", "--storage", "memory"]

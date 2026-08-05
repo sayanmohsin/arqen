@@ -2,7 +2,9 @@ name: Docker smoke
 
 on:
   pull_request:
-    paths: ["Dockerfile", "docker-compose.yml", "Cargo.toml", "Cargo.lock", "crates/**", "cli/**"]
+    paths: ["Dockerfile", "docker-compose.yml", "Cargo.toml", "Cargo.lock", "crates/**"]
+  push:
+    branches: [main]
   workflow_dispatch:
 
 permissions:
@@ -13,6 +15,26 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
-      # The Dockerfile builds from the /ancatag parent so Compose can resolve
-      # the repository's documented Dockerfile path.
-      - run: docker compose config
+      - name: Validate compose config
+        run: docker compose config
+      - name: Build arqen image
+        run: docker compose build arqen
+      - name: Start compose stack
+        run: docker compose up -d
+      - name: Wait for arqen health
+        run: |
+          for i in $(seq 1 90); do
+            if curl -sf http://127.0.0.1:3000/health >/dev/null 2>&1; then
+              echo "arqen healthy after ${i}s"
+              exit 0
+            fi
+            sleep 1
+          done
+          echo "arqen did not become healthy" >&2
+          docker compose logs arqen
+          exit 1
+      - name: Smoke agent manifest
+        run: curl -sf http://127.0.0.1:3000/agent/manifest | grep -q 'arqen'
+      - name: Stop stack
+        if: always()
+        run: docker compose down -v

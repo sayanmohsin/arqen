@@ -8,3 +8,7 @@ templates/
 examples/
 .env
 .env.*
+.github/
+.opencode/
+.pnpm-store/
+watchloom/

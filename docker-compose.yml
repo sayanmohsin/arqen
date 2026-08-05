@@ -1,22 +1,21 @@
-version: '3.8'
-
 services:
   arqen:
     build:
-      context: ..
-      dockerfile: arqen/Dockerfile
+      context: .
+      dockerfile: Dockerfile
     ports:
       - "3000:3000"
+    # The CLI is flag-driven (see the Dockerfile CMD); these vars mirror the
+    # canonical ARQEN_* config names for library/config consumers.
     environment:
-      - ARQEN_HOST=0.0.0.0
-      - ARQEN_PORT=3000
-      - ARQEN_LOG=info
-      - ARQEN_STORAGE_MODE=memory
-      - ARQEN_THINGD_URL=http://thingd:8757
+      - ARQEN_LOG_LEVEL=info
     volumes:
       - arqen_data:/data
     restart: unless-stopped
 
+  # Standalone thingd sidecar. Note: the current `arqen start` binary does not
+  # read ARQEN_THINGD_URL, so arqen runs on in-memory storage; thingd is
+  # available here for sidecar-style local development.
   thingd:
     image: sayanmohsin/thingd:latest
     ports:
