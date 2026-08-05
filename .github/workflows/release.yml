@@ -24,9 +24,9 @@ jobs:
     name: Create or finalize release PR
     runs-on: ubuntu-latest
     outputs:
-      release_created: ${{ steps.release.outputs.release_created || steps.manual.outputs.release_created }}
+      release_created: ${{ steps.release.outputs.releases_created || steps.manual.outputs.release_created }}
       retry: ${{ steps.manual.outputs.retry }}
-      version: ${{ steps.release.outputs.version || steps.manual.outputs.version }}
+      version: ${{ steps.release.outputs['crates/arqen--version'] || steps.manual.outputs.version }}
     steps:
       - uses: actions/checkout@v7
         with:
@@ -34,7 +34,7 @@ jobs:
       - name: Create release App token
         id: app-token
         if: ${{ inputs.publish_version == '' }}
-        uses: actions/create-github-app-token@v2
+        uses: actions/create-github-app-token@v3
         with:
           app-id: ${{ vars.RELEASE_APP_ID }}
           private-key: ${{ secrets.RELEASE_APP_PRIVATE_KEY }}
@@ -49,11 +49,12 @@ jobs:
           config-file: release-please-config.json
           manifest-file: .release-please-manifest.json
       - name: Update Cargo.lock on release PR
-        if: ${{ steps.release.outputs.pr-number != '' }}
+        if: ${{ steps.release.outputs.prs_created == 'true' }}
         env:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          RELEASE_PR: ${{ steps.release.outputs.pr }}
         run: |
-          PR_NUMBER="${{ steps.release.outputs.pr-number }}"
+          PR_NUMBER=$(echo "$RELEASE_PR" | jq -r '.number')
           BRANCH=$(gh api "repos/$GITHUB_REPOSITORY/pulls/$PR_NUMBER" --jq '.head.ref')
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
