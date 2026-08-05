@@ -15,8 +15,15 @@ pub struct HttpThingdBackend {
 
 impl HttpThingdBackend {
     pub fn new(base_url: &str) -> Self {
+        let base = base_url.trim_end_matches('/').to_string();
+        // Ensure the base URL ends with /v1 for the thingd sidecar REST API
+        let base = if base.ends_with("/v1") {
+            base
+        } else {
+            format!("{}/v1", base)
+        };
         Self {
-            base_url: base_url.trim_end_matches('/').to_string(),
+            base_url: base,
             client: Client::new(),
             auth_token: None,
         }
