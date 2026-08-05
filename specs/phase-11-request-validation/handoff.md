@@ -6,6 +6,7 @@
 - Built-in validators: required, min, max, regex, email, url
 
 ## Usage
+
 ```rust
 async fn create_user(
     Validated(input): Validated<CreateUser>,
@@ -13,6 +14,7 @@ async fn create_user(
 ```
 
 ## Derive Macros
+
 ```rust
 #[derive(Validate, Deserialize)]
 struct CreateUser {

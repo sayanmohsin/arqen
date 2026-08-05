@@ -94,8 +94,6 @@ export default defineConfig({
         text: "Project",
         items: [
           { text: "Contributing", link: "/contributing" },
-          { text: "Release", link: "/release" },
-          { text: "Roadmap", link: "/roadmap" },
           { text: "GitHub", link: "https://github.com/sayanmohsin/arqen" },
           { text: "thingd.cloud", link: "https://thingd.cloud" },
         ],

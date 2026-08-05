@@ -2,6 +2,198 @@ use arqen::thingd::MemoryThingdBackend;
 use arqen::thingd::*;
 use serde_json::json;
 
+#[cfg(feature = "http-server")]
+mod http_composition {
+    use arqen::AppState;
+    use axum::Router;
+    use axum::body::Body;
+    use axum::extract::FromRef;
+    use axum::extract::State;
+    use axum::http::{Request, StatusCode};
+    use axum::routing::get;
+    use tower::ServiceExt;
+
+    #[derive(Clone)]
+    struct CustomState {
+        arqen: AppState,
+        label: String,
+    }
+
+    impl FromRef<CustomState> for AppState {
+        fn from_ref(state: &CustomState) -> Self {
+            state.arqen.clone()
+        }
+    }
+
+    async fn app_handler(State(state): State<CustomState>) -> String {
+        state.label
+    }
+
+    #[tokio::test]
+    async fn test_builtin_routes_mount_on_custom_state() {
+        let app_state = AppState::builder().build().unwrap();
+
+        let router: Router<CustomState> =
+            arqen::http::builtin_routes(&app_state).route("/api/hello", get(app_handler));
+        let router = router.with_state(CustomState {
+            arqen: app_state,
+            label: "hello".to_string(),
+        });
+
+        for path in ["/health", "/ready", "/agent", "/agent/manifest", "/docs"] {
+            let response = router
+                .clone()
+                .oneshot(Request::builder().uri(path).body(Body::empty()).unwrap())
+                .await
+                .unwrap();
+            assert_eq!(
+                response.status(),
+                StatusCode::OK,
+                "path {path} should respond"
+            );
+        }
+
+        let response = router
+            .oneshot(
+                Request::builder()
+                    .uri("/api/hello")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(response.status(), StatusCode::OK);
+        let body = axum::body::to_bytes(response.into_body(), 1024)
+            .await
+            .unwrap();
+        assert_eq!(&body[..], b"hello");
+    }
+}
+
+#[cfg(feature = "http-server")]
+mod tool_invoke {
+    use arqen::{
+        AppError, AppState, ToolContext, ToolEffect, ToolHandler, ToolMetadata, ToolRegistry,
+    };
+    use axum::body::Body;
+    use axum::http::{Request, StatusCode};
+    use tower::ServiceExt;
+
+    struct EchoHandler;
+
+    #[async_trait::async_trait]
+    impl ToolHandler for EchoHandler {
+        async fn execute(
+            &self,
+            _ctx: &ToolContext,
+            input: serde_json::Value,
+        ) -> Result<serde_json::Value, AppError> {
+            Ok(input)
+        }
+    }
+
+    fn tool_state() -> AppState {
+        let mut registry = ToolRegistry::new("contract-app", "1.0.0", "Contract app", "memory");
+        registry.register_tool(ToolMetadata {
+            name: "echo".to_string(),
+            description: "Echo input".to_string(),
+            input: serde_json::json!({
+                "type": "object",
+                "properties": {"msg": {"type": "string"}},
+                "required": ["msg"]
+            }),
+            output: serde_json::json!({"type": "object"}),
+            scopes: vec![],
+            effect: ToolEffect::Read,
+            idempotent: true,
+            enqueues_job: None,
+            timeout: Some(5),
+        });
+        registry.register_handler("echo", EchoHandler);
+        AppState::builder()
+            .with_tool_registry(registry)
+            .build()
+            .unwrap()
+    }
+
+    #[tokio::test]
+    async fn test_tool_invoke_through_builtin_router() {
+        let state = tool_state();
+        let router = arqen::http::create_router_with_state(state);
+
+        let response = router
+            .oneshot(
+                Request::builder()
+                    .method("POST")
+                    .uri("/agent/tools/echo")
+                    .header("content-type", "application/json")
+                    .body(Body::from(serde_json::json!({"msg": "hi"}).to_string()))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(response.status(), StatusCode::OK);
+        let body = axum::body::to_bytes(response.into_body(), 4096)
+            .await
+            .unwrap();
+        let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
+        assert_eq!(json["tool"], "echo");
+        assert_eq!(json["output"]["msg"], "hi");
+    }
+
+    #[tokio::test]
+    async fn test_tool_invoke_matches_manifest_names() {
+        let state = tool_state();
+        let router = arqen::http::create_router_with_state(state);
+
+        let manifest = router
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .uri("/agent/manifest")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(manifest.status(), StatusCode::OK);
+        let body = axum::body::to_bytes(manifest.into_body(), 4096)
+            .await
+            .unwrap();
+        let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
+
+        let tool_names: Vec<&str> = json["tools"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|t| t["name"].as_str().unwrap())
+            .collect();
+        assert!(tool_names.contains(&"echo"));
+
+        let invoke_paths: Vec<&str> = json["endpoints"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|e| e["path"].as_str().unwrap())
+            .collect();
+        assert!(invoke_paths.contains(&"/agent/tools/echo"));
+
+        let invoked = router
+            .oneshot(
+                Request::builder()
+                    .method("POST")
+                    .uri("/agent/tools/echo")
+                    .header("content-type", "application/json")
+                    .body(Body::from(serde_json::json!({"msg": "ok"}).to_string()))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(invoked.status(), StatusCode::OK);
+    }
+}
+
 async fn create_backend() -> Box<dyn ThingdBackend> {
     Box::new(MemoryThingdBackend::new())
 }
@@ -38,7 +230,13 @@ async fn test_object_crud() {
         operator: FilterOperator::Eq,
         value: json!("Alice Smith"),
     };
-    let results = backend.query_objects("users", Some(filter)).await.unwrap();
+    let results = backend
+        .query_objects(
+            "users",
+            arqen::thingd::traits::QueryOptions::filtered(vec![filter]),
+        )
+        .await
+        .unwrap();
     assert_eq!(results.len(), 1);
     assert_eq!(results[0].data["name"], "Alice Smith");
 
@@ -329,7 +527,10 @@ async fn test_filter_operators() {
         operator: FilterOperator::Eq,
         value: json!("Banana"),
     };
-    let results = backend.query_objects("items", Some(filter)).await.unwrap();
+    let results = backend
+        .query_objects("items", QueryOptions::filtered(vec![filter]))
+        .await
+        .unwrap();
     assert_eq!(results.len(), 1);
     assert_eq!(results[0].data["name"], "Banana");
 
@@ -339,7 +540,10 @@ async fn test_filter_operators() {
         operator: FilterOperator::Gt,
         value: json!(1.0),
     };
-    let results = backend.query_objects("items", Some(filter)).await.unwrap();
+    let results = backend
+        .query_objects("items", QueryOptions::filtered(vec![filter]))
+        .await
+        .unwrap();
     assert_eq!(results.len(), 1);
     assert_eq!(results[0].data["name"], "Cherry");
 
@@ -349,7 +553,67 @@ async fn test_filter_operators() {
         operator: FilterOperator::Contains,
         value: json!("pp"),
     };
-    let results = backend.query_objects("items", Some(filter)).await.unwrap();
+    let results = backend
+        .query_objects("items", QueryOptions::filtered(vec![filter]))
+        .await
+        .unwrap();
     assert_eq!(results.len(), 1);
     assert_eq!(results[0].data["name"], "Apple");
+}
+
+#[tokio::test]
+async fn test_query_objects_multiple_filters_and_pagination() {
+    let backend = create_backend().await;
+
+    for (id, title_id, country, season) in [
+        ("o1", "t1", "US", 1),
+        ("o2", "t1", "US", 2),
+        ("o3", "t1", "UK", 1),
+        ("o4", "t2", "US", 1),
+        ("o5", "t1", "US", 3),
+    ] {
+        backend
+            .put_object(
+                "offers",
+                id,
+                json!({"title_id": title_id, "country": country, "season": season}),
+            )
+            .await
+            .unwrap();
+    }
+
+    // Conjunctive filters: title_id = t1 AND country = US.
+    let filters = vec![
+        ThingdFilter {
+            field: "title_id".to_string(),
+            operator: FilterOperator::Eq,
+            value: json!("t1"),
+        },
+        ThingdFilter {
+            field: "country".to_string(),
+            operator: FilterOperator::Eq,
+            value: json!("US"),
+        },
+    ];
+
+    let all = backend
+        .query_objects("offers", QueryOptions::filtered(filters.clone()))
+        .await
+        .unwrap();
+    assert_eq!(all.len(), 3);
+
+    let page = backend
+        .query_objects(
+            "offers",
+            QueryOptions {
+                filters,
+                limit: Some(2),
+                offset: 1,
+            },
+        )
+        .await
+        .unwrap();
+    assert_eq!(page.len(), 2);
+    assert_eq!(page[0].id, "o2");
+    assert_eq!(page[1].id, "o5");
 }

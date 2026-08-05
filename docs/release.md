@@ -1,15 +1,19 @@
 # Release
 
-Releases are not yet a promise of framework stability. Until native durable
-thingd migration, public HTTP parity, and CLI/template work are complete,
-describe Arqen as early-stage in release notes and announcements.
+Releases are not yet a promise of framework stability. Arqen is currently
+early-stage: the core framework and CLI are implemented, while durability,
+public HTTP compatibility, security review, and application-level operational
+validation remain deployment gates.
 
 Before a release candidate:
 
 ```bash
 cargo fmt --all -- --check
-cargo check --workspace
-cargo test --workspace
+cargo check -p arqen --all-features
+cargo test -p arqen --all-features
+cargo clippy -p arqen --all-targets --all-features -- -D warnings
+cargo doc -p arqen --all-features --no-deps
+cargo package -p arqen --allow-dirty
 cd docs && pnpm install --frozen-lockfile && pnpm build
 ```
 
@@ -39,8 +43,6 @@ Configure the `CARGO_REGISTRY_TOKEN` repository secret before publishing. A
 manual workflow dispatch may include `publish_version` to retry an existing
 release after a transient crates.io failure.
 
-The public entry point is the single `arqen` crate. `arqen-cli` remains a
-workspace binary and is not published to crates.io.
-
-The public entry point is the single `arqen` crate. `arqen-cli` remains a
-workspace binary and is not published to crates.io.
+The public entry point is the single `arqen` crate. Its CLI binary is enabled
+with the `cli` feature and is published as part of the same package; there is
+no separate `arqen-cli` package.

@@ -10,27 +10,46 @@ categories.workspace = true
 description = "Backend infrastructure for agent-ready applications"
 readme = "../../README.md"
 
+[[bin]]
+name = "arqen"
+path = "src/bin/arqen.rs"
+required-features = ["cli"]
+
 [features]
 default = ["http-server", "thingd-native"]
+cli = ["http-server", "logging", "dep:libc"]
 http-server = ["dep:axum", "dep:tower", "dep:tower-http"]
 http-client = ["dep:reqwest"]
 thingd-native = ["dep:thingd"]
 logging = ["dep:tracing-subscriber"]
-test-util = ["dep:tower"]
+test-util = ["http-server", "dep:tower"]
 
 [dependencies]
+anyhow = "1"
 async-trait = "0.1"
 axum = { version = "0.7", features = ["macros"], optional = true }
+base64 = "0.22"
 chrono = { version = "0.4", features = ["serde"] }
+clap = { version = "4", features = ["derive"] }
+hex = "0.4"
+jsonwebtoken = "9"
+libc = { version = "0.2", optional = true }
 reqwest = { version = "0.12", features = ["json"], optional = true }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
+sha2 = "0.10"
+subtle = "2"
 thingd = { version = "0.73", optional = true }
 thiserror = "1"
 tokio = { version = "1", features = ["full"] }
 toml = "0.8"
 tower = { version = "0.4", features = ["util"], optional = true }
-tower-http = { version = "0.6", features = ["limit"], optional = true }
+tower-http = { version = "0.6", features = ["cors", "limit", "timeout"], optional = true }
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter", "json"], optional = true }
 uuid = { version = "1", features = ["v4"] }
+
+[dev-dependencies]
+async-trait = "0.1"
+axum = "0.7"
+tokio-test = "0.4"

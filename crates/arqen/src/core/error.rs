@@ -16,13 +16,19 @@ pub enum ErrorCode {
     Authorization,
     Conflict,
     RateLimited,
+    Timeout,
+    Dependency,
     Internal,
     External,
     Unavailable,
+    NotImpl,
 }
 
 impl ErrorCode {
-    /// Map error code to HTTP status code.
+    /// Convert to HTTP status code.
+    ///
+    /// Requires the `http-server` feature.
+    #[cfg(feature = "http-server")]
     pub fn status_code(&self) -> StatusCode {
         match self {
             ErrorCode::NotFound => StatusCode::NOT_FOUND,
@@ -31,9 +37,12 @@ impl ErrorCode {
             ErrorCode::Authorization => StatusCode::FORBIDDEN,
             ErrorCode::Conflict => StatusCode::CONFLICT,
             ErrorCode::RateLimited => StatusCode::TOO_MANY_REQUESTS,
+            ErrorCode::Timeout => StatusCode::GATEWAY_TIMEOUT,
+            ErrorCode::Dependency => StatusCode::BAD_GATEWAY,
             ErrorCode::Internal => StatusCode::INTERNAL_SERVER_ERROR,
             ErrorCode::External => StatusCode::BAD_GATEWAY,
             ErrorCode::Unavailable => StatusCode::SERVICE_UNAVAILABLE,
+            ErrorCode::NotImpl => StatusCode::NOT_IMPLEMENTED,
         }
     }
 }
@@ -47,19 +56,20 @@ impl std::fmt::Display for ErrorCode {
             ErrorCode::Authorization => write!(f, "authorization"),
             ErrorCode::Conflict => write!(f, "conflict"),
             ErrorCode::RateLimited => write!(f, "rate_limited"),
+            ErrorCode::Timeout => write!(f, "timeout"),
+            ErrorCode::Dependency => write!(f, "dependency"),
             ErrorCode::Internal => write!(f, "internal"),
             ErrorCode::External => write!(f, "external"),
             ErrorCode::Unavailable => write!(f, "unavailable"),
+            ErrorCode::NotImpl => write!(f, "not_impl"),
         }
     }
 }
 
-/// Correlation ID for request tracing.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct CorrelationId(pub String);
 
 impl CorrelationId {
-    /// Generate a new correlation ID.
     pub fn new() -> Self {
         Self(Uuid::new_v4().to_string())
     }
@@ -77,7 +87,27 @@ impl std::fmt::Display for CorrelationId {
     }
 }
 
-/// Error context for propagating request context through the call stack.
+// Correlation ID for the request currently being handled. Scoped by
+// `correlation_id_middleware` around each request so that error responses —
+// which do not receive the request itself — can propagate the request-scoped ID.
+#[cfg(feature = "http-server")]
+tokio::task_local! {
+    pub static REQUEST_CORRELATION_ID: CorrelationId;
+}
+
+#[cfg(feature = "http-server")]
+impl CorrelationId {
+    /// Return the correlation ID of the current request.
+    ///
+    /// Falls back to a freshly generated ID when no correlation middleware is
+    /// installed (i.e. outside a request scope).
+    pub fn current() -> Self {
+        REQUEST_CORRELATION_ID
+            .try_with(|id| id.clone())
+            .unwrap_or_else(|_| Self::new())
+    }
+}
+
 #[derive(Debug, Clone)]
 pub struct ErrorContext {
     pub correlation_id: CorrelationId,
@@ -86,7 +116,11 @@ pub struct ErrorContext {
 }
 
 impl ErrorContext {
-    pub fn new(correlation_id: CorrelationId, path: impl Into<String>, method: impl Into<String>) -> Self {
+    pub fn new(
+        correlation_id: CorrelationId,
+        path: impl Into<String>,
+        method: impl Into<String>,
+    ) -> Self {
         Self {
             correlation_id,
             path: path.into(),
@@ -95,7 +129,6 @@ impl ErrorContext {
     }
 }
 
-/// Error response body.
 #[derive(Debug, Serialize, Deserialize)]
 pub struct ErrorBody {
     pub code: ErrorCode,
@@ -105,14 +138,12 @@ pub struct ErrorBody {
     pub details: Option<serde_json::Value>,
 }
 
-/// Consistent error response format.
 #[derive(Debug, Serialize, Deserialize)]
 pub struct ErrorResponse {
     pub error: ErrorBody,
 }
 
 impl ErrorResponse {
-    /// Create a new error response.
     pub fn new(
         code: ErrorCode,
         message: impl Into<String>,
@@ -128,7 +159,6 @@ impl ErrorResponse {
         }
     }
 
-    /// Create a new error response with details.
     pub fn with_details(
         code: ErrorCode,
         message: impl Into<String>,
@@ -145,7 +175,6 @@ impl ErrorResponse {
         }
     }
 
-    /// Create a redacted error response for internal errors.
     pub fn redacted(correlation_id: impl Into<String>) -> Self {
         Self::new(
             ErrorCode::Internal,
@@ -155,7 +184,6 @@ impl ErrorResponse {
     }
 }
 
-/// Categorization of errors for HTTP response mapping and debugging.
 #[derive(Debug, Clone, PartialEq, thiserror::Error)]
 pub enum ErrorKind {
     #[error("not found")]
@@ -170,16 +198,21 @@ pub enum ErrorKind {
     Conflict,
     #[error("rate limited")]
     RateLimited,
+    #[error("timeout")]
+    Timeout,
+    #[error("dependency error")]
+    Dependency,
     #[error("internal error")]
     Internal,
     #[error("external error")]
     External,
     #[error("unavailable")]
     Unavailable,
+    #[error("not implemented")]
+    NotImpl,
 }
 
 impl ErrorKind {
-    /// Convert to stable ErrorCode.
     pub fn to_code(&self) -> ErrorCode {
         match self {
             ErrorKind::NotFound => ErrorCode::NotFound,
@@ -188,14 +221,21 @@ impl ErrorKind {
             ErrorKind::Authorization => ErrorCode::Authorization,
             ErrorKind::Conflict => ErrorCode::Conflict,
             ErrorKind::RateLimited => ErrorCode::RateLimited,
+            ErrorKind::Timeout => ErrorCode::Timeout,
+            ErrorKind::Dependency => ErrorCode::Dependency,
             ErrorKind::Internal => ErrorCode::Internal,
             ErrorKind::External => ErrorCode::External,
             ErrorKind::Unavailable => ErrorCode::Unavailable,
+            ErrorKind::NotImpl => ErrorCode::NotImpl,
         }
+    }
+
+    /// Check if this error kind should be redacted in responses.
+    pub fn should_redact(&self) -> bool {
+        matches!(self, ErrorKind::Internal)
     }
 }
 
-/// Application error type that maps to HTTP status codes.
 #[derive(Debug, thiserror::Error)]
 #[error("{kind}: {message}")]
 pub struct AppError {
@@ -219,21 +259,18 @@ impl AppError {
         self
     }
 
-    /// Convert to ErrorResponse with correlation ID.
     pub fn to_response(&self, correlation_id: &CorrelationId) -> ErrorResponse {
         ErrorResponse::new(self.kind.to_code(), &self.message, correlation_id.0.clone())
     }
 
-    /// Convert to redacted ErrorResponse for internal errors.
     pub fn to_redacted_response(&self, correlation_id: &CorrelationId) -> ErrorResponse {
-        if self.kind == ErrorKind::Internal {
+        if self.kind.should_redact() {
             ErrorResponse::redacted(correlation_id.0.clone())
         } else {
             self.to_response(correlation_id)
         }
     }
 
-    /// Check if error is internal (should be redacted).
     pub fn is_internal(&self) -> bool {
         self.kind == ErrorKind::Internal
     }
@@ -242,13 +279,10 @@ impl AppError {
 #[cfg(feature = "http-server")]
 impl IntoResponse for AppError {
     fn into_response(self) -> Response {
-        // Generate correlation ID if not provided via extension
-        let correlation_id = CorrelationId::new();
+        let correlation_id = CorrelationId::current();
         let status = self.kind.to_code().status_code();
-
         let response = self.to_redacted_response(&correlation_id);
         let body = axum::Json(response);
-
         (status, body).into_response()
     }
 }
@@ -265,10 +299,51 @@ impl From<serde_json::Error> for AppError {
     }
 }
 
+impl From<std::io::Error> for AppError {
+    fn from(e: std::io::Error) -> Self {
+        match e.kind() {
+            std::io::ErrorKind::NotFound => {
+                AppError::new(ErrorKind::NotFound, format!("file not found: {e}"))
+            }
+            std::io::ErrorKind::PermissionDenied => {
+                AppError::new(ErrorKind::Authorization, format!("permission denied: {e}"))
+            }
+            _ => AppError::new(ErrorKind::Internal, format!("IO error: {e}")),
+        }
+    }
+}
+
+impl From<std::net::AddrParseError> for AppError {
+    fn from(e: std::net::AddrParseError) -> Self {
+        AppError::new(ErrorKind::Validation, format!("invalid address: {e}"))
+    }
+}
+
+impl From<toml::de::Error> for AppError {
+    fn from(e: toml::de::Error) -> Self {
+        AppError::new(ErrorKind::Validation, format!("invalid TOML: {e}"))
+    }
+}
+
+impl From<std::env::VarError> for AppError {
+    fn from(e: std::env::VarError) -> Self {
+        AppError::new(
+            ErrorKind::Internal,
+            format!("environment variable error: {e}"),
+        )
+    }
+}
+
 #[cfg(feature = "http-client")]
 impl From<reqwest::Error> for AppError {
     fn from(e: reqwest::Error) -> Self {
-        AppError::new(ErrorKind::External, format!("HTTP client error: {e}"))
+        if e.is_timeout() {
+            AppError::new(ErrorKind::Timeout, format!("request timed out: {e}"))
+        } else if e.is_connect() {
+            AppError::new(ErrorKind::Dependency, format!("connection failed: {e}"))
+        } else {
+            AppError::new(ErrorKind::External, format!("HTTP client error: {e}"))
+        }
     }
 }
 
@@ -280,20 +355,43 @@ mod tests {
     fn test_error_code_display() {
         assert_eq!(format!("{}", ErrorCode::NotFound), "not_found");
         assert_eq!(format!("{}", ErrorCode::Validation), "validation");
+        assert_eq!(format!("{}", ErrorCode::Timeout), "timeout");
+        assert_eq!(format!("{}", ErrorCode::Dependency), "dependency");
         assert_eq!(format!("{}", ErrorCode::Internal), "internal");
     }
 
+    #[cfg(feature = "http-server")]
     #[test]
     fn test_error_code_status_codes() {
         assert_eq!(ErrorCode::NotFound.status_code(), StatusCode::NOT_FOUND);
         assert_eq!(ErrorCode::Validation.status_code(), StatusCode::BAD_REQUEST);
-        assert_eq!(ErrorCode::Authentication.status_code(), StatusCode::UNAUTHORIZED);
-        assert_eq!(ErrorCode::Authorization.status_code(), StatusCode::FORBIDDEN);
+        assert_eq!(
+            ErrorCode::Authentication.status_code(),
+            StatusCode::UNAUTHORIZED
+        );
+        assert_eq!(
+            ErrorCode::Authorization.status_code(),
+            StatusCode::FORBIDDEN
+        );
         assert_eq!(ErrorCode::Conflict.status_code(), StatusCode::CONFLICT);
-        assert_eq!(ErrorCode::RateLimited.status_code(), StatusCode::TOO_MANY_REQUESTS);
-        assert_eq!(ErrorCode::Internal.status_code(), StatusCode::INTERNAL_SERVER_ERROR);
+        assert_eq!(
+            ErrorCode::RateLimited.status_code(),
+            StatusCode::TOO_MANY_REQUESTS
+        );
+        assert_eq!(
+            ErrorCode::Timeout.status_code(),
+            StatusCode::GATEWAY_TIMEOUT
+        );
+        assert_eq!(ErrorCode::Dependency.status_code(), StatusCode::BAD_GATEWAY);
+        assert_eq!(
+            ErrorCode::Internal.status_code(),
+            StatusCode::INTERNAL_SERVER_ERROR
+        );
         assert_eq!(ErrorCode::External.status_code(), StatusCode::BAD_GATEWAY);
-        assert_eq!(ErrorCode::Unavailable.status_code(), StatusCode::SERVICE_UNAVAILABLE);
+        assert_eq!(
+            ErrorCode::Unavailable.status_code(),
+            StatusCode::SERVICE_UNAVAILABLE
+        );
     }
 
     #[test]
@@ -340,7 +438,18 @@ mod tests {
     fn test_error_kind_to_code() {
         assert_eq!(ErrorKind::NotFound.to_code(), ErrorCode::NotFound);
         assert_eq!(ErrorKind::Validation.to_code(), ErrorCode::Validation);
+        assert_eq!(ErrorKind::Timeout.to_code(), ErrorCode::Timeout);
+        assert_eq!(ErrorKind::Dependency.to_code(), ErrorCode::Dependency);
         assert_eq!(ErrorKind::Internal.to_code(), ErrorCode::Internal);
+    }
+
+    #[test]
+    fn test_error_kind_should_redact() {
+        assert!(ErrorKind::Internal.should_redact());
+        assert!(!ErrorKind::NotFound.should_redact());
+        assert!(!ErrorKind::Validation.should_redact());
+        assert!(!ErrorKind::Timeout.should_redact());
+        assert!(!ErrorKind::Dependency.should_redact());
     }
 
     #[test]
@@ -368,6 +477,29 @@ mod tests {
     fn test_app_error_from_serde_json() {
         let json_err = serde_json::from_str::<serde_json::Value>("not json").unwrap_err();
         let app_err: AppError = json_err.into();
+        assert_eq!(app_err.kind, ErrorKind::Validation);
+    }
+
+    #[test]
+    fn test_app_error_from_io_error() {
+        let io_err = std::io::Error::new(std::io::ErrorKind::NotFound, "missing");
+        let app_err: AppError = io_err.into();
+        assert_eq!(app_err.kind, ErrorKind::NotFound);
+    }
+
+    #[test]
+    fn test_app_error_from_io_permission() {
+        let io_err = std::io::Error::new(std::io::ErrorKind::PermissionDenied, "denied");
+        let app_err: AppError = io_err.into();
+        assert_eq!(app_err.kind, ErrorKind::Authorization);
+    }
+
+    #[test]
+    fn test_app_error_from_addr_parse() {
+        let addr_err = "not-an-address"
+            .parse::<std::net::SocketAddr>()
+            .unwrap_err();
+        let app_err: AppError = addr_err.into();
         assert_eq!(app_err.kind, ErrorKind::Validation);
     }
 
@@ -435,5 +567,28 @@ mod tests {
         let json = serde_json::to_string(&response).unwrap();
         assert!(json.contains("details"));
         assert!(json.contains("email"));
+    }
+
+    #[cfg(feature = "http-server")]
+    #[test]
+    fn test_timeout_error_mapping() {
+        let err = AppError::new(ErrorKind::Timeout, "request timed out");
+        let correlation_id = CorrelationId::new();
+        let response = err.to_response(&correlation_id);
+        assert_eq!(response.error.code, ErrorCode::Timeout);
+        assert_eq!(
+            response.error.code.status_code(),
+            StatusCode::GATEWAY_TIMEOUT
+        );
+    }
+
+    #[cfg(feature = "http-server")]
+    #[test]
+    fn test_dependency_error_mapping() {
+        let err = AppError::new(ErrorKind::Dependency, "thingd unavailable");
+        let correlation_id = CorrelationId::new();
+        let response = err.to_response(&correlation_id);
+        assert_eq!(response.error.code, ErrorCode::Dependency);
+        assert_eq!(response.error.code.status_code(), StatusCode::BAD_GATEWAY);
     }
 }

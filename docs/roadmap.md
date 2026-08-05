@@ -27,3 +27,12 @@ Build small examples and a Watchloom-shaped reference backend without coupling A
 ## Phase 7: optional cloud adapter (blocked)
 
 Integrate with a future public thingd-cloud customer API while preserving the direct thingd adapter.
+
+## Current framework hardening (implemented, deployment validation ongoing)
+
+The current single-package framework also includes layered configuration,
+stable error contracts, authentication, request validation, health/readiness,
+testing utilities, observability, OpenAPI helpers, and explicit module
+composition. These capabilities are tested in the `arqen` package, but
+production readiness still depends on the target application, thingd
+deployment, security review, recovery testing, and operational controls.

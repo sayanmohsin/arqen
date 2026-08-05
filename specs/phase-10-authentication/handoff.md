@@ -10,6 +10,7 @@
 - Built-in: `RequireRole`, `RequirePermission`
 
 ## Usage
+
 ```rust
 let auth = RequireAuth::new(Arc::new(JwtAuth::new(secret)));
 let policy = RequirePolicy::new(Arc::new(RequireRole("admin".into())));

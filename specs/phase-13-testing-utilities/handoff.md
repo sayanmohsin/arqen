@@ -22,6 +22,7 @@
 - `assert_error!(response, code)` - assert error code
 
 ## Usage
+
 ```rust
 #[tokio::test]
 async fn test_create_user() {

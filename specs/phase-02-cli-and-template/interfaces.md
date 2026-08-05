@@ -1,1 +1,20 @@
-# Interfaces\n\nCommands: `arqen new NAME --template minimal|thingd-app`; `arqen dev`; `arqen start`; `arqen check`. Default bind `127.0.0.1:3000`. Startup output must show API, health, docs, agent, storage, workers, and hot reload.\n\n## Compatibility rule\n\nKeep interfaces small, typed, documented, and replaceable. Do not expose private implementation details through public application contracts.\n
+# Interfaces
+
+Commands:
+
+- `arqen new NAME`
+- `arqen generate module NAME`
+- `arqen generate tool NAME`
+- `arqen generate job NAME`
+- `arqen dev`
+- `arqen start`
+- `arqen check`
+- `arqen doctor`
+
+The default bind address is `127.0.0.1:8888`. `arqen new` writes the
+module-based starter project directly and does not accept a `--template` flag.
+
+## Compatibility rule
+
+Keep interfaces small, typed, documented, and replaceable. Do not expose
+private implementation details through public application contracts.

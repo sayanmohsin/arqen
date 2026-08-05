@@ -15,8 +15,15 @@ pub struct HttpThingdBackend {
 
 impl HttpThingdBackend {
     pub fn new(base_url: &str) -> Self {
+        let base = base_url.trim_end_matches('/').to_string();
+        // Ensure the base URL ends with /v1 for the thingd sidecar REST API
+        let base = if base.ends_with("/v1") {
+            base
+        } else {
+            format!("{}/v1", base)
+        };
         Self {
-            base_url: base_url.trim_end_matches('/').to_string(),
+            base_url: base,
             client: Client::new(),
             auth_token: None,
         }
@@ -206,11 +213,10 @@ impl ThingdBackend for HttpThingdBackend {
     async fn query_objects(
         &self,
         collection: &str,
-        filter: Option<ThingdFilter>,
+        options: QueryOptions,
     ) -> Result<Vec<ThingdObject>, crate::core::AppError> {
         let path = format!("/collections/{}/objects", collection);
-        let body = serde_json::json!({ "filter": filter });
-        self.post(&path, body).await
+        self.post(&path, options).await
     }
 
     async fn count_objects(&self, collection: &str) -> Result<usize, crate::core::AppError> {

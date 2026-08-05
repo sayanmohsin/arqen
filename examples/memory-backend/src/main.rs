@@ -25,7 +25,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("   Fetched user: {}", fetched.unwrap().data["name"]);
     
     // Query objects
-    let users = backend.query_objects("users", None).await?;
+    let users = backend
+        .query_objects("users", arqen::thingd::traits::QueryOptions::default())
+        .await?;
     println!("   Total users: {}", users.len());
     
     // Event operations

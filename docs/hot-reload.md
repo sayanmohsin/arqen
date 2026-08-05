@@ -1,12 +1,14 @@
 # Hot reload
 
-`arqen dev` should provide an Express-like development loop:
+`arqen dev` provides a development server loop:
 
 ```bash
 arqen dev
 ```
 
-The first implementation may wrap `cargo-watch` rather than building a custom watcher. It should restart on Rust source, configuration, and environment-file changes; print a fresh startup banner; and distinguish compilation failures from application failures.
+An external `cargo-watch` process may be used to restart on Rust source,
+configuration, and environment-file changes. It should print a fresh startup
+banner and distinguish compilation failures from application failures.
 
 The watcher must not be used in production. `arqen start` runs one process with graceful shutdown.
 

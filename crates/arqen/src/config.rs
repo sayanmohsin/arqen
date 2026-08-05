@@ -1,12 +1,21 @@
 //! Configuration module for Arqen.
 //!
-//! Provides typed configuration with env/file loading, validation, and secret redaction.
+//! Provides typed configuration with layered loading (CLI flags → env vars → file → defaults),
+//! validation, and secret redaction.
+//!
+//! # Configuration Layers
+//!
+//! Configuration is loaded in order of precedence (highest wins):
+//! 1. CLI flags (passed to `from_cli_overrides`)
+//! 2. Environment variables (`ARQEN_*`)
+//! 3. Configuration file (`arqen.toml`)
+//! 4. Defaults
 //!
 //! # Environment Variables
 //!
 //! All env vars use the `ARQEN_` prefix:
 //! - `ARQEN_HOST` - Server host (default: 127.0.0.1)
-//! - `ARQEN_PORT` - Server port (default: 3000)
+//! - `ARQEN_PORT` - Server port (default: 8888)
 //! - `ARQEN_STORAGE_MODE` - Storage mode: memory, persistent, http (default: memory)
 //! - `ARQEN_PERSISTENT_PATH` - Path for persistent storage
 //! - `ARQEN_THINGD_URL` - Thingd HTTP URL
@@ -18,6 +27,8 @@ use std::fmt;
 use std::path::PathBuf;
 use std::time::Duration;
 
+use serde::{Deserialize, Serialize};
+
 use crate::core::{AppError, ErrorKind};
 
 /// A wrapper that redacts sensitive values in Display/Debug output.
@@ -25,17 +36,14 @@ use crate::core::{AppError, ErrorKind};
 pub struct Secret<T>(T);
 
 impl<T> Secret<T> {
-    /// Create a new secret value.
     pub fn new(value: T) -> Self {
         Self(value)
     }
 
-    /// Unwrap the secret value.
     pub fn into_inner(self) -> T {
         self.0
     }
 
-    /// Get a reference to the secret value.
     pub fn inner(&self) -> &T {
         &self.0
     }
@@ -73,39 +81,35 @@ impl<T: PartialEq> PartialEq for Secret<T> {
 
 impl<T: Eq> Eq for Secret<T> {}
 
-use serde::{Deserialize, Serialize};
-
 /// Server configuration.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ServerConfig {
-    /// Server host (default: 127.0.0.1).
     #[serde(default = "default_host")]
     pub host: String,
-    /// Server port (default: 3000).
     #[serde(default = "default_port")]
     pub port: u16,
-    /// Request timeout (default: 30s).
     #[serde(default = "default_request_timeout")]
     pub request_timeout: Duration,
-    /// Maximum request body size in bytes (default: 1MB).
     #[serde(default = "default_max_body_size")]
     pub max_body_size: usize,
+    #[serde(default = "default_shutdown_timeout")]
+    pub shutdown_timeout: Duration,
 }
 
 fn default_host() -> String {
     "127.0.0.1".to_string()
 }
-
 fn default_port() -> u16 {
-    3000
+    8888
 }
-
 fn default_request_timeout() -> Duration {
     Duration::from_secs(30)
 }
-
 fn default_max_body_size() -> usize {
     1024 * 1024
+}
+fn default_shutdown_timeout() -> Duration {
+    Duration::from_secs(10)
 }
 
 impl Default for ServerConfig {
@@ -115,6 +119,7 @@ impl Default for ServerConfig {
             port: default_port(),
             request_timeout: default_request_timeout(),
             max_body_size: default_max_body_size(),
+            shutdown_timeout: default_shutdown_timeout(),
         }
     }
 }
@@ -122,31 +127,23 @@ impl Default for ServerConfig {
 /// Storage configuration.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct StorageConfig {
-    /// Storage mode (default: memory).
     #[serde(default)]
     pub mode: StorageMode,
-    /// Path for persistent storage.
     pub persistent_path: Option<PathBuf>,
-    /// Thingd HTTP URL.
     pub http_url: Option<String>,
 }
 
-/// Storage mode selector.
 #[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq)]
 #[serde(rename_all = "lowercase")]
 pub enum StorageMode {
-    /// In-memory storage (default).
     #[default]
     Memory,
-    /// Persistent local storage.
     Persistent,
-    /// Remote thingd HTTP storage.
     Http,
 }
 
 impl StorageMode {
-    /// Parse a storage mode from a string.
-    pub fn from_str(s: &str) -> Result<Self, ConfigError> {
+    pub fn parse_str(s: &str) -> Result<Self, ConfigError> {
         match s.to_lowercase().as_str() {
             "memory" => Ok(Self::Memory),
             "persistent" => Ok(Self::Persistent),
@@ -173,14 +170,21 @@ impl Default for StorageConfig {
 /// Authentication configuration.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AuthConfig {
-    /// Whether authentication is enabled (default: false).
     #[serde(default)]
     pub enabled: bool,
-    /// JWT secret for token validation.
     pub jwt_secret: Option<Secret<String>>,
-    /// API key header name (default: X-API-Key).
     #[serde(default = "default_api_key_header")]
     pub api_key_header: String,
+    #[serde(default)]
+    pub api_keys: Vec<ApiKeyEntry>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ApiKeyEntry {
+    pub key: Secret<String>,
+    pub subject: String,
+    #[serde(default)]
+    pub scopes: Vec<String>,
 }
 
 fn default_api_key_header() -> String {
@@ -193,6 +197,78 @@ impl Default for AuthConfig {
             enabled: false,
             jwt_secret: None,
             api_key_header: default_api_key_header(),
+            api_keys: Vec::new(),
+        }
+    }
+}
+
+/// Worker configuration.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkerConfig {
+    #[serde(default)]
+    pub enabled: bool,
+    #[serde(default = "default_worker_queues")]
+    pub queues: Vec<String>,
+    #[serde(default = "default_poll_interval")]
+    pub poll_interval: Duration,
+    #[serde(default = "default_lease_seconds")]
+    pub lease_seconds: u32,
+    #[serde(default = "default_max_retries")]
+    pub max_retries: u32,
+    #[serde(default = "default_worker_concurrency")]
+    pub concurrency: u32,
+}
+
+fn default_worker_queues() -> Vec<String> {
+    vec!["default".to_string()]
+}
+fn default_poll_interval() -> Duration {
+    Duration::from_secs(1)
+}
+fn default_lease_seconds() -> u32 {
+    30
+}
+fn default_max_retries() -> u32 {
+    3
+}
+fn default_worker_concurrency() -> u32 {
+    4
+}
+
+impl Default for WorkerConfig {
+    fn default() -> Self {
+        Self {
+            enabled: false,
+            queues: default_worker_queues(),
+            poll_interval: default_poll_interval(),
+            lease_seconds: default_lease_seconds(),
+            max_retries: default_max_retries(),
+            concurrency: default_worker_concurrency(),
+        }
+    }
+}
+
+/// Health check configuration.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct HealthConfig {
+    #[serde(default = "default_health_timeout")]
+    pub check_timeout: Duration,
+    #[serde(default = "default_startup_delay")]
+    pub startup_delay: Duration,
+}
+
+fn default_health_timeout() -> Duration {
+    Duration::from_secs(5)
+}
+fn default_startup_delay() -> Duration {
+    Duration::from_secs(1)
+}
+
+impl Default for HealthConfig {
+    fn default() -> Self {
+        Self {
+            check_timeout: default_health_timeout(),
+            startup_delay: default_startup_delay(),
         }
     }
 }
@@ -200,10 +276,8 @@ impl Default for AuthConfig {
 /// Logging configuration.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct LoggingConfig {
-    /// Log level (default: info).
     #[serde(default = "default_log_level")]
     pub level: String,
-    /// Log format (default: pretty).
     #[serde(default)]
     pub format: LogFormat,
 }
@@ -212,16 +286,12 @@ fn default_log_level() -> String {
     "info".to_string()
 }
 
-/// Log format selector.
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum LogFormat {
-    /// Pretty-printed output (default).
     #[default]
     Pretty,
-    /// JSON structured output.
     Json,
-    /// Compact output.
     Compact,
 }
 
@@ -235,91 +305,225 @@ impl Default for LoggingConfig {
 }
 
 /// Application configuration.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct AppConfig {
-    /// Server configuration.
     #[serde(default)]
     pub server: ServerConfig,
-    /// Storage configuration.
     #[serde(default)]
     pub storage: StorageConfig,
-    /// Authentication configuration.
     #[serde(default)]
     pub auth: AuthConfig,
-    /// Logging configuration.
     #[serde(default)]
     pub logging: LoggingConfig,
+    #[serde(default)]
+    pub worker: WorkerConfig,
+    #[serde(default)]
+    pub health: HealthConfig,
+}
+
+/// CLI overrides for configuration (highest precedence).
+#[derive(Default)]
+pub struct CliOverrides {
+    pub host: Option<String>,
+    pub port: Option<u16>,
+    pub log_level: Option<String>,
+    pub storage_mode: Option<String>,
 }
 
 impl AppConfig {
-    /// Load configuration from environment variables.
-    pub fn from_env() -> Result<Self, ConfigError> {
+    /// Load configuration with full precedence chain: CLI → env → file → defaults.
+    pub fn load(cli: CliOverrides) -> Result<Self, ConfigError> {
+        // Layer 1: Defaults
         let mut config = Self::default();
 
-        // Server config
-        if let Ok(host) = std::env::var("ARQEN_HOST") {
-            config.server.host = host;
-        }
-        if let Ok(port) = std::env::var("ARQEN_PORT") {
-            config.server.port = port
-                .parse()
-                .map_err(|_| ConfigError::InvalidValue {
-                    field: "port".to_string(),
-                    value: port,
-                    expected: "a valid u16".to_string(),
-                })?;
+        // Layer 2: File (arqen.toml in current directory)
+        let file_config = Self::from_file_optional("arqen.toml")?;
+        if let Some(file) = file_config {
+            config = file;
         }
 
-        // Storage config
-        if let Ok(mode) = std::env::var("ARQEN_STORAGE_MODE") {
-            config.storage.mode = StorageMode::from_str(&mode)?;
-        }
-        if let Ok(path) = std::env::var("ARQEN_PERSISTENT_PATH") {
-            config.storage.persistent_path = Some(PathBuf::from(path));
-        }
-        if let Ok(url) = std::env::var("ARQEN_THINGD_URL") {
-            config.storage.http_url = Some(url);
-        }
+        // Layer 3: Environment variables
+        config = config.apply_env()?;
 
-        // Auth config
-        if let Ok(secret) = std::env::var("ARQEN_JWT_SECRET") {
-            config.auth.enabled = true;
-            config.auth.jwt_secret = Some(Secret::new(secret));
-        }
-        if let Ok(header) = std::env::var("ARQEN_API_KEY_HEADER") {
-            config.auth.api_key_header = header;
-        }
-
-        // Logging config
-        if let Ok(level) = std::env::var("ARQEN_LOG_LEVEL") {
-            config.logging.level = level;
-        }
-        if let Ok(format) = std::env::var("ARQEN_LOG_FORMAT") {
-            config.logging.format = match format.to_lowercase().as_str() {
-                "pretty" => LogFormat::Pretty,
-                "json" => LogFormat::Json,
-                "compact" => LogFormat::Compact,
-                _ => return Err(ConfigError::InvalidValue {
-                    field: "log_format".to_string(),
-                    value: format,
-                    expected: "pretty, json, or compact".to_string(),
-                }),
-            };
-        }
+        // Layer 4: CLI overrides
+        config = config.apply_cli(cli);
 
         config.validate()?;
         Ok(config)
     }
 
+    /// Load from file if it exists, otherwise return None.
+    fn from_file_optional(path: &str) -> Result<Option<Self>, ConfigError> {
+        match std::fs::read_to_string(path) {
+            Ok(content) => {
+                let config: Self = toml::from_str(&content).map_err(ConfigError::ParseError)?;
+                Ok(Some(config))
+            }
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(None),
+            Err(e) => Err(ConfigError::FileError {
+                path: PathBuf::from(path),
+                source: e,
+            }),
+        }
+    }
+
+    /// Apply environment variable overrides.
+    fn apply_env(mut self) -> Result<Self, ConfigError> {
+        if let Ok(host) = std::env::var("ARQEN_HOST") {
+            self.server.host = host;
+        }
+        if let Ok(port) = std::env::var("ARQEN_PORT") {
+            self.server.port = port.parse().map_err(|_| ConfigError::InvalidValue {
+                field: "port".to_string(),
+                value: port,
+                expected: "a valid u16".to_string(),
+            })?;
+        }
+        if let Ok(mode) = std::env::var("ARQEN_STORAGE_MODE") {
+            self.storage.mode = StorageMode::parse_str(&mode)?;
+        }
+        if let Ok(path) = std::env::var("ARQEN_PERSISTENT_PATH") {
+            self.storage.persistent_path = Some(PathBuf::from(path));
+        }
+        if let Ok(url) = std::env::var("ARQEN_THINGD_URL") {
+            self.storage.http_url = Some(url);
+        }
+        if let Ok(secret) = std::env::var("ARQEN_JWT_SECRET") {
+            self.auth.enabled = true;
+            self.auth.jwt_secret = Some(Secret::new(secret));
+        }
+        if let Ok(header) = std::env::var("ARQEN_API_KEY_HEADER") {
+            self.auth.api_key_header = header;
+        }
+        if let Ok(level) = std::env::var("ARQEN_LOG_LEVEL") {
+            self.logging.level = level;
+        }
+        if let Ok(format) = std::env::var("ARQEN_LOG_FORMAT") {
+            self.logging.format = match format.to_lowercase().as_str() {
+                "pretty" => LogFormat::Pretty,
+                "json" => LogFormat::Json,
+                "compact" => LogFormat::Compact,
+                _ => {
+                    return Err(ConfigError::InvalidValue {
+                        field: "log_format".to_string(),
+                        value: format,
+                        expected: "pretty, json, or compact".to_string(),
+                    });
+                }
+            };
+        }
+        if let Ok(enabled) = std::env::var("ARQEN_WORKER_ENABLED") {
+            self.worker.enabled = enabled == "true" || enabled == "1";
+        }
+        if let Ok(queues) = std::env::var("ARQEN_WORKER_QUEUES") {
+            self.worker.queues = queues.split(',').map(|s| s.trim().to_string()).collect();
+        }
+        if let Ok(interval) = std::env::var("ARQEN_WORKER_POLL_INTERVAL") {
+            self.worker.poll_interval =
+                Duration::from_secs(interval.parse().map_err(|_| ConfigError::InvalidValue {
+                    field: "worker_poll_interval".to_string(),
+                    value: interval,
+                    expected: "a valid u64 (seconds)".to_string(),
+                })?);
+        }
+        if let Ok(lease) = std::env::var("ARQEN_WORKER_LEASE_SECONDS") {
+            self.worker.lease_seconds = lease.parse().map_err(|_| ConfigError::InvalidValue {
+                field: "worker_lease_seconds".to_string(),
+                value: lease,
+                expected: "a valid u32".to_string(),
+            })?;
+        }
+        if let Ok(retries) = std::env::var("ARQEN_WORKER_MAX_RETRIES") {
+            self.worker.max_retries = retries.parse().map_err(|_| ConfigError::InvalidValue {
+                field: "worker_max_retries".to_string(),
+                value: retries,
+                expected: "a valid u32".to_string(),
+            })?;
+        }
+        if let Ok(concurrency) = std::env::var("ARQEN_WORKER_CONCURRENCY") {
+            self.worker.concurrency =
+                concurrency.parse().map_err(|_| ConfigError::InvalidValue {
+                    field: "worker_concurrency".to_string(),
+                    value: concurrency,
+                    expected: "a valid u32".to_string(),
+                })?;
+        }
+        if let Ok(timeout) = std::env::var("ARQEN_HEALTH_CHECK_TIMEOUT") {
+            self.health.check_timeout =
+                Duration::from_secs(timeout.parse().map_err(|_| ConfigError::InvalidValue {
+                    field: "health_check_timeout".to_string(),
+                    value: timeout,
+                    expected: "a valid u64 (seconds)".to_string(),
+                })?);
+        }
+        if let Ok(delay) = std::env::var("ARQEN_HEALTH_STARTUP_DELAY") {
+            self.health.startup_delay =
+                Duration::from_secs(delay.parse().map_err(|_| ConfigError::InvalidValue {
+                    field: "health_startup_delay".to_string(),
+                    value: delay,
+                    expected: "a valid u64 (seconds)".to_string(),
+                })?);
+        }
+        if let Ok(timeout) = std::env::var("ARQEN_REQUEST_TIMEOUT") {
+            self.server.request_timeout =
+                Duration::from_secs(timeout.parse().map_err(|_| ConfigError::InvalidValue {
+                    field: "request_timeout".to_string(),
+                    value: timeout,
+                    expected: "a valid u64 (seconds)".to_string(),
+                })?);
+        }
+        if let Ok(size) = std::env::var("ARQEN_MAX_BODY_SIZE") {
+            self.server.max_body_size = size.parse().map_err(|_| ConfigError::InvalidValue {
+                field: "max_body_size".to_string(),
+                value: size,
+                expected: "a valid usize (bytes)".to_string(),
+            })?;
+        }
+        if let Ok(timeout) = std::env::var("ARQEN_SHUTDOWN_TIMEOUT") {
+            self.server.shutdown_timeout =
+                Duration::from_secs(timeout.parse().map_err(|_| ConfigError::InvalidValue {
+                    field: "shutdown_timeout".to_string(),
+                    value: timeout,
+                    expected: "a valid u64 (seconds)".to_string(),
+                })?);
+        }
+        Ok(self)
+    }
+
+    /// Apply CLI overrides (highest precedence).
+    fn apply_cli(mut self, cli: CliOverrides) -> Self {
+        if let Some(host) = cli.host {
+            self.server.host = host;
+        }
+        if let Some(port) = cli.port {
+            self.server.port = port;
+        }
+        if let Some(level) = cli.log_level {
+            self.logging.level = level;
+        }
+        if let Some(mode) = cli.storage_mode
+            && let Ok(m) = StorageMode::parse_str(&mode)
+        {
+            self.storage.mode = m;
+        }
+        self
+    }
+
     /// Load configuration from a TOML file.
     pub fn from_file(path: impl AsRef<std::path::Path>) -> Result<Self, ConfigError> {
-        let content = std::fs::read_to_string(path.as_ref()).map_err(|e| ConfigError::FileError {
-            path: path.as_ref().to_path_buf(),
-            source: e,
-        })?;
+        let content =
+            std::fs::read_to_string(path.as_ref()).map_err(|e| ConfigError::FileError {
+                path: path.as_ref().to_path_buf(),
+                source: e,
+            })?;
         let config: Self = toml::from_str(&content).map_err(ConfigError::ParseError)?;
         config.validate()?;
         Ok(config)
+    }
+
+    /// Load configuration from environment variables (legacy API).
+    pub fn from_env() -> Result<Self, ConfigError> {
+        Self::load(CliOverrides::default())
     }
 
     /// Validate the configuration.
@@ -331,21 +535,18 @@ impl AppConfig {
                 expected: "a non-zero port number".to_string(),
             });
         }
-
         if self.storage.mode == StorageMode::Persistent && self.storage.persistent_path.is_none() {
             return Err(ConfigError::MissingField {
                 field: "persistent_path".to_string(),
                 context: "required when storage mode is persistent".to_string(),
             });
         }
-
         if self.storage.mode == StorageMode::Http && self.storage.http_url.is_none() {
             return Err(ConfigError::MissingField {
                 field: "http_url".to_string(),
                 context: "required when storage mode is http".to_string(),
             });
         }
-
         Ok(())
     }
 
@@ -361,21 +562,9 @@ impl AppConfig {
     }
 }
 
-impl Default for AppConfig {
-    fn default() -> Self {
-        Self {
-            server: ServerConfig::default(),
-            storage: StorageConfig::default(),
-            auth: AuthConfig::default(),
-            logging: LoggingConfig::default(),
-        }
-    }
-}
-
 /// Configuration error type.
 #[derive(Debug, thiserror::Error)]
 pub enum ConfigError {
-    /// Invalid configuration value.
     #[error("invalid value for {field}: '{value}' (expected {expected})")]
     InvalidValue {
         field: String,
@@ -383,18 +572,15 @@ pub enum ConfigError {
         expected: String,
     },
 
-    /// Missing required field.
     #[error("missing required field '{field}': {context}")]
     MissingField { field: String, context: String },
 
-    /// File read error.
     #[error("failed to read config file {}: {source}", path.display())]
     FileError {
         path: PathBuf,
         source: std::io::Error,
     },
 
-    /// TOML parse error.
     #[error("failed to parse config: {0}")]
     ParseError(#[from] toml::de::Error),
 }
@@ -421,10 +607,12 @@ mod tests {
     fn test_default_config() {
         let config = AppConfig::default();
         assert_eq!(config.server.host, "127.0.0.1");
-        assert_eq!(config.server.port, 3000);
+        assert_eq!(config.server.port, 8888);
         assert_eq!(config.storage.mode, StorageMode::Memory);
         assert!(!config.auth.enabled);
         assert_eq!(config.logging.level, "info");
+        assert!(!config.worker.enabled);
+        assert_eq!(config.worker.queues, vec!["default".to_string()]);
     }
 
     #[test]
@@ -435,7 +623,7 @@ mod tests {
         config.server.port = 0;
         assert!(config.validate().is_err());
 
-        config.server.port = 3000;
+        config.server.port = 8888;
         config.storage.mode = StorageMode::Persistent;
         assert!(config.validate().is_err());
 
@@ -445,18 +633,27 @@ mod tests {
 
     #[test]
     fn test_storage_mode_from_str() {
-        assert_eq!(StorageMode::from_str("memory").unwrap(), StorageMode::Memory);
-        assert_eq!(StorageMode::from_str("persistent").unwrap(), StorageMode::Persistent);
-        assert_eq!(StorageMode::from_str("http").unwrap(), StorageMode::Http);
-        assert_eq!(StorageMode::from_str("MEMORY").unwrap(), StorageMode::Memory);
-        assert!(StorageMode::from_str("invalid").is_err());
+        assert_eq!(
+            StorageMode::parse_str("memory").unwrap(),
+            StorageMode::Memory
+        );
+        assert_eq!(
+            StorageMode::parse_str("persistent").unwrap(),
+            StorageMode::Persistent
+        );
+        assert_eq!(StorageMode::parse_str("http").unwrap(), StorageMode::Http);
+        assert_eq!(
+            StorageMode::parse_str("MEMORY").unwrap(),
+            StorageMode::Memory
+        );
+        assert!(StorageMode::parse_str("invalid").is_err());
     }
 
     #[test]
     fn test_address_parsing() {
         let config = AppConfig::default();
         let addr = config.address().unwrap();
-        assert_eq!(addr.port(), 3000);
+        assert_eq!(addr.port(), 8888);
     }
 
     #[test]
@@ -473,6 +670,11 @@ persistent_path = "/tmp/data"
 [logging]
 level = "debug"
 format = "json"
+
+[worker]
+enabled = true
+queues = ["jobs", "events"]
+concurrency = 8
 "#;
         let config: AppConfig = toml::from_str(toml).unwrap();
         assert_eq!(config.server.host, "0.0.0.0");
@@ -480,5 +682,92 @@ format = "json"
         assert_eq!(config.storage.mode, StorageMode::Persistent);
         assert_eq!(config.logging.level, "debug");
         assert!(matches!(config.logging.format, LogFormat::Json));
+        assert!(config.worker.enabled);
+        assert_eq!(config.worker.queues, vec!["jobs", "events"]);
+        assert_eq!(config.worker.concurrency, 8);
+    }
+
+    #[test]
+    fn test_cli_overrides() {
+        let config = AppConfig::default();
+        let cli = CliOverrides {
+            host: Some("0.0.0.0".to_string()),
+            port: Some(8080),
+            log_level: Some("debug".to_string()),
+            storage_mode: None,
+        };
+        let config = config.apply_cli(cli);
+        assert_eq!(config.server.host, "0.0.0.0");
+        assert_eq!(config.server.port, 8080);
+        assert_eq!(config.logging.level, "debug");
+    }
+
+    #[test]
+    fn test_worker_config_defaults() {
+        let config = WorkerConfig::default();
+        assert!(!config.enabled);
+        assert_eq!(config.queues, vec!["default".to_string()]);
+        assert_eq!(config.poll_interval, Duration::from_secs(1));
+        assert_eq!(config.lease_seconds, 30);
+        assert_eq!(config.max_retries, 3);
+        assert_eq!(config.concurrency, 4);
+    }
+
+    #[test]
+    fn test_health_config_defaults() {
+        let config = HealthConfig::default();
+        assert_eq!(config.check_timeout, Duration::from_secs(5));
+        assert_eq!(config.startup_delay, Duration::from_secs(1));
+    }
+
+    #[test]
+    fn test_invalid_port() {
+        let config = AppConfig {
+            server: ServerConfig {
+                port: 0,
+                ..Default::default()
+            },
+            ..Default::default()
+        };
+        assert!(config.validate().is_err());
+    }
+
+    #[test]
+    fn test_persistent_requires_path() {
+        let config = AppConfig {
+            storage: StorageConfig {
+                mode: StorageMode::Persistent,
+                persistent_path: None,
+                ..Default::default()
+            },
+            ..Default::default()
+        };
+        assert!(config.validate().is_err());
+    }
+
+    #[test]
+    fn test_http_requires_url() {
+        let config = AppConfig {
+            storage: StorageConfig {
+                mode: StorageMode::Http,
+                http_url: None,
+                ..Default::default()
+            },
+            ..Default::default()
+        };
+        assert!(config.validate().is_err());
+    }
+
+    #[test]
+    fn test_address_invalid() {
+        let config = AppConfig {
+            server: ServerConfig {
+                host: "not-a-host".to_string(),
+                port: 8888,
+                ..Default::default()
+            },
+            ..Default::default()
+        };
+        assert!(config.address().is_err());
     }
 }

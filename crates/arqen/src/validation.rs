@@ -6,8 +6,8 @@ use async_trait::async_trait;
 use axum::extract::FromRequest;
 use axum::http::StatusCode;
 use axum::response::{IntoResponse, Response};
-use serde::{Deserialize, Serialize};
 use serde::de::DeserializeOwned;
+use serde::{Deserialize, Serialize};
 
 use crate::core::error::{ErrorCode, ErrorResponse};
 
@@ -23,7 +23,11 @@ pub struct FieldError {
 }
 
 impl FieldError {
-    pub fn new(field: impl Into<String>, code: impl Into<String>, message: impl Into<String>) -> Self {
+    pub fn new(
+        field: impl Into<String>,
+        code: impl Into<String>,
+        message: impl Into<String>,
+    ) -> Self {
         Self {
             field: field.into(),
             code: code.into(),
@@ -71,7 +75,11 @@ impl Default for ValidationErrors {
 
 impl std::fmt::Display for ValidationErrors {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let messages: Vec<String> = self.errors.iter().map(|e| format!("{}: {}", e.field, e.message)).collect();
+        let messages: Vec<String> = self
+            .errors
+            .iter()
+            .map(|e| format!("{}: {}", e.field, e.message))
+            .collect();
         write!(f, "Validation failed: {}", messages.join(", "))
     }
 }
@@ -195,7 +203,11 @@ pub mod validators {
     }
 
     /// Check numeric minimum value.
-    pub fn min_value<T: PartialOrd + std::fmt::Debug>(field: &str, value: &T, min: &T) -> Result<(), FieldError> {
+    pub fn min_value<T: PartialOrd + std::fmt::Debug>(
+        field: &str,
+        value: &T,
+        min: &T,
+    ) -> Result<(), FieldError> {
         if value < min {
             Err(FieldError::new(
                 field,
@@ -208,7 +220,11 @@ pub mod validators {
     }
 
     /// Check numeric maximum value.
-    pub fn max_value<T: PartialOrd + std::fmt::Debug>(field: &str, value: &T, max: &T) -> Result<(), FieldError> {
+    pub fn max_value<T: PartialOrd + std::fmt::Debug>(
+        field: &str,
+        value: &T,
+        max: &T,
+    ) -> Result<(), FieldError> {
         if value > max {
             Err(FieldError::new(
                 field,
@@ -218,6 +234,82 @@ pub mod validators {
         } else {
             Ok(())
         }
+    }
+
+    /// Check if value is one of allowed values (enum validation).
+    pub fn one_of<T: PartialEq + std::fmt::Debug>(
+        field: &str,
+        value: &T,
+        allowed: &[T],
+    ) -> Result<(), FieldError> {
+        if allowed.contains(value) {
+            Ok(())
+        } else {
+            Err(FieldError::new(
+                field,
+                "one_of",
+                format!("must be one of {:?}", allowed),
+            ))
+        }
+    }
+
+    /// Check if a string matches a pattern.
+    pub fn pattern(field: &str, value: &str, pattern: &str) -> Result<(), FieldError> {
+        if value.contains(pattern) {
+            Ok(())
+        } else {
+            Err(FieldError::new(
+                field,
+                "pattern",
+                format!("must contain '{}'", pattern),
+            ))
+        }
+    }
+
+    /// Check if two fields match (cross-field validation).
+    pub fn fields_match<T: PartialEq + std::fmt::Debug>(
+        field1: &str,
+        value1: &T,
+        field2: &str,
+        value2: &T,
+    ) -> Result<(), FieldError> {
+        if value1 == value2 {
+            Ok(())
+        } else {
+            Err(FieldError::new(
+                field1,
+                "fields_match",
+                format!("must match {}", field2),
+            ))
+        }
+    }
+
+    /// Check if a field is after another field (for date/time ranges).
+    pub fn field_after(
+        field: &str,
+        value: &str,
+        after_field: &str,
+        after_value: &str,
+    ) -> Result<(), FieldError> {
+        if value > after_value {
+            Ok(())
+        } else {
+            Err(FieldError::new(
+                field,
+                "field_after",
+                format!("must be after {}", after_field),
+            ))
+        }
+    }
+
+    /// Validate a nested struct.
+    pub fn nested<T: Validate>(field: &str, value: &T) -> Result<(), ValidationErrors> {
+        value.validate().map_err(|mut errors| {
+            for err in &mut errors.errors {
+                err.field = format!("{}.{}", field, err.field);
+            }
+            errors
+        })
     }
 }
 
@@ -239,10 +331,10 @@ mod tests {
 
             if let Err(e) = validators::required("email", &self.email) {
                 errors.push(e);
-            } else if let Some(ref email) = self.email {
-                if let Err(e) = validators::email("email", email) {
-                    errors.push(e);
-                }
+            } else if let Some(ref email) = self.email
+                && let Err(e) = validators::email("email", email)
+            {
+                errors.push(e);
             }
 
             if let Some(ref name) = self.name {
@@ -254,10 +346,10 @@ mod tests {
                 }
             }
 
-            if let Some(age) = self.age {
-                if let Err(e) = validators::min_value("age", &age, &18) {
-                    errors.push(e);
-                }
+            if let Some(age) = self.age
+                && let Err(e) = validators::min_value("age", &age, &18)
+            {
+                errors.push(e);
             }
 
             if errors.is_empty() {

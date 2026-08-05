@@ -33,3 +33,56 @@ pub async fn logging_middleware(request: Request, next: Next) -> Response {
     response.headers_mut().insert("x-request-id", header);
     response
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use axum::Router;
+    use axum::body::Body;
+    use axum::http::{Request, StatusCode};
+    use axum::response::IntoResponse;
+    use axum::routing::get;
+    use tower::ServiceExt;
+
+    async fn handler() -> impl IntoResponse {
+        StatusCode::OK
+    }
+
+    #[tokio::test]
+    async fn test_logging_middleware_adds_request_id() {
+        let app = Router::new()
+            .route("/test", get(handler))
+            .layer(axum::middleware::from_fn(logging_middleware));
+
+        let request = Request::builder().uri("/test").body(Body::empty()).unwrap();
+
+        let response = app.oneshot(request).await.unwrap();
+
+        assert_eq!(response.status(), StatusCode::OK);
+        assert!(response.headers().contains_key("x-request-id"));
+    }
+
+    #[tokio::test]
+    async fn test_logging_middleware_preserves_existing_request_id() {
+        let app = Router::new()
+            .route("/test", get(handler))
+            .layer(axum::middleware::from_fn(logging_middleware));
+
+        let request = Request::builder()
+            .uri("/test")
+            .header("x-request-id", "custom-id-123")
+            .body(Body::empty())
+            .unwrap();
+
+        let response = app.oneshot(request).await.unwrap();
+
+        assert_eq!(response.status(), StatusCode::OK);
+        let request_id = response
+            .headers()
+            .get("x-request-id")
+            .unwrap()
+            .to_str()
+            .unwrap();
+        assert_eq!(request_id, "custom-id-123");
+    }
+}

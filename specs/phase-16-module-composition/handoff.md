@@ -1,37 +1,81 @@
 # Handoff
 
 ## Module API
-- `Module` trait for module composition
-- `ModuleBuilder` for registering modules
-- `AppBuilder` for composing modules
+- `Module` trait: framework-neutral, async lifecycle hooks, dependency declaration
+- `ModuleBuilder`: validates module graph, topological ordering, lifecycle management
+- `ModuleContext<'a>`: explicit tool/health registration
+- `ModuleHealth`: Healthy/Degraded/Unhealthy status enum
+- `ModuleError`: top-level error combining graph and registration failures
+- `HttpModule`: feature-gated HTTP route composition (Axum)
+- `ArqenApp`: convenience wrapper with builder pattern and async lifecycle
 
-## Usage
+## Usage Patterns
+
+### Simple module
+
 ```rust
-let app = AppBuilder::new(config)
-    .with_module(AuthModule::new(auth))
-    .with_module(StorageModule::new(storage))
-    .with_module(AgentModule::new(registry))
-    .build()?;
-```
+struct UsersModule;
 
-## Built-in Modules
-- `AuthModule` - authentication and authorization
-- `StorageModule` - thingd storage adapter
-- `AgentModule` - tool registry and agent manifest
-
-## Custom Modules
-```rust
-pub struct MyModule;
-
-impl Module for MyModule {
-    fn name(&self) -> &str { "my-module" }
-    fn routes(&self) -> Router { ... }
-    fn middleware(&self) -> Vec<Box<dyn Layer<...>>> { ... }
-    fn state(&self) -> Option<Box<dyn Any>> { ... }
+#[async_trait]
+impl Module for UsersModule {
+    fn name(&self) -> &str { "users" }
+    async fn health_check(&self) -> ModuleHealth { ModuleHealth::Healthy }
 }
 ```
 
-## Migration Guide
-- Replace manual router composition with ModuleBuilder
-- Use built-in modules for common functionality
-- Create custom modules for domain-specific logic
+### Module with dependencies and registration
+
+```rust
+struct ApiModule;
+
+#[async_trait]
+impl Module for ApiModule {
+    fn name(&self) -> &str { "api" }
+    fn dependencies(&self) -> Vec<&str> { vec!["db"] }
+    fn register(&self, ctx: &mut ModuleContext<'_>) -> Result<(), AppError> {
+        ctx.tools.register_tool(ToolMetadata { ... });
+        Ok(())
+    }
+}
+```
+
+### HTTP module
+
+```rust
+struct UsersModule;
+
+impl Module for UsersModule {
+    fn name(&self) -> &str { "users" }
+}
+
+impl HttpModule for UsersModule {
+    fn router(&self) -> Router<AppState> {
+        Router::new().route("/users", get(list_users))
+    }
+}
+```
+
+### App composition
+
+```rust
+ArqenApp::builder()
+    .name("my-api")
+    .module(UsersModule)
+    .module(ApiModule)
+    .build()?
+    .start()
+    .await
+```
+
+## Architecture Decisions
+- Module trait is framework-neutral (no Axum dependency)
+- HttpModule is separate and feature-gated on http-server
+- No DI container — all wiring explicit via AppState and ModuleContext
+- No automatic handler discovery — routes explicitly composed
+- Lifecycle: init in dependency order, shutdown in reverse
+- Best-effort shutdown: all modules attempted, errors logged
+
+## Known Limitations
+- ModuleBuilder is consumed by ArqenApp::builder().build(); cannot add modules after build
+- No hot-reload of modules at runtime
+- HttpModule requires manual route composition (no auto-discovery)

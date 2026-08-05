@@ -47,7 +47,7 @@ pub enum LogFormat {
 }
 ```
 
-## Secret<T>
+## `Secret<T>`
 
 ```rust
 pub struct Secret<T>(T);

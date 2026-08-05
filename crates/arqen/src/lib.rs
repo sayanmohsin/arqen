@@ -17,7 +17,7 @@
 //!
 //! #[tokio::main]
 //! async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-//!     let addr: SocketAddr = "127.0.0.1:3000".parse()?;
+//!     let addr: SocketAddr = "127.0.0.1:8888".parse()?;
 //!     let router = create_router();
 //!     start_server(addr, router).await?;
 //!     Ok(())
@@ -25,16 +25,22 @@
 //! ```
 
 pub mod agent;
+pub mod app;
 pub mod auth;
 pub mod config;
 pub mod core;
+#[cfg(feature = "cli")]
+pub mod dev;
 pub mod health;
 pub mod jobs;
 pub mod module;
 pub mod observability;
 pub mod openapi;
+pub mod prelude;
 pub mod state;
 pub mod thingd;
+
+#[cfg(feature = "http-server")]
 pub mod validation;
 
 #[cfg(any(test, feature = "test-util"))]
@@ -47,20 +53,39 @@ pub mod logging;
 
 // Re-export commonly used types at crate root
 pub use agent::{
-    AgentManifest, EndpointMetadata, JobMetadata, ToolEffect, ToolMetadata,
-    ToolRegistry,
+    AgentManifest, EndpointMetadata, JobMetadata, ToolContext, ToolEffect, ToolHandler,
+    ToolMetadata, ToolOutcome, ToolRegistry,
 };
-pub use config::{AppConfig, Secret, ServerConfig, StorageConfig, StorageMode};
+pub use config::{
+    AppConfig, AuthConfig, CliOverrides, HealthConfig, LogFormat, LoggingConfig, Secret,
+    ServerConfig, StorageConfig, StorageMode, WorkerConfig,
+};
 pub use core::{AppError, ErrorKind};
 pub use jobs::{JobConfig, JobHandler, JobWorker, Worker};
+pub use module::{
+    Module, ModuleBuilder, ModuleContext, ModuleError, ModuleGraphError, ModuleHealth,
+};
 pub use state::{AppState, AppStateBuilder};
 pub use thingd::{MemoryThingdBackend, ThingdBackend};
 
 #[cfg(feature = "http-server")]
-pub use http::{create_router, start_server};
+pub use auth::{AuthContext, AuthError, Authentication};
+#[cfg(feature = "http-server")]
+pub use health::{HealthCheck, HealthRegistry, HealthReport, HealthStatus, ProbeType};
+#[cfg(feature = "http-server")]
+pub use observability::{MetricsReport, RequestMetrics};
+#[cfg(feature = "http-server")]
+pub use validation::{FieldError, Validate, Validated, ValidationErrors};
+
+#[cfg(feature = "http-server")]
+pub use http::{
+    AuthGuard, Authenticated, HttpModule, RequireAuth, auth_middleware, builtin_routes,
+    create_router, create_router_with_state, create_router_with_state_and_routes,
+    merge_module_routes, nest_routes, optional_auth_middleware, require_auth_middleware,
+};
 #[cfg(feature = "logging")]
-pub use logging::init_logging;
-#[cfg(feature = "thingd-native")]
-pub use thingd::NativeThingdStore;
+pub use logging::{init_logging, init_logging_with_config};
 #[cfg(feature = "http-client")]
 pub use thingd::HttpThingdBackend;
+#[cfg(feature = "thingd-native")]
+pub use thingd::NativeThingdStore;

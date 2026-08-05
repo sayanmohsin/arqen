@@ -1,0 +1,23 @@
+[package]
+name = "watchloom"
+version = "0.1.0"
+edition.workspace = true
+license.workspace = true
+description = "Watchloom - a backend app built with Arqen"
+
+[[bin]]
+name = "watchloom"
+path = "src/main.rs"
+
+[dependencies]
+arqen = { path = "../crates/arqen", features = ["http-server", "thingd-native", "logging"] }
+anyhow = "1"
+axum = "0.7"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+tokio = { version = "1", features = ["full"] }
+tracing = "0.1"
+uuid = { version = "1", features = ["v4"] }
+
+[dev-dependencies]
+reqwest = { version = "0.12", features = ["json"] }

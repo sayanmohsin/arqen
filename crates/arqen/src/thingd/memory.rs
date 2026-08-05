@@ -6,10 +6,74 @@ use uuid::Uuid;
 use crate::core::{AppError, ErrorKind};
 use crate::thingd::traits::*;
 
-fn lock_mutex<'a, T>(mutex: &'a Mutex<T>, name: &'a str) -> Result<std::sync::MutexGuard<'a, T>, AppError> {
-    mutex
-        .lock()
-        .map_err(|e| AppError::new(ErrorKind::Internal, format!("mutex lock poisoned ({name}): {e}")))
+fn lock_mutex<'a, T>(
+    mutex: &'a Mutex<T>,
+    name: &'a str,
+) -> Result<std::sync::MutexGuard<'a, T>, AppError> {
+    mutex.lock().map_err(|e| {
+        AppError::new(
+            ErrorKind::Internal,
+            format!("mutex lock poisoned ({name}): {e}"),
+        )
+    })
+}
+
+/// Evaluate a single filter clause against an object.
+fn matches_filter(obj: &ThingdObject, filter: &ThingdFilter) -> bool {
+    let Some(value) = obj.data.get(&filter.field) else {
+        return false;
+    };
+    match filter.operator {
+        FilterOperator::Eq => *value == filter.value,
+        FilterOperator::Ne => *value != filter.value,
+        FilterOperator::Gt => {
+            if let (Some(a), Some(b)) = (value.as_f64(), filter.value.as_f64()) {
+                a > b
+            } else if let (Some(a), Some(b)) = (value.as_str(), filter.value.as_str()) {
+                a > b
+            } else {
+                false
+            }
+        }
+        FilterOperator::Lt => {
+            if let (Some(a), Some(b)) = (value.as_f64(), filter.value.as_f64()) {
+                a < b
+            } else if let (Some(a), Some(b)) = (value.as_str(), filter.value.as_str()) {
+                a < b
+            } else {
+                false
+            }
+        }
+        FilterOperator::Gte => {
+            if let (Some(a), Some(b)) = (value.as_f64(), filter.value.as_f64()) {
+                a >= b
+            } else if let (Some(a), Some(b)) = (value.as_str(), filter.value.as_str()) {
+                a >= b
+            } else {
+                false
+            }
+        }
+        FilterOperator::Lte => {
+            if let (Some(a), Some(b)) = (value.as_f64(), filter.value.as_f64()) {
+                a <= b
+            } else if let (Some(a), Some(b)) = (value.as_str(), filter.value.as_str()) {
+                a <= b
+            } else {
+                false
+            }
+        }
+        FilterOperator::Contains => {
+            if let Some(search_str) = filter.value.as_str() {
+                if let Some(value_str) = value.as_str() {
+                    value_str.contains(search_str)
+                } else {
+                    false
+                }
+            } else {
+                false
+            }
+        }
+    }
 }
 
 /// In-memory implementation of [`ThingdBackend`].
@@ -90,88 +154,24 @@ impl ThingdBackend for MemoryThingdBackend {
     async fn query_objects(
         &self,
         collection: &str,
-        filter: Option<ThingdFilter>,
+        options: QueryOptions,
     ) -> Result<Vec<ThingdObject>, AppError> {
         let objects = lock_mutex(&self.objects, "objects")?;
         let collection_objects = objects.get(collection).unwrap_or(&vec![]).clone();
 
-        if let Some(filter) = filter {
-            let filtered = collection_objects
-                .into_iter()
-                .filter(|obj| {
-                    if let Some(value) = obj.data.get(&filter.field) {
-                        match filter.operator {
-                            FilterOperator::Eq => *value == filter.value,
-                            FilterOperator::Ne => *value != filter.value,
-                            FilterOperator::Gt => {
-                                if let (Some(a), Some(b)) = (value.as_f64(), filter.value.as_f64())
-                                {
-                                    a > b
-                                } else if let (Some(a), Some(b)) =
-                                    (value.as_str(), filter.value.as_str())
-                                {
-                                    a > b
-                                } else {
-                                    false
-                                }
-                            }
-                            FilterOperator::Lt => {
-                                if let (Some(a), Some(b)) = (value.as_f64(), filter.value.as_f64())
-                                {
-                                    a < b
-                                } else if let (Some(a), Some(b)) =
-                                    (value.as_str(), filter.value.as_str())
-                                {
-                                    a < b
-                                } else {
-                                    false
-                                }
-                            }
-                            FilterOperator::Gte => {
-                                if let (Some(a), Some(b)) = (value.as_f64(), filter.value.as_f64())
-                                {
-                                    a >= b
-                                } else if let (Some(a), Some(b)) =
-                                    (value.as_str(), filter.value.as_str())
-                                {
-                                    a >= b
-                                } else {
-                                    false
-                                }
-                            }
-                            FilterOperator::Lte => {
-                                if let (Some(a), Some(b)) = (value.as_f64(), filter.value.as_f64())
-                                {
-                                    a <= b
-                                } else if let (Some(a), Some(b)) =
-                                    (value.as_str(), filter.value.as_str())
-                                {
-                                    a <= b
-                                } else {
-                                    false
-                                }
-                            }
-                            FilterOperator::Contains => {
-                                if let Some(search_str) = filter.value.as_str() {
-                                    if let Some(value_str) = value.as_str() {
-                                        value_str.contains(search_str)
-                                    } else {
-                                        false
-                                    }
-                                } else {
-                                    false
-                                }
-                            }
-                        }
-                    } else {
-                        false
-                    }
-                })
-                .collect();
-            Ok(filtered)
-        } else {
-            Ok(collection_objects)
-        }
+        let matched: Vec<ThingdObject> = collection_objects
+            .into_iter()
+            .filter(|obj| {
+                options
+                    .filters
+                    .iter()
+                    .all(|filter| matches_filter(obj, filter))
+            })
+            .skip(options.offset)
+            .take(options.limit.unwrap_or(usize::MAX))
+            .collect();
+
+        Ok(matched)
     }
 
     async fn batch_write(
@@ -350,11 +350,7 @@ impl ThingdBackend for MemoryThingdBackend {
         Ok(())
     }
 
-    async fn search(
-        &self,
-        query: &str,
-        options: SearchOptions,
-    ) -> Result<SearchResults, AppError> {
+    async fn search(&self, query: &str, options: SearchOptions) -> Result<SearchResults, AppError> {
         let objects = lock_mutex(&self.objects, "objects")?;
         let mut all_objects: Vec<ThingdObject> = Vec::new();
 
@@ -548,7 +544,10 @@ mod tests {
         let backend = create_backend().await;
         let data = serde_json::json!({"name": "Alice", "age": 30});
 
-        let obj = backend.put_object("users", "user1", data.clone()).await.unwrap();
+        let obj = backend
+            .put_object("users", "user1", data.clone())
+            .await
+            .unwrap();
         assert_eq!(obj.id, "user1");
         assert_eq!(obj.collection, "users");
 
@@ -567,7 +566,10 @@ mod tests {
     #[tokio::test]
     async fn test_delete_object() {
         let backend = create_backend().await;
-        backend.put_object("users", "user1", serde_json::json!({"name": "Alice"})).await.unwrap();
+        backend
+            .put_object("users", "user1", serde_json::json!({"name": "Alice"}))
+            .await
+            .unwrap();
 
         backend.delete_object("users", "user1").await.unwrap();
         let result = backend.get_object("users", "user1").await.unwrap();
@@ -577,17 +579,120 @@ mod tests {
     #[tokio::test]
     async fn test_query_objects_with_filter() {
         let backend = create_backend().await;
-        backend.put_object("users", "u1", serde_json::json!({"name": "Alice", "age": 30})).await.unwrap();
-        backend.put_object("users", "u2", serde_json::json!({"name": "Bob", "age": 25})).await.unwrap();
-        backend.put_object("users", "u3", serde_json::json!({"name": "Charlie", "age": 35})).await.unwrap();
+        backend
+            .put_object(
+                "users",
+                "u1",
+                serde_json::json!({"name": "Alice", "age": 30}),
+            )
+            .await
+            .unwrap();
+        backend
+            .put_object("users", "u2", serde_json::json!({"name": "Bob", "age": 25}))
+            .await
+            .unwrap();
+        backend
+            .put_object(
+                "users",
+                "u3",
+                serde_json::json!({"name": "Charlie", "age": 35}),
+            )
+            .await
+            .unwrap();
 
         let filter = ThingdFilter {
             field: "age".to_string(),
             operator: FilterOperator::Gt,
             value: serde_json::json!(27),
         };
-        let results = backend.query_objects("users", Some(filter)).await.unwrap();
+        let results = backend
+            .query_objects("users", QueryOptions::filtered(vec![filter]))
+            .await
+            .unwrap();
         assert_eq!(results.len(), 2);
+    }
+
+    #[tokio::test]
+    async fn test_query_objects_multiple_filters_conjunctive() {
+        let backend = create_backend().await;
+        backend
+            .put_object(
+                "offers",
+                "o1",
+                serde_json::json!({"title_id": "t1", "country": "US", "season": 1}),
+            )
+            .await
+            .unwrap();
+        backend
+            .put_object(
+                "offers",
+                "o2",
+                serde_json::json!({"title_id": "t1", "country": "US", "season": 2}),
+            )
+            .await
+            .unwrap();
+        backend
+            .put_object(
+                "offers",
+                "o3",
+                serde_json::json!({"title_id": "t1", "country": "UK", "season": 1}),
+            )
+            .await
+            .unwrap();
+        backend
+            .put_object(
+                "offers",
+                "o4",
+                serde_json::json!({"title_id": "t2", "country": "US", "season": 1}),
+            )
+            .await
+            .unwrap();
+
+        let filters = vec![
+            ThingdFilter {
+                field: "title_id".to_string(),
+                operator: FilterOperator::Eq,
+                value: serde_json::json!("t1"),
+            },
+            ThingdFilter {
+                field: "country".to_string(),
+                operator: FilterOperator::Eq,
+                value: serde_json::json!("US"),
+            },
+        ];
+
+        let results = backend
+            .query_objects("offers", QueryOptions::filtered(filters))
+            .await
+            .unwrap();
+        assert_eq!(results.len(), 2);
+        assert!(results.iter().all(|o| o.id == "o1" || o.id == "o2"));
+    }
+
+    #[tokio::test]
+    async fn test_query_objects_pagination() {
+        let backend = create_backend().await;
+        for i in 1..=5 {
+            backend
+                .put_object("items", &format!("item{i}"), serde_json::json!({"n": i}))
+                .await
+                .unwrap();
+        }
+
+        let page = backend
+            .query_objects(
+                "items",
+                QueryOptions {
+                    filters: vec![],
+                    limit: Some(2),
+                    offset: 1,
+                },
+            )
+            .await
+            .unwrap();
+        assert_eq!(page.len(), 2);
+        assert_eq!(page[0].data["n"], 2);
+        assert_eq!(page[1].data["n"], 3);
     }
 
     #[tokio::test]
@@ -595,8 +700,14 @@ mod tests {
         let backend = create_backend().await;
         assert_eq!(backend.count_objects("users").await.unwrap(), 0);
 
-        backend.put_object("users", "u1", serde_json::json!({})).await.unwrap();
-        backend.put_object("users", "u2", serde_json::json!({})).await.unwrap();
+        backend
+            .put_object("users", "u1", serde_json::json!({}))
+            .await
+            .unwrap();
+        backend
+            .put_object("users", "u2", serde_json::json!({}))
+            .await
+            .unwrap();
         assert_eq!(backend.count_objects("users").await.unwrap(), 2);
     }
 
@@ -604,13 +715,22 @@ mod tests {
     async fn test_append_and_read_events() {
         let backend = create_backend().await;
 
-        let event1 = backend.append_event("audit", "user.created", serde_json::json!({"id": "u1"})).await.unwrap();
-        let _event2 = backend.append_event("audit", "user.created", serde_json::json!({"id": "u2"})).await.unwrap();
+        let event1 = backend
+            .append_event("audit", "user.created", serde_json::json!({"id": "u1"}))
+            .await
+            .unwrap();
+        let _event2 = backend
+            .append_event("audit", "user.created", serde_json::json!({"id": "u2"}))
+            .await
+            .unwrap();
 
         let events = backend.read_events("audit", None, 10).await.unwrap();
         assert_eq!(events.len(), 2);
 
-        let events_from = backend.read_events("audit", Some(event1.id), 10).await.unwrap();
+        let events_from = backend
+            .read_events("audit", Some(event1.id), 10)
+            .await
+            .unwrap();
         assert_eq!(events_from.len(), 1);
     }
 
@@ -618,7 +738,10 @@ mod tests {
     async fn test_job_lifecycle() {
         let backend = create_backend().await;
 
-        let job = backend.push_job("queue", serde_json::json!({"task": "send_email"}), 3).await.unwrap();
+        let job = backend
+            .push_job("queue", serde_json::json!({"task": "send_email"}), 3)
+            .await
+            .unwrap();
         assert_eq!(job.state, JobState::Queued);
 
         let claimed = backend.claim_job("queue", "worker1", 60).await.unwrap();
@@ -662,7 +785,10 @@ mod tests {
     async fn test_create_and_get_links() {
         let backend = create_backend().await;
 
-        let link = backend.create_link("doc1", "doc2", "references").await.unwrap();
+        let link = backend
+            .create_link("doc1", "doc2", "references")
+            .await
+            .unwrap();
         assert_eq!(link.source_id, "doc1");
         assert_eq!(link.target_id, "doc2");
         assert_eq!(link.relation, "references");
@@ -678,23 +804,44 @@ mod tests {
     #[tokio::test]
     async fn test_search() {
         let backend = create_backend().await;
-        backend.put_object("docs", "d1", serde_json::json!({"title": "Rust guide"})).await.unwrap();
-        backend.put_object("docs", "d2", serde_json::json!({"title": "Python guide"})).await.unwrap();
-        backend.put_object("docs", "d3", serde_json::json!({"title": "Rust advanced"})).await.unwrap();
+        backend
+            .put_object("docs", "d1", serde_json::json!({"title": "Rust guide"}))
+            .await
+            .unwrap();
+        backend
+            .put_object("docs", "d2", serde_json::json!({"title": "Python guide"}))
+            .await
+            .unwrap();
+        backend
+            .put_object("docs", "d3", serde_json::json!({"title": "Rust advanced"}))
+            .await
+            .unwrap();
 
-        let results = backend.search("rust", SearchOptions {
-            limit: 10,
-            offset: 0,
-            filters: vec![],
-        }).await.unwrap();
+        let results = backend
+            .search(
+                "rust",
+                SearchOptions {
+                    limit: 10,
+                    offset: 0,
+                    filters: vec![],
+                },
+            )
+            .await
+            .unwrap();
         assert_eq!(results.total, 2);
     }
 
     #[tokio::test]
     async fn test_reset() {
         let backend = create_backend().await;
-        backend.put_object("users", "u1", serde_json::json!({})).await.unwrap();
-        backend.append_event("audit", "test", serde_json::json!({})).await.unwrap();
+        backend
+            .put_object("users", "u1", serde_json::json!({}))
+            .await
+            .unwrap();
+        backend
+            .append_event("audit", "test", serde_json::json!({}))
+            .await
+            .unwrap();
 
         backend.reset().await.unwrap();
 
