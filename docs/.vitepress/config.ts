@@ -73,6 +73,7 @@ export default defineConfig({
           { text: "Typed tools", link: "/typed-tools" },
           { text: "Durable jobs", link: "/durable-jobs" },
           { text: "Testing", link: "/testing" },
+          { text: "Tooling", link: "/tooling" },
         ],
       },
       {

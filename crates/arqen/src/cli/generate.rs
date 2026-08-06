@@ -136,6 +136,19 @@ arqen generate job send_email
 ```
 
 This creates `src/jobs/send_email.rs` with a job handler.
+
+## Code quality
+
+Run the standard checks:
+
+```bash
+cargo fmt --all -- --check
+cargo clippy --all-targets --all-features -- -D warnings
+cargo test --all-features
+```
+
+For Markdown and YAML formatting, see the
+[tooling guide](https://sayanmohsin.github.io/arqen/tooling).
 "#
     );
     fs::write(project_dir.join("README.md"), readme)?;
