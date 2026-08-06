@@ -1,8 +1,8 @@
 # Contributing to Arqen
 
 Arqen is early-stage and documentation-first in its public contracts. Read
-[`AGENTS.md`](AGENTS.md) and [`specs/README.md`](specs/README.md) before
-starting work.
+the [README](README.md), [public documentation](https://sayanmohsin.github.io/arqen/),
+and [`specs/README.md`](specs/README.md) before starting work.
 
 ## Before opening a pull request
 

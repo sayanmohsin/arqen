@@ -107,9 +107,9 @@ operates it. It is not a model runtime, BaaS, or workflow engine.
 
 - [Documentation site](https://sayanmohsin.github.io/arqen/)
 - [Getting started](https://sayanmohsin.github.io/arqen/getting-started) · [Configuration](https://sayanmohsin.github.io/arqen/configuration) · [Commands](https://sayanmohsin.github.io/arqen/commands)
-- [Architecture](https://sayanmohsin.github.io/arqen/architecture) · [Modules](https://sayanmohsin.github.io/arqen/modules) · [Feature status](https://sayanmohsin.github.io/arqen/feature-status)
-- [Authentication](https://sayanmohsin.github.io/arqen/authentication) · [Validation](https://sayanmohsin.github.io/arqen/validation) · [OpenAPI](https://sayanmohsin.github.io/arqen/openapi)
-- [Jobs](https://sayanmohsin.github.io/arqen/durable-jobs) · [Observability](https://sayanmohsin.github.io/arqen/observability) · [Testing](https://sayanmohsin.github.io/arqen/testing)
+- [Architecture](https://sayanmohsin.github.io/arqen/architecture) · [Modules](https://github.com/sayanmohsin/arqen/blob/main/docs/modules.md) · [Feature status](https://sayanmohsin.github.io/arqen/feature-status)
+- [Authentication](https://github.com/sayanmohsin/arqen/blob/main/docs/authentication.md) · [Validation](https://github.com/sayanmohsin/arqen/blob/main/docs/validation.md) · [OpenAPI](https://github.com/sayanmohsin/arqen/blob/main/docs/openapi.md)
+- [Jobs](https://sayanmohsin.github.io/arqen/durable-jobs) · [Observability](https://github.com/sayanmohsin/arqen/blob/main/docs/observability.md) · [Testing](https://github.com/sayanmohsin/arqen/blob/main/docs/testing.md)
 - [Agent guide](https://sayanmohsin.github.io/arqen/agent-guide) · [Manifest contract](https://sayanmohsin.github.io/arqen/manifest) · [thingd integration](https://sayanmohsin.github.io/arqen/thingd-integration)
 - [Deployment](https://sayanmohsin.github.io/arqen/deployment) · [Docker](https://sayanmohsin.github.io/arqen/docker) · [Security](https://sayanmohsin.github.io/arqen/security)
 - [Contributing](https://github.com/sayanmohsin/arqen/blob/main/CONTRIBUTING.md) · [Security policy](https://github.com/sayanmohsin/arqen/blob/main/SECURITY.md) · [Changelog](https://github.com/sayanmohsin/arqen/blob/main/CHANGELOG.md)
