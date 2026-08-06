@@ -15,9 +15,14 @@
 
 ## Unreleased
 
-- Added public Arqen positioning and GitHub Pages documentation.
-- Added Phase 12 documentation and public-presence specification.
-- Added CI, security, documentation, and Docker validation workflows.
+### Features
+
+- harden CLI with exit codes, JSON output, config discovery, global flags, and integration tests
+- generate compiling projects with `arqen = "0.4"` and `logging` feature
+- add Criterion benchmarks for routing, manifest, validation, in-memory thingd, jobs, and health
+- add comprehensive documentation guides (troubleshooting, migration, standards, examples, health, performance)
+- add Prettier and Markdownlint tooling with CI checks
+- expand README with 10-minute quickstart and coding agent section
 
 Arqen remains early-stage; see [`docs/feature-status.md`](docs/feature-status.md)
 for the current capability boundary.

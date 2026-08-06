@@ -52,4 +52,9 @@ uuid = { version = "1", features = ["v4"] }
 [dev-dependencies]
 async-trait = "0.1"
 axum = "0.7"
+criterion = { version = "0.5", features = ["html_reports"] }
 tokio-test = "0.4"
+
+[[bench]]
+name = "framework"
+harness = false

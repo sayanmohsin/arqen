@@ -1,0 +1,4 @@
+node_modules
+.vitepress/dist
+public
+pnpm-lock.yaml

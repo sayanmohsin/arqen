@@ -62,6 +62,7 @@ Install the CLI locally when working from a checkout:
 
 ```bash
 cargo install --path crates/arqen --features cli
+arqen --version
 arqen --help
 ```
 
@@ -91,6 +92,21 @@ The same application-facing contracts are designed for four deployment modes:
 | HTTP sidecar | A separate thingd service | Available; validate the public contract |
 | Cloud | Hosted thingd services | Future integration path |
 
+## For coding agents
+
+Arqen is designed to be understood from tracked public files alone. To implement a scoped change:
+
+1. Read `README.md` (this file) for purpose, status, and quickstart.
+2. Read `specs/README.md` and `specs/STATUS.md` for phase status.
+3. Read the relevant phase specification in `specs/`.
+4. Read `docs/standards.md` for coding conventions.
+5. Read `docs/repository-structure.md` for file locations.
+6. Read source files in `crates/arqen/src/` for implementation details.
+7. Run tests: `cargo test --workspace --all-features`
+8. Run lints: `cargo clippy --workspace --all-targets --all-features -- -D warnings`
+
+Do not rely on `AGENTS.md`, `.opencode/`, or other local AI instruction files. The versioned README, documentation site, and specifications are the public project contract.
+
 ## Why Arqen?
 
 Arqen is a contract layer between an application and the software that
@@ -111,6 +127,8 @@ operates it. It is not a model runtime, BaaS, or workflow engine.
 - [Authentication](https://github.com/sayanmohsin/arqen/blob/main/docs/authentication.md) · [Validation](https://github.com/sayanmohsin/arqen/blob/main/docs/validation.md) · [OpenAPI](https://github.com/sayanmohsin/arqen/blob/main/docs/openapi.md)
 - [Jobs](https://sayanmohsin.github.io/arqen/durable-jobs) · [Observability](https://github.com/sayanmohsin/arqen/blob/main/docs/observability.md) · [Testing](https://github.com/sayanmohsin/arqen/blob/main/docs/testing.md)
 - [Agent guide](https://sayanmohsin.github.io/arqen/agent-guide) · [Manifest contract](https://sayanmohsin.github.io/arqen/manifest) · [thingd integration](https://sayanmohsin.github.io/arqen/thingd-integration)
+- [Troubleshooting](https://github.com/sayanmohsin/arqen/blob/main/docs/troubleshooting.md) · [Migration](https://github.com/sayanmohsin/arqen/blob/main/docs/migration.md) · [Standards](https://github.com/sayanmohsin/arqen/blob/main/docs/standards.md)
+- [Examples](https://github.com/sayanmohsin/arqen/blob/main/docs/examples.md) · [Health](https://github.com/sayanmohsin/arqen/blob/main/docs/health.md) · [Performance](https://github.com/sayanmohsin/arqen/blob/main/docs/performance.md)
 - [Deployment](https://sayanmohsin.github.io/arqen/deployment) · [Docker](https://sayanmohsin.github.io/arqen/docker) · [Security](https://sayanmohsin.github.io/arqen/security)
 - [Contributing](https://github.com/sayanmohsin/arqen/blob/main/CONTRIBUTING.md) · [Security policy](https://github.com/sayanmohsin/arqen/blob/main/SECURITY.md) · [Changelog](https://github.com/sayanmohsin/arqen/blob/main/CHANGELOG.md)
 

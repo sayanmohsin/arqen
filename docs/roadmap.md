@@ -36,3 +36,7 @@ testing utilities, observability, OpenAPI helpers, and explicit module
 composition. These capabilities are tested in the `arqen` package, but
 production readiness still depends on the target application, thingd
 deployment, security review, recovery testing, and operational controls.
+
+## Phase 17: developer experience, performance, and agent onboarding (completed)
+
+Stable CLI with exit codes, JSON output, config discovery, and integration tests. Compiling project generation. Criterion benchmarks for routing, manifest, validation, in-memory thingd, jobs, and health. Prettier and Markdownlint tooling. Comprehensive documentation for first-time developers and coding agents.

@@ -110,5 +110,10 @@ boundary.
 
 ## Roadmap
 
-Read the [roadmap](./roadmap.md) and the [Phase 12 specification on GitHub](https://github.com/sayanmohsin/arqen/tree/main/specs/phase-12-documentation-and-public-presence)
+Read the [roadmap](./roadmap.md) and the [Phase 17 specification on GitHub](https://github.com/sayanmohsin/arqen/tree/main/specs/phase-17-documentation-and-public-presence)
 for implementation evidence and open work.
+
+## Performance
+
+Read the [performance guide](./performance.md) for benchmarks, profiling,
+and optimization patterns.

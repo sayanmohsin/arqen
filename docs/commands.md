@@ -1,70 +1,211 @@
 # Commands
 
-| Command | Purpose |
-|---|---|
-| `arqen new NAME` | Generate an application with the module-based starter structure. |
-| `arqen generate module NAME` | Generate a module skeleton under `src/`. |
-| `arqen generate tool NAME` | Generate a typed tool metadata skeleton under `src/tools/`. |
-| `arqen generate job NAME` | Generate a job handler skeleton under `src/jobs/`. |
-| `arqen dev` | Run in development mode with pretty logging. The integrated watcher is not implemented yet. |
-| `arqen start` | Run the application without a watcher. |
-| `arqen up` | Run and supervise local dev services defined in `[[dev.services]]` in `arqen.toml`. |
-| `arqen check` | Run the current CLI check command. |
-| `arqen doctor` | Inspect Rust, Docker, thingd, and environment setup. |
+Full CLI reference for `arqen`.
 
-Useful options include `--host`, `--port`, `--log`, and `--storage`.
+## Global flags
 
-`arqen new` currently accepts only the project name. It does not have a
-`--template` flag. Generated files are intentionally conservative: review and
-register each generated module, tool, or job in the application.
+| Flag             | Description                              |
+| ---------------- | ---------------------------------------- |
+| `--version`      | Print version and exit                   |
+| `--verbose`      | Enable verbose output                    |
+| `--quiet`        | Suppress non-error output                |
+| `--color <when>` | Color output: `auto`, `always`, `never`  |
+| `--json`         | Output as JSON (where applicable)        |
+| `--file <path>`  | Config file path (default: `arqen.toml`) |
 
-The CLI is the binary in the published `arqen` package. From a checkout, use:
+## Available commands
 
-```bash
-cargo run -p arqen --features cli --bin arqen -- --help
-```
+### `arqen new <NAME>`
 
-Install it from the repository with:
+Generate a new Arqen application with the module-based starter structure.
 
 ```bash
-cargo install --path crates/arqen --features cli
+arqen new hello-api
+cd hello-api
+cargo run
 ```
 
-The CLI remains a thin process manager and project generator. It does not hide
-normal Cargo commands. Commands such as `test`, `routes`, and `agent` are not
-part of the current CLI surface. `arqen dev` does not include an integrated file
-watcher; use an external `cargo-watch` process if you need automatic restarts.
+Options: none beyond the project name. No `--template` flag is available.
+Generated files are intentionally conservative; review and register each
+generated module, tool, or job in the application.
+
+The CLI refuses to overwrite an existing directory.
+
+### `arqen generate module <NAME>`
+
+Generate a module skeleton under `src/<name>/mod.rs`.
+
+```bash
+arqen generate module users
+```
+
+Creates `src/users/mod.rs` with a `Module` implementation stub. The CLI
+prints instructions for registering the module in your application.
+
+### `arqen generate tool <NAME>`
+
+Generate a typed tool skeleton under `src/tools/<name>.rs`.
+
+```bash
+arqen generate tool get_user
+```
+
+Creates a `ToolMetadata` function and a `register` function. Call the
+register function from your module's `register()` method.
+
+### `arqen generate job <NAME>`
+
+Generate a job handler skeleton under `src/jobs/<name>.rs`.
+
+```bash
+arqen generate job send_email
+```
+
+Creates a `JobHandler` implementation stub.
 
 Generators refuse to overwrite an existing file or module directory.
 
-## `arqen up`
+### `arqen dev`
 
-Starts and supervises long-running dev services (a database sidecar, a backend,
-a frontend) declared in `[[dev.services]]` tables. It is defined in the file
-passed with `--file` (default `arqen.toml` in the current directory), so the
-same file can also hold your `[server]`, `[storage]`, and other app settings:
+Run the application in development mode with pretty logging.
+
+```bash
+arqen dev
+arqen dev --port 9000
+arqen dev --storage memory --log debug
+```
+
+Options:
+
+| Flag            | Default     | Description  |
+| --------------- | ----------- | ------------ |
+| `--host`        | `127.0.0.1` | Bind address |
+| `-p, --port`    | `8888`      | Port         |
+| `-l, --log`     | `info`      | Log level    |
+| `-s, --storage` | `memory`    | Storage mode |
+
+`arqen dev` does not include an integrated file watcher. Use an external
+`cargo-watch` process if you need automatic restarts.
+
+### `arqen start`
+
+Run the application without pretty logging (production mode).
+
+```bash
+arqen start
+arqen start --port 3000 --log warn
+```
+
+Options: same as `arqen dev`. Uses JSON logging by default.
+
+### `arqen up [SERVICE...]`
+
+Start and supervise long-running dev services defined in `arqen.toml`.
+
+```bash
+arqen up                    # start all services
+arqen up backend frontend   # start specific services
+arqen up --dry-run          # preview what would start
+arqen up --file mydev.toml  # use custom config
+```
+
+Options:
+
+| Flag        | Default      | Description                |
+| ----------- | ------------ | -------------------------- |
+| `--file`    | `arqen.toml` | Config file                |
+| `--dry-run` | false        | Print plan without running |
+
+Example `arqen.toml` service definitions:
 
 ```toml
 [[dev.services]]
 name = "thingd"
 command = "docker"
 args = ["compose", "up"]
-cwd = "."
 
 [[dev.services]]
 name = "backend"
 command = "cargo"
 args = ["run"]
 cwd = "backend"
-
-[[dev.services]]
-name = "frontend"
-command = "pnpm"
-args = ["dev"]
 ```
 
-Each service has a `name`, a `command`, and optional `args`, `cwd`, and `env`
-(extra environment variables). Start a subset by name (`arqen up backend
-frontend`), preview the plan with `--dry-run`, and press Ctrl+C to stop
-everything. If any service exits, the rest are shut down and the command exits
-non-zero when the exiting service failed.
+Each service has a `name`, `command`, and optional `args`, `cwd`, and `env`.
+If any service exits, the rest are shut down and the command exits non-zero
+when the exiting service failed.
+
+### `arqen check`
+
+Run validation checks.
+
+```bash
+arqen check
+```
+
+### `arqen doctor`
+
+Diagnose Rust, Docker, thingd, and environment setup.
+
+```bash
+arqen doctor
+```
+
+Checks:
+
+1. Rust and Cargo installation
+2. Docker and Docker Compose
+3. thingd connectivity (if `ARQEN_THINGD_URL` is set)
+4. Environment variables
+
+## Exit codes
+
+| Code | Meaning                     |
+| ---- | --------------------------- |
+| 0    | Success                     |
+| 2    | Usage error (bad arguments) |
+| 3    | Configuration error         |
+| 4    | Dependency not found        |
+| 5    | Runtime error               |
+| 130  | Interrupted (Ctrl+C)        |
+
+## Config discovery
+
+The CLI discovers configuration in this order:
+
+1. `--file` flag (default: `arqen.toml` in current directory)
+2. `ARQEN_*` environment variables
+3. Compiled defaults
+
+## JSON output
+
+Commands that support `--json` emit structured JSON to stdout. Errors are
+also emitted as JSON:
+
+```json
+{
+  "ok": false,
+  "error": {
+    "kind": "config",
+    "message": "port must be non-zero"
+  }
+}
+```
+
+## Running from source
+
+From a repository checkout:
+
+```bash
+cargo run -p arqen --features cli --bin arqen -- --help
+```
+
+Install from source:
+
+```bash
+cargo install --path crates/arqen --features cli
+```
+
+The CLI is a thin process manager and project generator. It does not hide
+normal Cargo commands. Commands such as `test`, `routes`, and `agent` are
+not part of the current CLI surface.

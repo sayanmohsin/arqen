@@ -19,7 +19,14 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
         with: { components: "rustfmt, clippy" }
       - uses: Swatinem/rust-cache@v2
-      - run: cargo fmt --package arqen -- --check
-      - run: cargo check --package arqen --all-features
-      - run: cargo clippy --package arqen --all-targets --all-features -- -D warnings
-      - run: cargo test --package arqen --all-features
+      - run: cargo fmt --all -- --check
+      - run: cargo check --workspace --all-features
+      - run: cargo clippy --workspace --all-targets --all-features -- -D warnings
+      - run: cargo test --workspace --all-features
+      - run: cargo doc --workspace --no-deps
+      - run: cargo package --package arqen --allow-dirty --no-verify
+      - run: cargo bench --bench framework --no-run
+      - name: Check examples
+        run: |
+          cargo check --manifest-path examples/memory-backend/Cargo.toml
+          cargo check --manifest-path examples/minimal-api/Cargo.toml

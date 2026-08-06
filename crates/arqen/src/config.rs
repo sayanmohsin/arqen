@@ -509,6 +509,30 @@ impl AppConfig {
         self
     }
 
+    /// Load configuration with full precedence chain, allowing a custom config file path.
+    pub fn load_with_file(
+        cli: CliOverrides,
+        path: Option<&std::path::Path>,
+    ) -> Result<Self, ConfigError> {
+        let mut config = Self::default();
+
+        let file_path = path
+            .map(|p| p.to_path_buf())
+            .unwrap_or_else(|| std::path::PathBuf::from("arqen.toml"));
+
+        if file_path.exists() {
+            let file_config = Self::from_file_optional(file_path.to_str().unwrap_or("arqen.toml"))?;
+            if let Some(file) = file_config {
+                config = file;
+            }
+        }
+
+        config = config.apply_env()?;
+        config = config.apply_cli(cli);
+        config.validate()?;
+        Ok(config)
+    }
+
     /// Load configuration from a TOML file.
     pub fn from_file(path: impl AsRef<std::path::Path>) -> Result<Self, ConfigError> {
         let content =

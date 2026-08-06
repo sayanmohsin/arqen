@@ -18,6 +18,7 @@
 | 14 | completed | 08, 09 | opencode | 2026-08-03 |
 | 15 | completed | 08, 09, 11 | opencode | 2026-08-03 |
 | 16 | completed | 08, 09, 10, 11, 12, 13, 14, 15 | opencode | 2026-08-03 |
+| 17 | completed | 08, 09, 10, 11, 12, 13, 14, 15, 16 | opencode | 2026-08-05 |
 
 Allowed statuses: `planned`, `ready`, `in_progress`, `blocked`, `review`, `completed`.
 Normally only one phase is `in_progress`.

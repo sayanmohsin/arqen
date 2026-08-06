@@ -27,6 +27,8 @@
 pub mod agent;
 pub mod app;
 pub mod auth;
+#[cfg(feature = "cli")]
+pub mod cli;
 pub mod config;
 pub mod core;
 #[cfg(feature = "cli")]

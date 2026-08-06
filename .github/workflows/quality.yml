@@ -20,6 +20,22 @@ jobs:
           args: --verbose --no-progress --exclude '127\.0\.0\.1' --exclude 'github.com/.*/compare/' "**/*.md" "README.md"
           fail: true
 
+  prettier:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
+        with: { version: 10 }
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: pnpm
+          cache-dependency-path: docs/pnpm-lock.yaml
+      - run: pnpm install --frozen-lockfile
+        working-directory: docs
+      - run: pnpm format:check
+        working-directory: docs
+
   security:
     runs-on: ubuntu-latest
     steps:

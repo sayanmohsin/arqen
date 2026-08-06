@@ -12,24 +12,24 @@ pub trait ThingdBackend: Send + Sync {
     async fn put_object(&self, collection: &str, id: &str, data: serde_json::Value) -> Result<ThingdObject>;
     async fn delete_object(&self, collection: &str, id: &str) -> Result<()>;
     async fn query_objects(&self, collection: &str, filter: ThingdFilter) -> Result<Vec<ThingdObject>>;
-    
+
     // Batch operations
     async fn batch_write(&self, operations: Vec<ThingdOperation>) -> Result<Vec<ThingdOperationResult>>;
-    
+
     // Event operations
     async fn append_event(&self, stream: &str, event: ThingdEvent) -> Result<ThingdEvent>;
     async fn read_events(&self, stream: &str, from: Option<String>, limit: usize) -> Result<Vec<ThingdEvent>>;
-    
+
     // Queue operations
     async fn push_job(&self, queue: &str, job: ThingdJob) -> Result<ThingdJob>;
     async fn claim_job(&self, queue: &str, worker_id: &str, lease_seconds: u32) -> Result<Option<ThingdJob>>;
     async fn complete_job(&self, queue: &str, job_id: &str) -> Result<()>;
     async fn nack_job(&self, queue: &str, job_id: &str) -> Result<()>;
     async fn dead_letter_job(&self, queue: &str, job_id: &str) -> Result<()>;
-    
+
     // Search operations
     async fn search(&self, query: &str, options: SearchOptions) -> Result<SearchResults>;
-    
+
     // Link operations
     async fn create_link(&self, link: ThingdLink) -> Result<ThingdLink>;
     async fn get_links(&self, source_id: &str, relation: Option<&str>) -> Result<Vec<ThingdLink>>;

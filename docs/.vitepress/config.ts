@@ -10,13 +10,18 @@ export default defineConfig({
   head: [
     ["link", { rel: "icon", type: "image/svg+xml", href: "/arqen/logo.svg" }],
     ["meta", { name: "theme-color", content: "#080a0d" }],
-    ["meta", { property: "og:title", content: "Arqen — Backend infrastructure for agent-ready applications" }],
+    [
+      "meta",
+      {
+        property: "og:title",
+        content: "Arqen — Backend infrastructure for agent-ready applications",
+      },
+    ],
     [
       "meta",
       {
         property: "og:description",
-        content:
-          "Typed tools, durable jobs, discoverable APIs, and thingd integration.",
+        content: "Typed tools, durable jobs, discoverable APIs, and thingd integration.",
       },
     ],
   ],
@@ -61,6 +66,8 @@ export default defineConfig({
           { text: "Getting started", link: "/getting-started" },
           { text: "Commands", link: "/commands" },
           { text: "Configuration", link: "/configuration" },
+          { text: "Health", link: "/health" },
+          { text: "Examples", link: "/examples" },
           { text: "Authentication", link: "/authentication" },
           { text: "Validation", link: "/validation" },
           { text: "Typed tools", link: "/typed-tools" },
@@ -76,6 +83,7 @@ export default defineConfig({
           { text: "Logging", link: "/logging" },
           { text: "Observability", link: "/observability" },
           { text: "OpenAPI", link: "/openapi" },
+          { text: "Performance", link: "/performance" },
           { text: "Security", link: "/security" },
           { text: "Release", link: "/release" },
         ],
@@ -92,7 +100,10 @@ export default defineConfig({
         text: "Reference",
         items: [
           { text: "Adapter contract", link: "/adapter-contract" },
+          { text: "Standards", link: "/standards" },
           { text: "Repository structure", link: "/repository-structure" },
+          { text: "Troubleshooting", link: "/troubleshooting" },
+          { text: "Migration", link: "/migration" },
           { text: "Roadmap", link: "/roadmap" },
         ],
       },
