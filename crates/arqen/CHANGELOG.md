@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.5.0](https://github.com/sayanmohsin/arqen/compare/arqen-v0.4.0...arqen-v0.5.0) (2026-08-06)
+
+
+### Features
+
+* add full dev lifecycle toolchain (lint, format, test, build, doc) ([062a58f](https://github.com/sayanmohsin/arqen/commit/062a58fd1e085c494aa8cc030f6876902ad7fcc3))
+* **phase-17:** developer experience, performance, and agent onboarding ([e55b4d5](https://github.com/sayanmohsin/arqen/commit/e55b4d50ebc996e18d10c41f28b9506a8d311ca7))
+
 ## [0.4.0](https://github.com/sayanmohsin/arqen/compare/arqen-v0.3.0...arqen-v0.4.0) (2026-08-05)
 
 
