@@ -16,8 +16,8 @@
 //!   (`ThingdObject`, `ThingdEvent`, …). It is designed for trait-object
 //!   polymorphism and HTTP/worker integration.
 //! - **`NativeThingdStore`** wraps the real thingd engine synchronously and
-//!   exposes its full API through [`with_engine`](Self::with_engine) and
-//!   [`lock`](Self::lock). This gives application code direct access to
+//!   exposes its full API through [`NativeThingdStore::with_engine`] and
+//!   [`NativeThingdStore::lock`]. This gives application code direct access to
 //!   thingd's storage traits (ObjectStore, EventLog, QueueStore, LinkStore)
 //!   without lossy type conversions.
 //!

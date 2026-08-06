@@ -8,7 +8,7 @@ A minimal Arqen application demonstrating basic HTTP server setup.
 cargo run
 ```
 
-The server will start on http://127.0.0.1:3000
+The server will start on http://127.0.0.1:8888
 
 ## Endpoints
 

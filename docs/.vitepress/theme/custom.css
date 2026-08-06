@@ -7,6 +7,7 @@
   --vp-button-brand-hover-bg: #00bfff;
   --vp-home-hero-name-color: transparent;
   --vp-home-hero-name-background: linear-gradient(120deg, #00bfff 25%, #7cf3ff);
+  --arqen-glow: rgba(0, 217, 255, 0.2);
 }
 
 .dark {
@@ -16,6 +17,31 @@
   --vp-c-brand-1: #00e5ff;
   --vp-c-brand-2: #8af7ff;
   --vp-c-brand-3: #008cff;
+  --vp-c-divider: rgba(124, 243, 255, 0.14);
+}
+
+.VPHome {
+  background:
+    radial-gradient(circle at 82% 8%, rgba(0, 140, 255, 0.14), transparent 28rem),
+    radial-gradient(circle at 12% 22%, rgba(0, 217, 255, 0.08), transparent 24rem);
+}
+
+.VPHomeHero .name {
+  letter-spacing: -0.055em;
+  filter: drop-shadow(0 0 26px var(--arqen-glow));
+}
+
+.VPHomeHero .text {
+  max-width: 760px;
+  letter-spacing: -0.035em;
+}
+
+.VPHomeHero .tagline {
+  max-width: 700px;
+}
+
+.VPNavBar {
+  backdrop-filter: blur(16px);
 }
 
 .VPNavBar .logo {
@@ -31,6 +57,27 @@
 .VPFeature:hover {
   border-color: var(--vp-c-brand-1);
   box-shadow: 0 0 24px rgba(0, 217, 255, 0.18);
+}
+
+.VPFeature .title,
+.vp-doc h2 {
+  letter-spacing: -0.025em;
+}
+
+.vp-doc table {
+  display: table;
+  width: 100%;
+}
+
+.vp-doc div[class*="language-"] {
+  border: 1px solid rgba(124, 243, 255, 0.12);
+  box-shadow: 0 12px 38px rgba(0, 0, 0, 0.2);
+}
+
+@media (max-width: 640px) {
+  .VPHomeHero .name {
+    font-size: 3.2rem;
+  }
 }
 
 .vp-doc code,

@@ -4,3 +4,18 @@
 .pnpm-store/
 .env
 *.log
+
+# Local-only agent instructions and AI tooling. Public product documentation
+# lives in docs/ and remains versioned.
+AGENTS.md
+CLAUDE.md
+GEMINI.md
+.opencode/
+.codex/
+.claude/
+.local/
+*.ai.md
+
+# Generated documentation-site dependencies and build output.
+docs/node_modules/
+docs/.vitepress/dist/

@@ -49,6 +49,7 @@ export default defineConfig({
         text: "Concepts",
         items: [
           { text: "Architecture", link: "/architecture" },
+          { text: "Modules", link: "/modules" },
           { text: "Feature status", link: "/feature-status" },
           { text: "Storage modes", link: "/in-memory-mode" },
           { text: "thingd integration", link: "/thingd-integration" },
@@ -60,8 +61,11 @@ export default defineConfig({
           { text: "Getting started", link: "/getting-started" },
           { text: "Commands", link: "/commands" },
           { text: "Configuration", link: "/configuration" },
+          { text: "Authentication", link: "/authentication" },
+          { text: "Validation", link: "/validation" },
           { text: "Typed tools", link: "/typed-tools" },
           { text: "Durable jobs", link: "/durable-jobs" },
+          { text: "Testing", link: "/testing" },
         ],
       },
       {
@@ -70,6 +74,8 @@ export default defineConfig({
           { text: "Deployment", link: "/deployment" },
           { text: "Docker", link: "/docker" },
           { text: "Logging", link: "/logging" },
+          { text: "Observability", link: "/observability" },
+          { text: "OpenAPI", link: "/openapi" },
           { text: "Security", link: "/security" },
           { text: "Release", link: "/release" },
         ],

@@ -94,56 +94,9 @@ Returns readiness status, checking dependencies:
 }
 ```
 
-The manifest describes the application, tools, input/output schemas, required scopes, read/write effects, idempotency behavior, and operations that enqueue jobs.
-
-Every generated repository should include `AGENTS.md` with the project layout, start commands, test commands, storage mode, credential rules, and instructions for adding routes, tools, repositories, and jobs.
-
-## Example AGENTS.md
-
-```markdown
-# Project: my-app
-
-## Overview
-
-An Arqen application with user management tools.
-
-## Start commands
-
-- Development: `arqen dev`
-- Production: `arqen start`
-- Tests: `arqen test`
-
-## Storage mode
-
-Memory (development) / HTTP (production)
-
-## Credential rules
-
-- Never commit credentials
-- Use ARQEN_* environment variables
-- See docs/security.md
-
-## Adding routes
-
-1. Create handler in src/handlers/
-2. Register in src/routes.rs
-3. Add OpenAPI annotations
-
-## Adding tools
-
-1. Define tool function with #[tool] attribute
-2. Implement in src/tools/
-3. Tool metadata is auto-generated
-
-## Adding repositories
-
-1. Define the trait in `arqen::core`
-2. Implement the adapter in `arqen::thingd`
-3. Register in application state
-
-## Adding jobs
-
-1. Define job payload
-2. Implement worker function
-3. Register in job configuration
-```
+The manifest describes the application, tools, input/output schemas, required
+scopes, read/write effects, idempotency behavior, and operations that enqueue
+jobs. Generated applications also include a README with start, test, storage,
+credential, and extension guidance. Teams may add private local instructions,
+but those files are not required for discovery and are not part of Arqen's
+public repository contract.

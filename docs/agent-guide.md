@@ -25,10 +25,11 @@ they are available.
 
 ## Repository conventions
 
-Read the project `AGENTS.md`, then the relevant guide and contract before
-editing. Prefer existing domain interfaces, avoid direct provider calls in
-business logic, and record security or permission assumptions next to the
-capability they protect.
+Read the project README, relevant public guide, and contract before editing.
+Prefer existing domain interfaces, avoid direct provider calls in business
+logic, and record security or permission assumptions next to the capability
+they protect. A project may keep private local development instructions, but
+they are not part of Arqen's public API.
 
 See [agent discovery](agent-discovery.md), [typed tools](typed-tools.md), and
 [security](security.md) for the current contracts.

@@ -109,7 +109,7 @@ edition = "2024"
 rust-version = "1.96"
 
 [dependencies]
-arqen = {{ version = "0.3", features = ["logging", "http-server"] }}
+arqen = {{ version = "0.4", features = ["logging", "http-server"] }}
 tokio = {{ version = "1", features = ["full"] }}
 serde = {{ version = "1", features = ["derive"] }}
 serde_json = "1"
@@ -122,12 +122,11 @@ async-trait = "0.1"
     // src/main.rs
     let main_rs = format!(
         r#"use arqen::app::ArqenApp;
-use arqen::module::Module;
 
 mod app;
 
 #[tokio::main]
-async fn main() -> Result<(), Box<dyn std::error::Error>> {{
+async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {{
     arqen::logging::init_logging("info", "pretty");
 
     ArqenApp::builder()

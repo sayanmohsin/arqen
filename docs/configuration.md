@@ -68,7 +68,7 @@ When an Arqen application starts, it prints a banner with essential information:
 
 ```text
 ╔══════════════════════════════════════════════╗
-║  Arqen v0.3.0                               ║
+║  Arqen v0.4.0                               ║
 ║  API:        http://127.0.0.1:8888           ║
 ║  Health:     http://127.0.0.1:8888/health    ║
 ║  Docs:       http://127.0.0.1:8888/docs      ║

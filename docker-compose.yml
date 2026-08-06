@@ -4,7 +4,7 @@ services:
       context: .
       dockerfile: Dockerfile
     ports:
-      - "3000:3000"
+      - "8888:8888"
     # The CLI is flag-driven (see the Dockerfile CMD); these vars mirror the
     # canonical ARQEN_* config names for library/config consumers.
     environment:

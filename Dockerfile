@@ -18,10 +18,10 @@ RUN apt-get update && apt-get install -y \
 
 COPY --from=builder /build/target/release/arqen /usr/local/bin/arqen
 
-EXPOSE 3000
+EXPOSE 8888
 
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
-  CMD curl -fs http://127.0.0.1:3000/health || exit 1
+  CMD curl -fs http://127.0.0.1:8888/health || exit 1
 
 ENTRYPOINT ["arqen"]
-CMD ["start", "--host", "0.0.0.0", "--port", "3000", "--storage", "memory"]
+CMD ["start", "--host", "0.0.0.0", "--port", "8888", "--storage", "memory"]

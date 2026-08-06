@@ -1,6 +1,6 @@
 //! Convenience application wrapper for Arqen.
 //!
-//! Provides [`ArqenApp`] as a thin wrapper over [`AppState`], [`Router`],
+//! Provides [`ArqenApp`] as a thin wrapper over [`AppState`], the HTTP router,
 //! and module composition. This is an optional convenience layer -- the
 //! explicit APIs remain first-class.
 

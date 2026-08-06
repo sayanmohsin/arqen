@@ -6,7 +6,7 @@ Define the architecture, configuration, startup output, logging, agent manifest,
 
 ## Phase 2: CLI and template (completed)
 
-Implement `arqen new`, `arqen start`, `arqen dev`, health endpoints, startup output, structured logs, and generated `AGENTS.md`.
+Implement `arqen new`, `arqen start`, `arqen dev`, health endpoints, startup output, structured logs, and a generated public README.
 
 ## Phase 3: thingd development mode (completed)
 

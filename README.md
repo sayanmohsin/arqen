@@ -1,50 +1,49 @@
 # Arqen
 
 [![CI](https://github.com/sayanmohsin/arqen/actions/workflows/rust.yml/badge.svg)](https://github.com/sayanmohsin/arqen/actions/workflows/rust.yml)
-[![Tests](https://github.com/sayanmohsin/arqen/actions/workflows/rust.yml/badge.svg?label=tests)](https://github.com/sayanmohsin/arqen/actions/workflows/rust.yml)
-[![Rust](https://img.shields.io/badge/rust-first-orange.svg)](https://www.rust-lang.org/)
-[![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
-[![Docs](https://img.shields.io/badge/docs-GitHub%20Pages-00d9ff.svg)](https://sayanmohsin.github.io/arqen/)
+[![Documentation](https://github.com/sayanmohsin/arqen/actions/workflows/docs.yml/badge.svg)](https://sayanmohsin.github.io/arqen/)
+[![Quality](https://github.com/sayanmohsin/arqen/actions/workflows/quality.yml/badge.svg)](https://github.com/sayanmohsin/arqen/actions/workflows/quality.yml)
+[![Crates.io](https://img.shields.io/crates/v/arqen.svg)](https://crates.io/crates/arqen)
+[![docs.rs](https://docs.rs/arqen/badge.svg)](https://docs.rs/arqen)
+[![Rust](https://img.shields.io/badge/rust-first-00bfff.svg)](https://www.rust-lang.org/)
+[![License](https://img.shields.io/badge/license-MIT-00bfff.svg)](LICENSE)
 
 ## Backend infrastructure for agent-ready applications
 
-Arqen is a developer-focused backend toolkit with typed tools, durable jobs,
-discoverable APIs, and thingd integration. It is for teams building services
-that need a clear HTTP boundary, explicit application state, operational
-signals, and automation-friendly contracts.
+Arqen is a developer-focused backend toolkit for services that people,
+programs, and agents can operate. It brings typed tools, durable jobs,
+discoverable APIs, explicit modules, health checks, and thingd integration to
+one application boundary.
 
-“Agent-ready” does not mean AI-only. It means an application is discoverable,
-typed, permission-aware, auditable, and automation-friendly for people,
-programs, and agents alike.
+“Agent-ready” does not mean AI-only. It means capabilities are discoverable,
+typed, permission-aware, auditable, and automation-friendly.
 
-## Status
+Arqen is Rust-first internally, built on Axum, Tokio, Tower, tracing, and
+thingd. Its application positioning is language-agnostic: future Node.js
+support can use the public HTTP API, SDKs, templates, and shared manifests.
 
-Arqen is an early-stage framework with a working single-package implementation.
-The library, CLI, middleware, configuration, authentication, validation,
-health, jobs, observability, OpenAPI helpers, module composition, and testing
-utilities are available in the `arqen` package. Durable thingd behavior, public
-HTTP parity, security review, and application-specific integration still need
-to be validated for each production deployment. Read the [feature status](docs/feature-status.md)
-before relying on a feature.
+## Project status
 
-The public product positioning is language-agnostic. Rust is the first
-implementation; future Node.js support can arrive through the public HTTP API,
-SDKs, templates, and shared manifests without making application users learn
-Rust.
+Arqen is early-stage and actively maturing. The current single package
+contains the library and feature-gated CLI, including configuration,
+authentication, validation, jobs, observability, OpenAPI helpers, module
+composition, and testing utilities. Production adoption still requires
+application-specific security review, durability and recovery testing, public
+thingd compatibility checks, and operational ownership.
+
+See the [feature status](https://sayanmohsin.github.io/arqen/feature-status)
+before depending on a capability.
 
 ## Quickstart
 
-Most applications can start with the single public facade crate:
+Add the one public Cargo package:
 
 ```toml
 [dependencies]
-arqen = "0.3"
+arqen = "0.4"
 ```
 
-The source remains modular internally, while the public distribution stays
-focused on one package.
-
-From a checkout:
+Create a starter application from a checkout:
 
 ```bash
 cargo run -p arqen --features cli --bin arqen -- new hello-api
@@ -52,16 +51,19 @@ cd hello-api
 cargo run
 ```
 
-For the workspace server itself:
+Run the example server:
 
 ```bash
 cargo run -p arqen --features cli --bin arqen -- dev --storage memory
 curl http://127.0.0.1:8888/health
 ```
 
-The current CLI also supports `start`, `check`, and `doctor`. `dev` currently
-starts the server and prints the documented `cargo watch` loop; it does not yet
-provide an integrated watcher.
+Install the CLI locally when working from a checkout:
+
+```bash
+cargo install --path crates/arqen --features cli
+arqen --help
+```
 
 ## Architecture
 
@@ -70,58 +72,48 @@ Application, client, or agent
               |
        Axum HTTP boundary
               |
-  typed tools · policies · jobs · logs
+ tools · policies · jobs · health · logs
               |
        Arqen adapter contract
         /         |          \
    memory     native durable   HTTP sidecar
-  development   thingd        thingd service
+  local/test     thingd        thingd service
                                   |
                          future optional cloud API
 ```
 
-The same application-facing contracts are intended to work across four
-deployment modes:
+The same application-facing contracts are designed for four deployment modes:
 
-| Mode | Purpose | Current posture |
+| Mode | Best for | Status |
 |---|---|---|
-| Memory | Fast local development and tests | Available in the Rust workspace |
-| Native durable | Embedded durable thingd storage | Implemented; recovery and workload validation remain deployment responsibilities |
-| HTTP sidecar | Separate thingd service boundary | Implemented adapter; validate against the current public thingd contract |
-| Cloud | Optional hosted thingd service | Future, public-contract dependent |
+| Memory | Local development and tests | Available |
+| Native durable | An embedded thingd process | Available; validate recovery for your workload |
+| HTTP sidecar | A separate thingd service | Available; validate the public contract |
+| Cloud | Hosted thingd services | Future integration path |
 
-## What makes Arqen distinct
+## Why Arqen?
 
-Arqen is the layer between an ordinary backend and the software that needs to
-operate it. It does not replace a web framework, an AI model runtime, a hosted
-BaaS, or a standalone workflow engine. It gives those systems a shared,
-inspectable contract for capabilities, data, jobs, and operations.
+Arqen is a contract layer between an application and the software that
+operates it. It is not a model runtime, BaaS, or workflow engine.
 
-- Compared with a traditional web framework, Arqen makes tools, manifests,
-  permissions, jobs, health, and auditability first-class.
-- Compared with an agent framework, Arqen is model-agnostic. Agents are
-  clients of the application rather than the application’s architecture.
-- Compared with a BaaS, Arqen keeps deployment and adapter boundaries visible
-  instead of requiring a hosted control plane.
-- Compared with a workflow engine, durable jobs are one backend primitive
-  alongside HTTP, storage, tools, logs, and readiness.
-- Compared with a microservice stack, Arqen starts with one explicit
-  application boundary and adds sidecars or cloud adapters only when useful.
+- Traditional web frameworks get typed tools, manifests, policies, jobs, and
+  readiness signals.
+- Agent frameworks get a model-agnostic application boundary.
+- BaaS deployments keep their adapter and operational boundaries visible.
+- Workflow systems get a home for HTTP, storage, observability, and durable
+  work.
 
-See [Why Arqen?](docs/why-arqen.md) for the detailed comparison.
+## Explore the documentation
 
-## Explore the docs
-
-- [About Arqen](docs/about.md) · [Why Arqen?](docs/why-arqen.md) · [Use cases](docs/use-cases.md)
-- [Feature status](docs/feature-status.md) · [Architecture](docs/architecture.md) · [Roadmap](docs/roadmap.md)
-- [Getting started](docs/getting-started.md) · [Commands](docs/commands.md) · [Configuration](docs/configuration.md)
-- [Agent guide](docs/agent-guide.md) · [Agent discovery](docs/agent-discovery.md) · [Typed tools](docs/typed-tools.md)
-- [Operations](docs/deployment.md) · [Docker](docs/docker.md) · [Security](docs/security.md) · [Release](docs/release.md)
-- [Contributing](docs/contributing.md) · [FAQ](docs/faq.md)
-
-The full documentation site is available at
-[sayanmohsin.github.io/arqen](https://sayanmohsin.github.io/arqen/).
+- [Documentation site](https://sayanmohsin.github.io/arqen/)
+- [Getting started](https://sayanmohsin.github.io/arqen/getting-started) · [Configuration](https://sayanmohsin.github.io/arqen/configuration) · [Commands](https://sayanmohsin.github.io/arqen/commands)
+- [Architecture](https://sayanmohsin.github.io/arqen/architecture) · [Modules](https://sayanmohsin.github.io/arqen/modules) · [Feature status](https://sayanmohsin.github.io/arqen/feature-status)
+- [Authentication](https://sayanmohsin.github.io/arqen/authentication) · [Validation](https://sayanmohsin.github.io/arqen/validation) · [OpenAPI](https://sayanmohsin.github.io/arqen/openapi)
+- [Jobs](https://sayanmohsin.github.io/arqen/durable-jobs) · [Observability](https://sayanmohsin.github.io/arqen/observability) · [Testing](https://sayanmohsin.github.io/arqen/testing)
+- [Agent guide](https://sayanmohsin.github.io/arqen/agent-guide) · [Manifest contract](https://sayanmohsin.github.io/arqen/manifest) · [thingd integration](https://sayanmohsin.github.io/arqen/thingd-integration)
+- [Deployment](https://sayanmohsin.github.io/arqen/deployment) · [Docker](https://sayanmohsin.github.io/arqen/docker) · [Security](https://sayanmohsin.github.io/arqen/security)
+- [Contributing](https://github.com/sayanmohsin/arqen/blob/main/CONTRIBUTING.md) · [Security policy](https://github.com/sayanmohsin/arqen/blob/main/SECURITY.md) · [Changelog](https://github.com/sayanmohsin/arqen/blob/main/CHANGELOG.md)
 
 ## License
 
-Arqen is licensed under the [MIT License](LICENSE).
+Arqen is available under the [MIT License](LICENSE).
