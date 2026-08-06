@@ -143,6 +143,75 @@ Run validation checks.
 arqen check
 ```
 
+### `arqen lint`
+
+Run lint checks: formatting and clippy warnings.
+
+```bash
+arqen lint
+```
+
+Checks:
+
+1. `cargo fmt --all -- --check` — formatting
+2. `cargo clippy --all-targets --all-features -- -D warnings` — clippy
+
+Exit: `0` pass, `4` cargo missing, `5` a check failed.
+
+### `arqen format`
+
+Auto-fix formatting.
+
+```bash
+arqen format
+```
+
+Runs `cargo fmt --all`. Exit: `0` success, `4` cargo missing.
+
+### `arqen test`
+
+Run all tests.
+
+```bash
+arqen test
+arqen test --release
+```
+
+Options:
+
+| Flag | Description |
+| --- | --- |
+| `--release` | Build and run in release mode |
+
+Exit: `0` pass, `4` cargo missing, `5` tests failed.
+
+### `arqen build`
+
+Build the project.
+
+```bash
+arqen build
+arqen build --release
+```
+
+Options:
+
+| Flag | Description |
+| --- | --- |
+| `--release` | Build in release mode |
+
+Exit: `0` success, `4` cargo missing, `5` build failed.
+
+### `arqen doc`
+
+Generate documentation.
+
+```bash
+arqen doc
+```
+
+Runs `cargo doc --no-deps`. Exit: `0` success, `4` cargo missing, `5` doc failed.
+
 ### `arqen doctor`
 
 Diagnose Rust, Docker, thingd, and environment setup.
@@ -206,6 +275,5 @@ Install from source:
 cargo install --path crates/arqen --features cli
 ```
 
-The CLI is a thin process manager and project generator. It does not hide
-normal Cargo commands. Commands such as `test`, `routes`, and `agent` are
-not part of the current CLI surface.
+The CLI is a thin process manager, project generator, and dev toolchain.
+Commands such as `routes` and `agent` are not part of the current CLI surface.

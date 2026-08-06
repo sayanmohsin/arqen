@@ -139,19 +139,29 @@ This creates `src/jobs/send_email.rs` with a job handler.
 
 ## Code quality
 
-Run the standard checks:
-
 ```bash
-cargo fmt --all -- --check
-cargo clippy --all-targets --all-features -- -D warnings
-cargo test --all-features
+arqen lint       # check formatting and clippy warnings
+arqen format     # auto-fix formatting
+arqen test       # run tests
+arqen build      # build the project
 ```
 
-For Markdown and YAML formatting, see the
-[tooling guide](https://sayanmohsin.github.io/arqen/tooling).
+See the [tooling guide](https://sayanmohsin.github.io/arqen/tooling)
+for details.
 "#
     );
     fs::write(project_dir.join("README.md"), readme)?;
+
+    let rustfmt_toml = r#"edition = "2024"
+max_width = 100
+use_field_init_shorthand = true
+use_try_shorthand = true
+"#;
+    fs::write(project_dir.join("rustfmt.toml"), rustfmt_toml)?;
+
+    let clippy_toml = r#"avoid-breaking-exported-api = true
+"#;
+    fs::write(project_dir.join("clippy.toml"), clippy_toml)?;
 
     if output.is_json() {
         let summary = serde_json::json!({
@@ -162,6 +172,8 @@ For Markdown and YAML formatting, see the
                 "src/main.rs",
                 "src/app/mod.rs",
                 "README.md",
+                "rustfmt.toml",
+                "clippy.toml",
             ],
         });
         output.print_json(summary);

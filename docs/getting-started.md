@@ -42,12 +42,11 @@ This generates:
 hello-api/
   Cargo.toml          # depends on arqen 0.4 with logging + http-server
   README.md
+  rustfmt.toml        # formatting config
+  clippy.toml         # lint config
   src/
     main.rs           # entry point
     app/mod.rs        # AppModule (Module trait)
-    routes/
-      mod.rs
-      health.rs       # health endpoint
 ```
 
 ## Run the project
@@ -77,10 +76,11 @@ curl http://127.0.0.1:8888/agent/manifest
 curl http://127.0.0.1:8888/docs
 ```
 
-## Run tests
+## Lint and test
 
 ```bash
-cargo test
+arqen lint         # check formatting + clippy
+arqen test         # run all tests
 ```
 
 ## Add your first module

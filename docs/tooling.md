@@ -1,147 +1,98 @@
 # Tooling
 
-Arqen provides recommended tooling configuration for projects that use the
-framework. These are not required, but they help maintain code quality and
-consistency.
+Arqen includes a complete developer toolchain so you never have to think
+about which tools to install or run. Every command works from your project
+root with zero configuration.
 
-## Rust tooling
+## Commands
 
-Arqen projects use standard Rust tooling. Run these from your project root:
+| Command | What it does |
+| --- | --- |
+| `arqen lint` | Check formatting (`cargo fmt --check`) and clippy warnings |
+| `arqen format` | Auto-fix formatting (`cargo fmt`) |
+| `arqen test` | Run all tests (`cargo test --all-features`) |
+| `arqen build` | Build the project (`cargo build`) |
+| `arqen doc` | Generate documentation (`cargo doc --no-deps`) |
+| `arqen check` | Validate project structure and configuration |
+| `arqen doctor` | Diagnose Rust, Docker, and environment setup |
 
-```bash
-cargo fmt --all -- --check    # format check
-cargo clippy --all-targets --all-features -- -D warnings  # lint
-cargo test --all-features     # tests
-cargo doc --no-deps           # docs
-```
-
-To auto-fix formatting:
-
-```bash
-cargo fmt --all
-```
-
-## Prettier (Markdown, YAML, JSON)
-
-Prettier formats your documentation, configuration files, and API schemas.
-Install it in your project:
+## Quick workflow
 
 ```bash
-pnpm add -D prettier
+arqen new my-api
+cd my-api
+arqen dev          # run in development mode
+arqen lint         # check code quality
+arqen test         # run tests
+arqen build        # build for production
 ```
 
-Create a `.prettierrc.json` in your project root:
+## Release builds
 
-```json
-{
-  "proseWrap": "preserve",
-  "printWidth": 100,
-  "trailingComma": "all"
-}
-```
-
-Create a `.prettierignore` to skip build artifacts:
-
-```
-target/
-node_modules/
-pnpm-lock.yaml
-```
-
-Add scripts to your `package.json`:
-
-```json
-{
-  "scripts": {
-    "format": "prettier --write .",
-    "format:check": "prettier --check ."
-  }
-}
-```
-
-Run:
+Pass `--release` to `test` or `build` for optimized output:
 
 ```bash
-pnpm format          # auto-fix
-pnpm format:check    # verify only
+arqen test --release
+arqen build --release
 ```
 
-## Markdownlint (Markdown linting)
+## JSON output
 
-Markdownlint catches common Markdown issues. Install it:
+Every command supports `--json` for CI and scripting:
 
 ```bash
-pnpm add -D markdownlint-cli2
+arqen --json lint
+arqen --json test
+arqen --json build
 ```
 
-Create a `.markdownlint.json` in your project root:
+JSON output goes to stdout. Errors are also emitted as JSON.
 
-```json
-{
-  "MD013": false,
-  "MD033": false,
-  "MD041": false
-}
-```
+## Exit codes
 
-Add a lint script to `package.json`:
+| Code | Meaning |
+| --- | --- |
+| 0 | Success |
+| 2 | Usage error (bad arguments) |
+| 3 | Configuration error |
+| 4 | Dependency not found (cargo missing) |
+| 5 | Runtime error (check or build failed) |
+| 130 | Interrupted (Ctrl+C) |
 
-```json
-{
-  "scripts": {
-    "lint": "markdownlint-cli2 \"**/*.md\" \"!node_modules/**\" \"!target/**\""
-  }
-}
-```
+## Generated project tooling
 
-Run:
+When you run `arqen new`, the project ships with:
 
-```bash
-pnpm lint
-```
+- `rustfmt.toml` — arqen default formatting config
+- `clippy.toml` — arqen default lint config
 
-## Complete setup
-
-A minimal `package.json` for an Arqen project with both tools:
-
-```json
-{
-  "name": "my-arqen-app",
-  "private": true,
-  "scripts": {
-    "format": "prettier --write .",
-    "format:check": "prettier --check .",
-    "lint": "markdownlint-cli2 \"**/*.md\" \"!node_modules/**\" \"!target/**\"",
-    "check": "cargo fmt --all -- --check && cargo clippy --all-targets --all-features -- -D warnings && cargo test --all-features"
-  },
-  "devDependencies": {
-    "prettier": "^3.6.2",
-    "markdownlint-cli2": "^0.17.2"
-  }
-}
-```
+These are used automatically by `arqen lint` and `arqen format`. Edit them
+to customize formatting and lint rules.
 
 ## CI integration
 
-Add these checks to your CI pipeline:
+Use the arqen commands directly in your CI pipeline:
 
 ```yaml
-- name: Format check
-  run: cargo fmt --all -- --check
-
 - name: Lint
-  run: cargo clippy --workspace --all-targets --all-features -- -D warnings
+  run: cargo run -p arqen --features cli --bin arqen -- lint
 
 - name: Test
-  run: cargo test --workspace --all-features
+  run: cargo run -p arqen --features cli --bin arqen -- test
 
-- name: Docs
-  run: cargo doc --workspace --no-deps
+- name: Build
+  run: cargo run -p arqen --features cli --bin arqen -- build
+```
 
-- name: Prettier
-  working-directory: .
-  run: npx prettier --check "**/*.{md,json,yml,yaml}"
+Or install the CLI first for faster runs:
 
-- name: Markdownlint
-  run: npx markdownlint-cli2 "**/*.md" "!node_modules/**" "!target/**"
+```yaml
+- name: Install CLI
+  run: cargo install --path crates/arqen --features cli
+
+- name: Lint
+  run: arqen lint
+
+- name: Test
+  run: arqen test
 ```

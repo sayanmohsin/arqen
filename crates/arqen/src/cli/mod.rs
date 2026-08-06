@@ -1,9 +1,14 @@
+pub mod build;
 pub mod check;
+pub mod doc;
 pub mod doctor;
 pub mod exit;
+pub mod format;
 pub mod generate;
+pub mod lint;
 pub mod output;
 pub mod serve;
+pub mod test;
 
 use clap::{Parser, Subcommand};
 
@@ -93,6 +98,24 @@ pub enum Commands {
     Check,
     /// Diagnose Rust, thingd, Docker, and environment setup
     Doctor,
+    /// Run lint checks (fmt + clippy)
+    Lint,
+    /// Auto-format code
+    Format,
+    /// Run tests
+    Test {
+        /// Build and run in release mode
+        #[arg(long)]
+        release: bool,
+    },
+    /// Build the project
+    Build {
+        /// Build in release mode
+        #[arg(long)]
+        release: bool,
+    },
+    /// Generate documentation
+    Doc,
 }
 
 #[derive(Subcommand)]
@@ -165,6 +188,36 @@ fn dispatch(cli: &Cli, output: &Output) -> anyhow::Result<()> {
         }
         Commands::Doctor => {
             let code = doctor::run_doctor(output);
+            if code != exit::SUCCESS {
+                std::process::exit(code);
+            }
+        }
+        Commands::Lint => {
+            let code = lint::run_lint(output);
+            if code != exit::SUCCESS {
+                std::process::exit(code);
+            }
+        }
+        Commands::Format => {
+            let code = format::run_format(output);
+            if code != exit::SUCCESS {
+                std::process::exit(code);
+            }
+        }
+        Commands::Test { release } => {
+            let code = test::run_test(*release, output);
+            if code != exit::SUCCESS {
+                std::process::exit(code);
+            }
+        }
+        Commands::Build { release } => {
+            let code = build::run_build(*release, output);
+            if code != exit::SUCCESS {
+                std::process::exit(code);
+            }
+        }
+        Commands::Doc => {
+            let code = doc::run_doc(output);
             if code != exit::SUCCESS {
                 std::process::exit(code);
             }
