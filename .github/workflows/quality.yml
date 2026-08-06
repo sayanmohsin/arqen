@@ -17,7 +17,7 @@ jobs:
         with: { globs: "**/*.md" }
       - uses: lycheeverse/lychee-action@v2
         with:
-          args: --verbose --no-progress --exclude '127\.0\.0\.1' --exclude 'github.com/.*/compare/' "**/*.md" "README.md"
+          args: --verbose --no-progress --exclude '127\.0\.0\.1' --exclude 'github.com/.*/compare/' --exclude 'github.com/login' --exclude 'github.com/.*/security/advisories/new' --exclude 'github.com/.*/issues/new' "**/*.md" "README.md"
           fail: true
 
   prettier:

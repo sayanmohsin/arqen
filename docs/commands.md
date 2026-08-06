@@ -179,8 +179,8 @@ arqen test --release
 
 Options:
 
-| Flag | Description |
-| --- | --- |
+| Flag        | Description                   |
+| ----------- | ----------------------------- |
 | `--release` | Build and run in release mode |
 
 Exit: `0` pass, `4` cargo missing, `5` tests failed.
@@ -196,8 +196,8 @@ arqen build --release
 
 Options:
 
-| Flag | Description |
-| --- | --- |
+| Flag        | Description           |
+| ----------- | --------------------- |
 | `--release` | Build in release mode |
 
 Exit: `0` success, `4` cargo missing, `5` build failed.

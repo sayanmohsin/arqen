@@ -6,15 +6,15 @@ root with zero configuration.
 
 ## Commands
 
-| Command | What it does |
-| --- | --- |
-| `arqen lint` | Check formatting (`cargo fmt --check`) and clippy warnings |
-| `arqen format` | Auto-fix formatting (`cargo fmt`) |
-| `arqen test` | Run all tests (`cargo test --all-features`) |
-| `arqen build` | Build the project (`cargo build`) |
-| `arqen doc` | Generate documentation (`cargo doc --no-deps`) |
-| `arqen check` | Validate project structure and configuration |
-| `arqen doctor` | Diagnose Rust, Docker, and environment setup |
+| Command        | What it does                                               |
+| -------------- | ---------------------------------------------------------- |
+| `arqen lint`   | Check formatting (`cargo fmt --check`) and clippy warnings |
+| `arqen format` | Auto-fix formatting (`cargo fmt`)                          |
+| `arqen test`   | Run all tests (`cargo test --all-features`)                |
+| `arqen build`  | Build the project (`cargo build`)                          |
+| `arqen doc`    | Generate documentation (`cargo doc --no-deps`)             |
+| `arqen check`  | Validate project structure and configuration               |
+| `arqen doctor` | Diagnose Rust, Docker, and environment setup               |
 
 ## Quick workflow
 
@@ -50,14 +50,14 @@ JSON output goes to stdout. Errors are also emitted as JSON.
 
 ## Exit codes
 
-| Code | Meaning |
-| --- | --- |
-| 0 | Success |
-| 2 | Usage error (bad arguments) |
-| 3 | Configuration error |
-| 4 | Dependency not found (cargo missing) |
-| 5 | Runtime error (check or build failed) |
-| 130 | Interrupted (Ctrl+C) |
+| Code | Meaning                               |
+| ---- | ------------------------------------- |
+| 0    | Success                               |
+| 2    | Usage error (bad arguments)           |
+| 3    | Configuration error                   |
+| 4    | Dependency not found (cargo missing)  |
+| 5    | Runtime error (check or build failed) |
+| 130  | Interrupted (Ctrl+C)                  |
 
 ## Generated project tooling
 

@@ -7,15 +7,13 @@
     "build": "vitepress build",
     "preview": "vitepress preview",
     "format": "prettier --write .",
-    "format:check": "prettier --check .",
-    "lint": "markdownlint-cli2 \"**/*.md\" \"!node_modules/**\""
+    "format:check": "prettier --check ."
   },
   "dependencies": {
     "vue": "^3.5.0"
   },
   "devDependencies": {
     "prettier": "^3.6.2",
-    "markdownlint-cli2": "^0.17.2",
     "vite": "^6.4.3",
     "vitepress": "^1.6.3"
   }

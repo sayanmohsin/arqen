@@ -1,4 +1,4 @@
-node_modules
-.vitepress/dist
-public
+target/
+node_modules/
 pnpm-lock.yaml
+.vitepress/dist/
