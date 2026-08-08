@@ -2,6 +2,21 @@
 
 Upgrade notes for Arqen releases.
 
+## Alpha → beta startup behavior
+
+`arqen start` is now the strict production path. It validates configuration
+before binding and rejects memory storage, incomplete native or HTTP storage,
+unsupported cloud storage, disabled authentication, pretty logs, missing
+credentials, and unsafe worker settings. Use `arqen dev` for local memory-mode
+development and tests. Applications that call the library directly should
+also call `AppConfig::validate_production()` before starting a production
+listener.
+
+The new `ScopedThingdBackend` should wrap an application backend whenever data
+is tenant- or user-owned. Its tenant, instance, and subject values must come
+from verified authentication or trusted server configuration, never from a
+request body.
+
 ## 0.3 → 0.4
 
 ### Single published crate

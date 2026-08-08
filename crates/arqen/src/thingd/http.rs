@@ -2,6 +2,9 @@ use async_trait::async_trait;
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
 use std::time::Duration;
+use tokio::time::sleep;
+
+use crate::core::{AppError, ErrorKind};
 
 use crate::thingd::traits::*;
 
@@ -12,10 +15,34 @@ pub struct HttpThingdBackend {
     base_url: String,
     client: Client,
     auth_token: Option<String>,
+    policy: HttpClientPolicy,
+}
+
+#[derive(Debug, Clone)]
+pub struct HttpClientPolicy {
+    pub connect_timeout: Duration,
+    pub request_timeout: Duration,
+    pub max_retries: u32,
+    pub initial_backoff: Duration,
+}
+
+impl Default for HttpClientPolicy {
+    fn default() -> Self {
+        Self {
+            connect_timeout: Duration::from_secs(5),
+            request_timeout: Duration::from_secs(30),
+            max_retries: 2,
+            initial_backoff: Duration::from_millis(50),
+        }
+    }
 }
 
 impl HttpThingdBackend {
     pub fn new(base_url: &str) -> Self {
+        Self::with_policy(base_url, HttpClientPolicy::default())
+    }
+
+    pub fn with_policy(base_url: &str, policy: HttpClientPolicy) -> Self {
         let base = base_url.trim_end_matches('/').to_string();
         // Ensure the base URL ends with /v1 for the thingd sidecar REST API
         let base = if base.ends_with("/v1") {
@@ -26,12 +53,13 @@ impl HttpThingdBackend {
         Self {
             base_url: base,
             client: Client::builder()
-                .connect_timeout(Duration::from_secs(5))
-                .timeout(Duration::from_secs(30))
+                .connect_timeout(policy.connect_timeout)
+                .timeout(policy.request_timeout)
                 .pool_max_idle_per_host(32)
                 .build()
                 .expect("valid reqwest client configuration"),
             auth_token: None,
+            policy,
         }
     }
 
@@ -40,39 +68,119 @@ impl HttpThingdBackend {
         self
     }
 
+    fn authenticated(&self, request: reqwest::RequestBuilder) -> reqwest::RequestBuilder {
+        if let Some(token) = &self.auth_token {
+            request.bearer_auth(token)
+        } else {
+            request
+        }
+    }
+
+    fn status_kind(status: reqwest::StatusCode) -> ErrorKind {
+        match status.as_u16() {
+            401 => ErrorKind::Authentication,
+            403 => ErrorKind::Authorization,
+            404 => ErrorKind::NotFound,
+            409 => ErrorKind::Conflict,
+            429 => ErrorKind::RateLimited,
+            408 | 504 => ErrorKind::Timeout,
+            500..=599 => ErrorKind::Unavailable,
+            _ => ErrorKind::External,
+        }
+    }
+
+    async fn response_error(response: reqwest::Response) -> AppError {
+        let status = response.status();
+        let body = response.text().await.unwrap_or_default();
+        let detail: String = body.chars().take(512).collect();
+        AppError::new(
+            Self::status_kind(status),
+            format!("HTTP error {}: {}", status.as_u16(), detail),
+        )
+    }
+
+    async fn finish<R: for<'de> Deserialize<'de>>(
+        &self,
+        request: reqwest::RequestBuilder,
+    ) -> Result<R, AppError> {
+        let response = self.authenticated(request).send().await.map_err(|error| {
+            let kind = if error.is_timeout() {
+                ErrorKind::Timeout
+            } else {
+                ErrorKind::Unavailable
+            };
+            AppError::new(kind, format!("HTTP request failed: {error}"))
+        })?;
+        if !response.status().is_success() {
+            return Err(Self::response_error(response).await);
+        }
+        response.json().await.map_err(|error| {
+            AppError::new(
+                ErrorKind::Dependency,
+                format!("failed to parse thingd response: {error}"),
+            )
+        })
+    }
+
     async fn get<R: for<'de> Deserialize<'de>>(
         &self,
         path: &str,
     ) -> Result<R, crate::core::AppError> {
         let url = format!("{}{}", self.base_url, path);
-        let mut request = self.client.get(&url);
-        if let Some(token) = &self.auth_token {
-            request = request.bearer_auth(token);
+        for attempt in 0..=self.policy.max_retries {
+            let request = self.authenticated(self.client.get(&url));
+            match request.send().await {
+                Ok(response) if response.status().is_success() => {
+                    return response.json().await.map_err(|error| {
+                        AppError::new(
+                            ErrorKind::Dependency,
+                            format!("failed to parse thingd response: {error}"),
+                        )
+                    });
+                }
+                Ok(response)
+                    if (response.status().is_server_error()
+                        || response.status().as_u16() == 429)
+                        && attempt < self.policy.max_retries =>
+                {
+                    let _ = response.bytes().await;
+                    sleep(
+                        self.policy
+                            .initial_backoff
+                            .saturating_mul(2u32.saturating_pow(attempt)),
+                    )
+                    .await;
+                }
+                Ok(response) => return Err(Self::response_error(response).await),
+                Err(error)
+                    if (error.is_timeout() || error.is_connect())
+                        && attempt < self.policy.max_retries =>
+                {
+                    sleep(
+                        self.policy
+                            .initial_backoff
+                            .saturating_mul(2u32.saturating_pow(attempt)),
+                    )
+                    .await;
+                }
+                Err(error) => {
+                    let kind = if error.is_timeout() {
+                        ErrorKind::Timeout
+                    } else {
+                        ErrorKind::Unavailable
+                    };
+                    return Err(AppError::new(kind, format!("HTTP request failed: {error}")));
+                }
+            }
         }
-        let response = request.send().await.map_err(|e| {
-            crate::core::AppError::new(
-                crate::core::ErrorKind::External,
-                format!("HTTP request failed: {}", e),
-            )
-        })?;
-        if !response.status().is_success() {
-            let status = response.status().as_u16();
-            let text = response.text().await.unwrap_or_default();
-            return Err(crate::core::AppError::new(
-                crate::core::ErrorKind::External,
-                format!("HTTP error {}: {}", status, text),
-            ));
-        }
-        response.json().await.map_err(|e| {
-            crate::core::AppError::new(
-                crate::core::ErrorKind::External,
-                format!("Failed to parse response: {}", e),
-            )
-        })
+        Err(AppError::new(
+            ErrorKind::Unavailable,
+            "HTTP retry policy exhausted",
+        ))
     }
 
     fn is_not_found(err: &crate::core::AppError) -> bool {
-        err.message.contains("404")
+        err.kind == ErrorKind::NotFound
     }
 
     async fn post<T: Serialize, R: for<'de> Deserialize<'de>>(
@@ -81,30 +189,7 @@ impl HttpThingdBackend {
         body: T,
     ) -> Result<R, crate::core::AppError> {
         let url = format!("{}{}", self.base_url, path);
-        let mut request = self.client.post(&url).json(&body);
-        if let Some(token) = &self.auth_token {
-            request = request.bearer_auth(token);
-        }
-        let response = request.send().await.map_err(|e| {
-            crate::core::AppError::new(
-                crate::core::ErrorKind::External,
-                format!("HTTP request failed: {}", e),
-            )
-        })?;
-        if !response.status().is_success() {
-            let status = response.status().as_u16();
-            let text = response.text().await.unwrap_or_default();
-            return Err(crate::core::AppError::new(
-                crate::core::ErrorKind::External,
-                format!("HTTP error {}: {}", status, text),
-            ));
-        }
-        response.json().await.map_err(|e| {
-            crate::core::AppError::new(
-                crate::core::ErrorKind::External,
-                format!("Failed to parse response: {}", e),
-            )
-        })
+        self.finish(self.client.post(&url).json(&body)).await
     }
 
     async fn put<T: Serialize, R: for<'de> Deserialize<'de>>(
@@ -113,30 +198,7 @@ impl HttpThingdBackend {
         body: T,
     ) -> Result<R, crate::core::AppError> {
         let url = format!("{}{}", self.base_url, path);
-        let mut request = self.client.put(&url).json(&body);
-        if let Some(token) = &self.auth_token {
-            request = request.bearer_auth(token);
-        }
-        let response = request.send().await.map_err(|e| {
-            crate::core::AppError::new(
-                crate::core::ErrorKind::External,
-                format!("HTTP request failed: {}", e),
-            )
-        })?;
-        if !response.status().is_success() {
-            let status = response.status().as_u16();
-            let text = response.text().await.unwrap_or_default();
-            return Err(crate::core::AppError::new(
-                crate::core::ErrorKind::External,
-                format!("HTTP error {}: {}", status, text),
-            ));
-        }
-        response.json().await.map_err(|e| {
-            crate::core::AppError::new(
-                crate::core::ErrorKind::External,
-                format!("Failed to parse response: {}", e),
-            )
-        })
+        self.finish(self.client.put(&url).json(&body)).await
     }
 
     async fn delete<R: for<'de> Deserialize<'de>>(
@@ -144,30 +206,41 @@ impl HttpThingdBackend {
         path: &str,
     ) -> Result<R, crate::core::AppError> {
         let url = format!("{}{}", self.base_url, path);
-        let mut request = self.client.delete(&url);
-        if let Some(token) = &self.auth_token {
-            request = request.bearer_auth(token);
+        self.finish(self.client.delete(&url)).await
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn maps_public_http_statuses_to_stable_error_kinds() {
+        let cases = [
+            (401, ErrorKind::Authentication),
+            (403, ErrorKind::Authorization),
+            (404, ErrorKind::NotFound),
+            (409, ErrorKind::Conflict),
+            (429, ErrorKind::RateLimited),
+            (408, ErrorKind::Timeout),
+            (504, ErrorKind::Timeout),
+            (503, ErrorKind::Unavailable),
+            (400, ErrorKind::External),
+        ];
+        for (status, expected) in cases {
+            assert_eq!(
+                HttpThingdBackend::status_kind(reqwest::StatusCode::from_u16(status).unwrap()),
+                expected
+            );
         }
-        let response = request.send().await.map_err(|e| {
-            crate::core::AppError::new(
-                crate::core::ErrorKind::External,
-                format!("HTTP request failed: {}", e),
-            )
-        })?;
-        if !response.status().is_success() {
-            let status = response.status().as_u16();
-            let text = response.text().await.unwrap_or_default();
-            return Err(crate::core::AppError::new(
-                crate::core::ErrorKind::External,
-                format!("HTTP error {}: {}", status, text),
-            ));
-        }
-        response.json().await.map_err(|e| {
-            crate::core::AppError::new(
-                crate::core::ErrorKind::External,
-                format!("Failed to parse response: {}", e),
-            )
-        })
+    }
+
+    #[test]
+    fn default_policy_is_bounded_and_read_retry_only() {
+        let policy = HttpClientPolicy::default();
+        assert_eq!(policy.max_retries, 2);
+        assert!(policy.connect_timeout <= policy.request_timeout);
+        assert!(policy.initial_backoff > Duration::ZERO);
     }
 }
 

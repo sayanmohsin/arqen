@@ -1,6 +1,7 @@
 pub mod cache;
 pub mod factory;
 pub mod memory;
+pub mod scoped;
 pub mod traits;
 
 #[cfg(feature = "http-client")]
@@ -13,8 +14,11 @@ pub mod native_backend;
 pub use cache::{CachePolicy, CachingThingdBackend};
 pub use factory::StorageFactory;
 pub use memory::MemoryThingdBackend;
+pub use scoped::{ScopeSubject, ScopedThingdBackend, StorageScope};
 pub use traits::*;
 
+#[cfg(feature = "http-client")]
+pub use http::HttpClientPolicy;
 #[cfg(feature = "http-client")]
 pub use http::HttpThingdBackend;
 #[cfg(feature = "thingd-native")]

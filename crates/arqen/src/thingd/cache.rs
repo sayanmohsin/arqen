@@ -9,6 +9,7 @@ use async_trait::async_trait;
 use serde_json::Value;
 
 use crate::core::AppError;
+use crate::observability::{NoopMetricsSink, SharedMetricsSink};
 use crate::thingd::{
     QueryOptions, SearchOptions, SearchResults, ThingdBackend, ThingdEvent, ThingdJob, ThingdLink,
     ThingdObject, ThingdOperation, ThingdOperationResult,
@@ -44,6 +45,7 @@ pub struct CachingThingdBackend {
     state: CacheState,
     hits: AtomicU64,
     misses: AtomicU64,
+    metrics: SharedMetricsSink,
 }
 
 impl CachingThingdBackend {
@@ -51,6 +53,15 @@ impl CachingThingdBackend {
         source: Arc<dyn ThingdBackend>,
         cache: Arc<dyn ThingdBackend>,
         policy: CachePolicy,
+    ) -> Self {
+        Self::new_with_metrics(source, cache, policy, Arc::new(NoopMetricsSink))
+    }
+
+    pub fn new_with_metrics(
+        source: Arc<dyn ThingdBackend>,
+        cache: Arc<dyn ThingdBackend>,
+        policy: CachePolicy,
+        metrics: SharedMetricsSink,
     ) -> Self {
         Self {
             source,
@@ -62,6 +73,7 @@ impl CachingThingdBackend {
             },
             hits: AtomicU64::new(0),
             misses: AtomicU64::new(0),
+            metrics,
         }
     }
 
@@ -136,6 +148,12 @@ impl CachingThingdBackend {
                 .lock()
                 .expect("cache expiry mutex poisoned")
                 .remove(oldest);
+            self.metrics
+                .record_cache(crate::observability::CacheMetric {
+                    operation: "eviction".to_string(),
+                    hit: false,
+                    duration_ms: 0,
+                });
         }
         self.state
             .expires
@@ -153,11 +171,18 @@ impl ThingdBackend for CachingThingdBackend {
         collection: &str,
         id: &str,
     ) -> Result<Option<ThingdObject>, AppError> {
+        let started = Instant::now();
         let key = Self::key(collection, id);
         if self.fresh(&key)
             && let Some(object) = self.cache.get_object(collection, id).await?
         {
             self.hits.fetch_add(1, Ordering::Relaxed);
+            self.metrics
+                .record_cache(crate::observability::CacheMetric {
+                    operation: "get".to_string(),
+                    hit: true,
+                    duration_ms: started.elapsed().as_millis() as u64,
+                });
             return Ok(Some(object));
         }
         let gate = self.gate(&key).await;
@@ -166,9 +191,21 @@ impl ThingdBackend for CachingThingdBackend {
             && let Some(object) = self.cache.get_object(collection, id).await?
         {
             self.hits.fetch_add(1, Ordering::Relaxed);
+            self.metrics
+                .record_cache(crate::observability::CacheMetric {
+                    operation: "get".to_string(),
+                    hit: true,
+                    duration_ms: started.elapsed().as_millis() as u64,
+                });
             return Ok(Some(object));
         }
         self.misses.fetch_add(1, Ordering::Relaxed);
+        self.metrics
+            .record_cache(crate::observability::CacheMetric {
+                operation: "get".to_string(),
+                hit: false,
+                duration_ms: started.elapsed().as_millis() as u64,
+            });
         let object = self.source.get_object(collection, id).await?;
         if let Some(object) = &object {
             self.cache_object(object).await?;

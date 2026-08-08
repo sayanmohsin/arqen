@@ -14,6 +14,12 @@ records to your logging and metrics platform, define retention and redaction
 rules, and set service-level alerts in the deployment environment. OpenTelemetry
 and Prometheus exporters are not bundled in the current release.
 
+For vendor-neutral integration, implement `arqen::MetricsSink` and pass it to
+components that support metrics. `NoopMetricsSink` is the default. The event
+types cover requests, storage operations, cache hits/misses/evictions, and
+jobs; adapters should record latency in milliseconds and never include tokens,
+provider keys, raw payloads, or authorization headers.
+
 At minimum, alert on readiness failures, elevated 5xx/error rate, p95 and p99
 latency, storage dependency failures, queue lag, retry growth, and dead-letter
 growth. Preserve correlation IDs across HTTP requests, repository calls, and

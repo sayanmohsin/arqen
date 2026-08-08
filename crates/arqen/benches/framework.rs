@@ -156,6 +156,61 @@ fn bench_thingd_crud(c: &mut Criterion) {
     group.finish();
 }
 
+#[cfg(feature = "thingd-native")]
+fn bench_thingd_native_and_cache(c: &mut Criterion) {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let mut group = c.benchmark_group("thingd_native");
+
+    group.bench_function("put_object", |b| {
+        let backend = arqen::NativeThingdBackend::memory();
+        b.iter(|| {
+            rt.block_on(async {
+                backend
+                    .put_object("bench", "item1", serde_json::json!({"data": "value"}))
+                    .await
+                    .unwrap();
+            });
+        });
+    });
+
+    group.bench_function("get_object", |b| {
+        let backend = arqen::NativeThingdBackend::memory();
+        rt.block_on(async {
+            backend
+                .put_object("bench", "item1", serde_json::json!({"data": "value"}))
+                .await
+                .unwrap();
+        });
+        b.iter(|| {
+            rt.block_on(async {
+                backend.get_object("bench", "item1").await.unwrap();
+            });
+        });
+    });
+    group.finish();
+
+    let mut cache_group = c.benchmark_group("thingd_cache");
+    cache_group.bench_function("hit", |b| {
+        let source: Arc<dyn arqen::ThingdBackend> = Arc::new(arqen::MemoryThingdBackend::new());
+        let cache: Arc<dyn arqen::ThingdBackend> = Arc::new(arqen::MemoryThingdBackend::new());
+        let backend =
+            arqen::CachingThingdBackend::new(source.clone(), cache, arqen::CachePolicy::default());
+        rt.block_on(async {
+            source
+                .put_object("bench", "item1", serde_json::json!({"data": "value"}))
+                .await
+                .unwrap();
+            backend.get_object("bench", "item1").await.unwrap();
+        });
+        b.iter(|| {
+            rt.block_on(async {
+                backend.get_object("bench", "item1").await.unwrap();
+            });
+        });
+    });
+    cache_group.finish();
+}
+
 fn bench_jobs(c: &mut Criterion) {
     let rt = tokio::runtime::Runtime::new().unwrap();
 
@@ -207,6 +262,7 @@ criterion_group!(
     bench_manifest_generation,
     bench_validation,
     bench_thingd_crud,
+    bench_thingd_native_and_cache,
     bench_jobs,
     bench_health,
 );

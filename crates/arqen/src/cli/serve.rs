@@ -101,6 +101,11 @@ pub fn serve_start(
         }
     };
 
+    if let Err(error) = config.validate_production() {
+        output.print_error(&format!("production configuration is unsafe: {error}"));
+        return exit::CONFIG;
+    }
+
     let addr: SocketAddr = match config.address() {
         Ok(a) => a,
         Err(e) => {

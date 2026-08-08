@@ -71,10 +71,18 @@ pub use jobs::{JobConfig, JobHandler, JobWorker, Worker};
 pub use module::{
     Module, ModuleBuilder, ModuleContext, ModuleError, ModuleGraphError, ModuleHealth,
 };
+#[cfg(feature = "http-server")]
+pub use observability::{
+    CacheMetric, JobMetric, MetricsSink, NoopMetricsSink, RequestMetric, SharedMetricsSink,
+    StorageMetric,
+};
 pub use state::{AppState, AppStateBuilder};
 pub use thingd::{
-    CachePolicy, CachingThingdBackend, MemoryThingdBackend, StorageFactory, ThingdBackend,
+    CachePolicy, CachingThingdBackend, MemoryThingdBackend, ScopeSubject, ScopedThingdBackend,
+    StorageFactory, StorageScope, ThingdBackend,
 };
+#[cfg(feature = "http-client")]
+pub use thingd::{HttpClientPolicy, HttpThingdBackend};
 
 #[cfg(feature = "http-server")]
 pub use auth::{AuthContext, AuthError, Authentication};
@@ -93,7 +101,5 @@ pub use http::{
 };
 #[cfg(feature = "logging")]
 pub use logging::{init_logging, init_logging_with_config};
-#[cfg(feature = "http-client")]
-pub use thingd::HttpThingdBackend;
 #[cfg(feature = "thingd-native")]
 pub use thingd::{NativeThingdBackend, NativeThingdStore};

@@ -37,6 +37,25 @@ impl NativeThingdBackend {
         })?;
         Ok(Self { store })
     }
+
+    /// Execute one synchronous native thingd operation outside Tokio worker
+    /// threads. The public `NativeThingdStore` API remains synchronous for
+    /// advanced integrations; this boundary is used by the async adapter.
+    pub async fn run_blocking<R, F>(&self, operation: F) -> Result<R, AppError>
+    where
+        R: Send + 'static,
+        F: FnOnce(NativeThingdStore) -> Result<R, AppError> + Send + 'static,
+    {
+        let store = self.store.clone();
+        tokio::task::spawn_blocking(move || operation(store))
+            .await
+            .map_err(|error| {
+                AppError::new(
+                    ErrorKind::Internal,
+                    format!("native thingd blocking task failed: {error}"),
+                )
+            })?
+    }
 }
 
 fn to_app_error(error: thingd::ThingdError) -> AppError {
@@ -208,14 +227,21 @@ impl ThingdBackend for NativeThingdBackend {
         collection: &str,
         id: &str,
     ) -> Result<Option<ThingdObject>, AppError> {
-        self.store.with_engine(|engine| {
-            let found = match engine {
-                crate::thingd::NativeThingdEngine::Memory(e) => e.get_object(collection, id),
-                crate::thingd::NativeThingdEngine::Persistent(e) => e.get_object(collection, id),
-            }
-            .map_err(to_app_error)?;
-            Ok(found.as_ref().map(to_object))
-        })?
+        let collection = collection.to_string();
+        let id = id.to_string();
+        self.run_blocking(move |store| {
+            store.with_engine(|engine| {
+                let found = match engine {
+                    crate::thingd::NativeThingdEngine::Memory(e) => e.get_object(&collection, &id),
+                    crate::thingd::NativeThingdEngine::Persistent(e) => {
+                        e.get_object(&collection, &id)
+                    }
+                }
+                .map_err(to_app_error)?;
+                Ok(found.as_ref().map(to_object))
+            })
+        })
+        .await?
     }
 
     async fn put_object(
@@ -224,19 +250,31 @@ impl ThingdBackend for NativeThingdBackend {
         id: &str,
         data: Value,
     ) -> Result<ThingdObject, AppError> {
-        put_object_into_store(&self.store, collection, id, &data)
+        let collection = collection.to_string();
+        let id = id.to_string();
+        self.run_blocking(move |store| put_object_into_store(&store, &collection, &id, &data))
+            .await
     }
 
     async fn delete_object(&self, collection: &str, id: &str) -> Result<(), AppError> {
-        self.store.with_engine(|engine| {
-            let deleted = match engine {
-                crate::thingd::NativeThingdEngine::Memory(e) => e.delete_object(collection, id),
-                crate::thingd::NativeThingdEngine::Persistent(e) => e.delete_object(collection, id),
-            }
-            .map_err(to_app_error)?;
-            let _ = deleted;
-            Ok(())
-        })?
+        let collection = collection.to_string();
+        let id = id.to_string();
+        self.run_blocking(move |store| {
+            store.with_engine(|engine| {
+                let deleted = match engine {
+                    crate::thingd::NativeThingdEngine::Memory(e) => {
+                        e.delete_object(&collection, &id)
+                    }
+                    crate::thingd::NativeThingdEngine::Persistent(e) => {
+                        e.delete_object(&collection, &id)
+                    }
+                }
+                .map_err(to_app_error)?;
+                let _ = deleted;
+                Ok(())
+            })
+        })
+        .await?
     }
 
     async fn query_objects(
@@ -244,8 +282,13 @@ impl ThingdBackend for NativeThingdBackend {
         collection: &str,
         options: QueryOptions,
     ) -> Result<Vec<ThingdObject>, AppError> {
-        let mut matched = list_collection_objects(&self.store, collection)?;
-        matched.retain(|obj| applies_filters(obj, &options.filters));
+        let collection = collection.to_string();
+        let filters = options.filters.clone();
+        let matched = self
+            .run_blocking(move |store| list_collection_objects(&store, &collection))
+            .await?;
+        let mut matched = matched;
+        matched.retain(|obj| applies_filters(obj, &filters));
         let items: Vec<ThingdObject> = matched
             .into_iter()
             .skip(options.offset)
@@ -255,57 +298,76 @@ impl ThingdBackend for NativeThingdBackend {
     }
 
     async fn count_objects(&self, collection: &str) -> Result<usize, AppError> {
-        self.store.with_engine(|engine| {
-            let count = match engine {
-                crate::thingd::NativeThingdEngine::Memory(e) => {
-                    e.count_objects_in_collection(collection)
+        let collection = collection.to_string();
+        self.run_blocking(move |store| {
+            store.with_engine(|engine| {
+                let count = match engine {
+                    crate::thingd::NativeThingdEngine::Memory(e) => {
+                        e.count_objects_in_collection(&collection)
+                    }
+                    crate::thingd::NativeThingdEngine::Persistent(e) => {
+                        e.count_objects_in_collection(&collection)
+                    }
                 }
-                crate::thingd::NativeThingdEngine::Persistent(e) => {
-                    e.count_objects_in_collection(collection)
-                }
-            }
-            .map_err(to_app_error)?;
-            Ok(count as usize)
-        })?
+                .map_err(to_app_error)?;
+                Ok(count as usize)
+            })
+        })
+        .await?
     }
 
     async fn batch_write(
         &self,
         operations: Vec<ThingdOperation>,
     ) -> Result<Vec<ThingdOperationResult>, AppError> {
-        let mut results = Vec::with_capacity(operations.len());
-        for op in operations {
-            let result = match op {
-                ThingdOperation::Put {
-                    collection,
-                    id,
-                    data,
-                } => match put_object_into_store(&self.store, &collection, &id, &data) {
-                    Ok(_) => ThingdOperationResult {
-                        success: true,
-                        error: None,
-                    },
-                    Err(e) => ThingdOperationResult {
-                        success: false,
-                        error: Some(e.to_string()),
-                    },
-                },
-                ThingdOperation::Delete { collection, id } => {
-                    match self.delete_object(&collection, &id).await {
-                        Ok(_) => ThingdOperationResult {
-                            success: true,
-                            error: None,
+        let result = self
+            .run_blocking(move |store| {
+                let mut results = Vec::with_capacity(operations.len());
+                for op in operations {
+                    let result = match op {
+                        ThingdOperation::Put {
+                            collection,
+                            id,
+                            data,
+                        } => match put_object_into_store(&store, &collection, &id, &data) {
+                            Ok(_) => ThingdOperationResult {
+                                success: true,
+                                error: None,
+                            },
+                            Err(e) => ThingdOperationResult {
+                                success: false,
+                                error: Some(e.to_string()),
+                            },
                         },
-                        Err(e) => ThingdOperationResult {
-                            success: false,
-                            error: Some(e.to_string()),
-                        },
-                    }
+                        ThingdOperation::Delete { collection, id } => {
+                            match store.with_engine(|engine| {
+                                match engine {
+                                    crate::thingd::NativeThingdEngine::Memory(e) => {
+                                        e.delete_object(&collection, &id)
+                                    }
+                                    crate::thingd::NativeThingdEngine::Persistent(e) => {
+                                        e.delete_object(&collection, &id)
+                                    }
+                                }
+                                .map_err(to_app_error)
+                            }) {
+                                Ok(_) => ThingdOperationResult {
+                                    success: true,
+                                    error: None,
+                                },
+                                Err(e) => ThingdOperationResult {
+                                    success: false,
+                                    error: Some(e.to_string()),
+                                },
+                            }
+                        }
+                    };
+                    results.push(result);
                 }
-            };
-            results.push(result);
-        }
-        Ok(results)
+                Ok(results)
+            })
+            .await?;
+        Ok(result)
     }
 
     async fn append_event(
@@ -314,15 +376,20 @@ impl ThingdBackend for NativeThingdBackend {
         event_type: &str,
         data: Value,
     ) -> Result<ThingdEvent, AppError> {
-        self.store.with_engine(|engine| {
-            let event = MemoryEvent::new(stream, event_type, data.to_string());
-            let stored = match engine {
-                crate::thingd::NativeThingdEngine::Memory(e) => e.append_event(event),
-                crate::thingd::NativeThingdEngine::Persistent(e) => e.append_event(event),
-            }
-            .map_err(to_app_error)?;
-            Ok(to_event(&stored))
-        })?
+        let stream = stream.to_string();
+        let event_type = event_type.to_string();
+        self.run_blocking(move |store| {
+            store.with_engine(|engine| {
+                let event = MemoryEvent::new(&stream, &event_type, data.to_string());
+                let stored = match engine {
+                    crate::thingd::NativeThingdEngine::Memory(e) => e.append_event(event),
+                    crate::thingd::NativeThingdEngine::Persistent(e) => e.append_event(event),
+                }
+                .map_err(to_app_error)?;
+                Ok(to_event(&stored))
+            })
+        })
+        .await?
     }
 
     async fn read_events(
@@ -331,24 +398,28 @@ impl ThingdBackend for NativeThingdBackend {
         from: Option<String>,
         limit: usize,
     ) -> Result<Vec<ThingdEvent>, AppError> {
-        self.store.with_engine(|engine| {
-            let from_sequence = from.as_deref().and_then(|id| id.parse::<u64>().ok());
-            let options = ListEventsOptions {
-                from_sequence,
-                limit: Some(limit as u64),
-                since: None,
-            };
-            let events = match engine {
-                crate::thingd::NativeThingdEngine::Memory(e) => {
-                    e.list_events(Some(stream), options)
+        let stream = stream.to_string();
+        self.run_blocking(move |store| {
+            store.with_engine(|engine| {
+                let from_sequence = from.as_deref().and_then(|id| id.parse::<u64>().ok());
+                let options = ListEventsOptions {
+                    from_sequence,
+                    limit: Some(limit as u64),
+                    since: None,
+                };
+                let events = match engine {
+                    crate::thingd::NativeThingdEngine::Memory(e) => {
+                        e.list_events(Some(&stream), options)
+                    }
+                    crate::thingd::NativeThingdEngine::Persistent(e) => {
+                        e.list_events(Some(&stream), options)
+                    }
                 }
-                crate::thingd::NativeThingdEngine::Persistent(e) => {
-                    e.list_events(Some(stream), options)
-                }
-            }
-            .map_err(to_app_error)?;
-            Ok(events.iter().map(to_event).collect())
-        })?
+                .map_err(to_app_error)?;
+                Ok(events.iter().map(to_event).collect())
+            })
+        })
+        .await?
     }
 
     async fn push_job(
@@ -357,20 +428,24 @@ impl ThingdBackend for NativeThingdBackend {
         payload: Value,
         max_retries: u32,
     ) -> Result<ThingdJob, AppError> {
-        self.store.with_engine(|engine| {
-            let job = QueueJob::new(
-                queue,
-                Uuid::new_v4().to_string(),
-                payload.to_string(),
-                max_retries,
-            );
-            let pushed = match engine {
-                crate::thingd::NativeThingdEngine::Memory(e) => e.push_job(job),
-                crate::thingd::NativeThingdEngine::Persistent(e) => e.push_job(job),
-            }
-            .map_err(to_app_error)?;
-            Ok(to_job(&pushed))
-        })?
+        let queue = queue.to_string();
+        self.run_blocking(move |store| {
+            store.with_engine(|engine| {
+                let job = QueueJob::new(
+                    &queue,
+                    Uuid::new_v4().to_string(),
+                    payload.to_string(),
+                    max_retries,
+                );
+                let pushed = match engine {
+                    crate::thingd::NativeThingdEngine::Memory(e) => e.push_job(job),
+                    crate::thingd::NativeThingdEngine::Persistent(e) => e.push_job(job),
+                }
+                .map_err(to_app_error)?;
+                Ok(to_job(&pushed))
+            })
+        })
+        .await?
     }
 
     async fn claim_job(
@@ -379,70 +454,90 @@ impl ThingdBackend for NativeThingdBackend {
         _worker_id: &str,
         lease_seconds: u32,
     ) -> Result<Option<ThingdJob>, AppError> {
-        self.store.with_engine(|engine| {
-            let options = QueueClaimOptions::new(lease_seconds.saturating_mul(1000) as u64);
-            let claimed = match engine {
-                crate::thingd::NativeThingdEngine::Memory(e) => {
-                    e.claim_job_with_options(queue, options)
+        let queue = queue.to_string();
+        self.run_blocking(move |store| {
+            store.with_engine(|engine| {
+                let options = QueueClaimOptions::new(lease_seconds.saturating_mul(1000) as u64);
+                let claimed = match engine {
+                    crate::thingd::NativeThingdEngine::Memory(e) => {
+                        e.claim_job_with_options(&queue, options)
+                    }
+                    crate::thingd::NativeThingdEngine::Persistent(e) => {
+                        e.claim_job_with_options(&queue, options)
+                    }
                 }
-                crate::thingd::NativeThingdEngine::Persistent(e) => {
-                    e.claim_job_with_options(queue, options)
-                }
-            }
-            .map_err(to_app_error)?;
-            Ok(claimed.as_ref().map(to_job))
-        })?
+                .map_err(to_app_error)?;
+                Ok(claimed.as_ref().map(to_job))
+            })
+        })
+        .await?
     }
 
     async fn complete_job(&self, queue: &str, job_id: &str) -> Result<(), AppError> {
-        self.store.with_engine(|engine| {
-            match engine {
-                crate::thingd::NativeThingdEngine::Memory(e) => e.ack_job(queue, job_id),
-                crate::thingd::NativeThingdEngine::Persistent(e) => e.ack_job(queue, job_id),
-            }
-            .map_err(to_app_error)?;
-            Ok(())
-        })?
+        let queue = queue.to_string();
+        let job_id = job_id.to_string();
+        self.run_blocking(move |store| {
+            store.with_engine(|engine| {
+                match engine {
+                    crate::thingd::NativeThingdEngine::Memory(e) => e.ack_job(&queue, &job_id),
+                    crate::thingd::NativeThingdEngine::Persistent(e) => e.ack_job(&queue, &job_id),
+                }
+                .map_err(to_app_error)?;
+                Ok(())
+            })
+        })
+        .await?
     }
 
     async fn nack_job(&self, queue: &str, job_id: &str) -> Result<(), AppError> {
-        self.store.with_engine(|engine| {
-            match engine {
-                crate::thingd::NativeThingdEngine::Memory(e) => {
-                    e.nack_job_with_options(queue, job_id, QueueNackOptions::default())
+        let queue = queue.to_string();
+        let job_id = job_id.to_string();
+        self.run_blocking(move |store| {
+            store.with_engine(|engine| {
+                match engine {
+                    crate::thingd::NativeThingdEngine::Memory(e) => {
+                        e.nack_job_with_options(&queue, &job_id, QueueNackOptions::default())
+                    }
+                    crate::thingd::NativeThingdEngine::Persistent(e) => {
+                        e.nack_job_with_options(&queue, &job_id, QueueNackOptions::default())
+                    }
                 }
-                crate::thingd::NativeThingdEngine::Persistent(e) => {
-                    e.nack_job_with_options(queue, job_id, QueueNackOptions::default())
-                }
-            }
-            .map_err(to_app_error)?;
-            Ok(())
-        })?
+                .map_err(to_app_error)?;
+                Ok(())
+            })
+        })
+        .await?
     }
 
     async fn dead_letter_job(&self, queue: &str, job_id: &str) -> Result<(), AppError> {
-        self.store.with_engine(|engine| {
-            match engine {
-                crate::thingd::NativeThingdEngine::Memory(e) => e.nack_job_with_options(
-                    queue,
-                    job_id,
-                    QueueNackOptions::with_error(0, "dead-lettered"),
-                ),
-                crate::thingd::NativeThingdEngine::Persistent(e) => e.nack_job_with_options(
-                    queue,
-                    job_id,
-                    QueueNackOptions::with_error(0, "dead-lettered"),
-                ),
-            }
-            .map_err(to_app_error)?;
-            Ok(())
-        })?
+        let queue = queue.to_string();
+        let job_id = job_id.to_string();
+        self.run_blocking(move |store| {
+            store.with_engine(|engine| {
+                match engine {
+                    crate::thingd::NativeThingdEngine::Memory(e) => e.nack_job_with_options(
+                        &queue,
+                        &job_id,
+                        QueueNackOptions::with_error(0, "dead-lettered"),
+                    ),
+                    crate::thingd::NativeThingdEngine::Persistent(e) => e.nack_job_with_options(
+                        &queue,
+                        &job_id,
+                        QueueNackOptions::with_error(0, "dead-lettered"),
+                    ),
+                }
+                .map_err(to_app_error)?;
+                Ok(())
+            })
+        })
+        .await?
     }
 
     async fn search(&self, query: &str, options: SearchOptions) -> Result<SearchResults, AppError> {
-        let all: Vec<ThingdObject> =
-            self.store
-                .with_engine(|engine| -> Result<Vec<ThingdObject>, AppError> {
+        let query = query.to_lowercase();
+        let all: Vec<ThingdObject> = self
+            .run_blocking(move |store| {
+                store.with_engine(|engine| -> Result<Vec<ThingdObject>, AppError> {
                     let objects = match engine {
                         crate::thingd::NativeThingdEngine::Memory(e) => {
                             e.list_objects(None, &ListObjectsOptions::default())
@@ -453,16 +548,17 @@ impl ThingdBackend for NativeThingdBackend {
                     }
                     .map_err(to_app_error)?;
                     Ok(objects.iter().map(to_object).collect())
-                })??;
+                })?
+            })
+            .await?;
 
-        let query_lower = query.to_lowercase();
         let mut matched: Vec<ThingdObject> = all
             .into_iter()
             .filter(|obj| {
                 if obj
                     .data
                     .as_str()
-                    .is_some_and(|s| s.to_lowercase().contains(&query_lower))
+                    .is_some_and(|s| s.to_lowercase().contains(&query))
                 {
                     return true;
                 }
@@ -470,7 +566,7 @@ impl ThingdBackend for NativeThingdBackend {
                     object.values().any(|value| {
                         value
                             .as_str()
-                            .is_some_and(|s| s.to_lowercase().contains(&query_lower))
+                            .is_some_and(|s| s.to_lowercase().contains(&query))
                     })
                 } else {
                     false
@@ -498,29 +594,35 @@ impl ThingdBackend for NativeThingdBackend {
         target_id: &str,
         relation: &str,
     ) -> Result<ThingdLink, AppError> {
-        self.store.with_engine(|engine| {
-            let link = thingd::Link {
-                id: Uuid::new_v4().to_string(),
-                from_ref: source_id.to_string(),
-                link_type: relation.to_string(),
-                to_ref: target_id.to_string(),
-                weight: None,
-                metadata_json: String::new(),
-                created_at: chrono::Utc::now().to_rfc3339(),
-            };
-            let created = match engine {
-                crate::thingd::NativeThingdEngine::Memory(e) => e.create_link(link),
-                crate::thingd::NativeThingdEngine::Persistent(e) => e.create_link(link),
-            }
-            .map_err(to_app_error)?;
-            Ok(ThingdLink {
-                id: created.id,
-                source_id: created.from_ref,
-                target_id: created.to_ref,
-                relation: created.link_type,
-                created_at: created.created_at,
+        let source_id = source_id.to_string();
+        let target_id = target_id.to_string();
+        let relation = relation.to_string();
+        self.run_blocking(move |store| {
+            store.with_engine(|engine| {
+                let link = thingd::Link {
+                    id: Uuid::new_v4().to_string(),
+                    from_ref: source_id,
+                    link_type: relation,
+                    to_ref: target_id,
+                    weight: None,
+                    metadata_json: String::new(),
+                    created_at: chrono::Utc::now().to_rfc3339(),
+                };
+                let created = match engine {
+                    crate::thingd::NativeThingdEngine::Memory(e) => e.create_link(link),
+                    crate::thingd::NativeThingdEngine::Persistent(e) => e.create_link(link),
+                }
+                .map_err(to_app_error)?;
+                Ok(ThingdLink {
+                    id: created.id,
+                    source_id: created.from_ref,
+                    target_id: created.to_ref,
+                    relation: created.link_type,
+                    created_at: created.created_at,
+                })
             })
-        })?
+        })
+        .await?
     }
 
     async fn get_links(
@@ -528,67 +630,79 @@ impl ThingdBackend for NativeThingdBackend {
         source_id: &str,
         relation: Option<&str>,
     ) -> Result<Vec<ThingdLink>, AppError> {
-        self.store.with_engine(|engine| {
-            let options = LinkQueryOptions {
-                link_type: relation.map(|r| r.to_string()),
-                limit: None,
-            };
-            let links = match engine {
-                crate::thingd::NativeThingdEngine::Memory(e) => {
-                    e.get_neighbors(source_id, LinkDirection::Outgoing, options)
+        let source_id = source_id.to_string();
+        let relation = relation.map(ToOwned::to_owned);
+        self.run_blocking(move |store| {
+            store.with_engine(|engine| {
+                let options = LinkQueryOptions {
+                    link_type: relation,
+                    limit: None,
+                };
+                let links = match engine {
+                    crate::thingd::NativeThingdEngine::Memory(e) => {
+                        e.get_neighbors(&source_id, LinkDirection::Outgoing, options)
+                    }
+                    crate::thingd::NativeThingdEngine::Persistent(e) => {
+                        e.get_neighbors(&source_id, LinkDirection::Outgoing, options)
+                    }
                 }
-                crate::thingd::NativeThingdEngine::Persistent(e) => {
-                    e.get_neighbors(source_id, LinkDirection::Outgoing, options)
-                }
-            }
-            .map_err(to_app_error)?;
-            Ok(links
-                .into_iter()
-                .map(|link| ThingdLink {
-                    id: link.id,
-                    source_id: link.from_ref,
-                    target_id: link.to_ref,
-                    relation: link.link_type,
-                    created_at: link.created_at,
-                })
-                .collect())
-        })?
+                .map_err(to_app_error)?;
+                Ok(links
+                    .into_iter()
+                    .map(|link| ThingdLink {
+                        id: link.id,
+                        source_id: link.from_ref,
+                        target_id: link.to_ref,
+                        relation: link.link_type,
+                        created_at: link.created_at,
+                    })
+                    .collect())
+            })
+        })
+        .await?
     }
 
     async fn delete_link(&self, link_id: &str) -> Result<(), AppError> {
-        self.store.with_engine(|engine| {
-            match engine {
-                crate::thingd::NativeThingdEngine::Memory(e) => e.delete_link(link_id),
-                crate::thingd::NativeThingdEngine::Persistent(e) => e.delete_link(link_id),
-            }
-            .map_err(to_app_error)?;
-            Ok(())
-        })?
+        let link_id = link_id.to_string();
+        self.run_blocking(move |store| {
+            store.with_engine(|engine| {
+                match engine {
+                    crate::thingd::NativeThingdEngine::Memory(e) => e.delete_link(&link_id),
+                    crate::thingd::NativeThingdEngine::Persistent(e) => e.delete_link(&link_id),
+                }
+                .map_err(to_app_error)?;
+                Ok(())
+            })
+        })
+        .await?
     }
 
     async fn reset(&self) -> Result<(), AppError> {
-        self.store.with_engine(|engine| {
-            let collections = match engine {
-                crate::thingd::NativeThingdEngine::Memory(e) => e.list_collections(),
-                crate::thingd::NativeThingdEngine::Persistent(e) => e.list_collections(),
-            }
-            .map_err(to_app_error)?;
-            for collection in collections {
-                let ids = list_collection_ids(&self.store, &collection)?;
-                for id in ids {
-                    match engine {
-                        crate::thingd::NativeThingdEngine::Memory(e) => {
-                            e.delete_object(&collection, &id)
-                        }
-                        crate::thingd::NativeThingdEngine::Persistent(e) => {
-                            e.delete_object(&collection, &id)
-                        }
-                    }
-                    .map_err(to_app_error)?;
+        self.run_blocking(move |store| {
+            store.with_engine(|engine| {
+                let collections = match engine {
+                    crate::thingd::NativeThingdEngine::Memory(e) => e.list_collections(),
+                    crate::thingd::NativeThingdEngine::Persistent(e) => e.list_collections(),
                 }
-            }
-            Ok(())
-        })?
+                .map_err(to_app_error)?;
+                for collection in collections {
+                    let ids = list_collection_ids(&store, &collection)?;
+                    for id in ids {
+                        match engine {
+                            crate::thingd::NativeThingdEngine::Memory(e) => {
+                                e.delete_object(&collection, &id)
+                            }
+                            crate::thingd::NativeThingdEngine::Persistent(e) => {
+                                e.delete_object(&collection, &id)
+                            }
+                        }
+                        .map_err(to_app_error)?;
+                    }
+                }
+                Ok(())
+            })
+        })
+        .await?
     }
 
     async fn seed(&self) -> Result<(), AppError> {

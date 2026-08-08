@@ -56,6 +56,7 @@ export default defineConfig({
           { text: "Architecture", link: "/architecture" },
           { text: "Modules", link: "/modules" },
           { text: "Feature status", link: "/feature-status" },
+          { text: "API stability", link: "/api-stability" },
           { text: "Storage modes", link: "/in-memory-mode" },
           { text: "thingd integration", link: "/thingd-integration" },
           { text: "Application hardening", link: "/application-hardening" },

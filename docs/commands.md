@@ -97,10 +97,10 @@ arqen start
 arqen start --port 3000 --log warn
 ```
 
-Options: same as `arqen dev`. Uses JSON logging by default.
-The `--file` option is available here too. `start` does not itself enforce
-production guardrails; call `AppConfig::validate_production()` in an
-application bootstrap when those checks are required.
+Options: same as `arqen dev`. Uses JSON logging by default. Before binding,
+`start` calls `AppConfig::validate_production()` and fails closed for memory
+storage, missing durable paths/endpoints/credentials, disabled auth, pretty
+logs, and invalid worker settings. Use `arqen dev` for permissive local work.
 
 ### `arqen up [SERVICE...]`
 

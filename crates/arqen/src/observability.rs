@@ -3,10 +3,63 @@
 //! Provides request metrics, latency histograms, and monitoring.
 
 use std::collections::HashMap;
+use std::sync::Arc;
 use std::sync::Mutex;
 use std::time::Instant;
 
 use serde::{Deserialize, Serialize};
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RequestMetric {
+    pub method: String,
+    pub route: String,
+    pub status: u16,
+    pub duration_ms: u64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct StorageMetric {
+    pub operation: String,
+    pub backend: String,
+    pub duration_ms: u64,
+    pub success: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CacheMetric {
+    pub operation: String,
+    pub hit: bool,
+    pub duration_ms: u64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct JobMetric {
+    pub queue: String,
+    pub operation: String,
+    pub duration_ms: u64,
+    pub success: bool,
+}
+
+/// Vendor-neutral metrics integration point. Implementations may forward
+/// these events to Prometheus, OpenTelemetry, or an application-owned system.
+pub trait MetricsSink: Send + Sync {
+    fn record_request(&self, event: RequestMetric);
+    fn record_storage(&self, event: StorageMetric);
+    fn record_cache(&self, event: CacheMetric);
+    fn record_job(&self, event: JobMetric);
+}
+
+#[derive(Debug, Default)]
+pub struct NoopMetricsSink;
+
+impl MetricsSink for NoopMetricsSink {
+    fn record_request(&self, _event: RequestMetric) {}
+    fn record_storage(&self, _event: StorageMetric) {}
+    fn record_cache(&self, _event: CacheMetric) {}
+    fn record_job(&self, _event: JobMetric) {}
+}
+
+pub type SharedMetricsSink = Arc<dyn MetricsSink>;
 
 /// Request metrics for monitoring.
 pub struct RequestMetrics {
