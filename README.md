@@ -18,8 +18,8 @@ one application boundary.
 “Agent-ready” does not mean AI-only. It means capabilities are discoverable,
 typed, permission-aware, auditable, and automation-friendly.
 
-Arqen is Rust-first internally, built on Axum, Tokio, Tower, tracing, and
-thingd. Its application positioning is language-agnostic: future Node.js
+Arqen is Rust-first internally, built on Tokio, Tower, tracing, and thingd,
+with Axum as its current HTTP transport. Its application positioning is language-agnostic: future Node.js
 support can use the public HTTP API, SDKs, templates, and shared manifests.
 
 ## Project status
@@ -71,7 +71,7 @@ arqen --help
 ```text
 Application, client, or agent
               |
-       Axum HTTP boundary
+       Arqen HTTP boundary
               |
  tools · policies · jobs · health · logs
               |

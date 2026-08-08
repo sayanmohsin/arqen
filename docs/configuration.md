@@ -29,6 +29,10 @@ Arqen applications are configured through environment variables and optional con
 | `ARQEN_MAX_BODY_SIZE`        | Maximum request body size                                          | `1048576`                            |
 | `ARQEN_SHUTDOWN_TIMEOUT`     | Graceful shutdown timeout                                          | `10s`                                |
 
+`ARQEN_CONFIG_FILE` is also recognized by `arqen check` and selects the file
+used for configuration validation. It is a CLI diagnostic variable rather
+than a runtime configuration field.
+
 ## Configuration file
 
 Arqen supports an optional `arqen.toml` configuration file. Use the

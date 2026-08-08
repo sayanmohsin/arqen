@@ -10,7 +10,7 @@ arqen/
       src/
         bin/arqen.rs       # CLI entry point
         core/              # Core types and errors
-        http/              # Axum HTTP server and routes
+        http/              # Arqen HTTP server and routes
         agent/             # Tools and manifest generation
         auth/              # Authentication adapters and policies
         thingd/            # thingd adapters

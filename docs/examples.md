@@ -110,15 +110,13 @@ See: [`durable-jobs.md`](./durable-jobs.md)
 
 ```rust
 use arqen::auth::Authenticated;
-use axum::extract::Extension;
-use axum::http::Request;
-use axum::middleware::Next;
+use arqen::http::{body::Body, extract::Extension, http::Request, middleware::Next, response::Response};
 
 pub async fn my_auth_layer(
     Extension(auth): Extension<Authenticated>,
-    mut req: Request<axum::body::Body>,
+    mut req: Request<Body>,
     next: Next,
-) -> axum::response::Response {
+) -> Response {
     // auth.subject contains the authenticated identity
     next.run(req).await
 }

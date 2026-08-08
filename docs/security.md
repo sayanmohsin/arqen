@@ -37,6 +37,11 @@ When logging errors or debug information:
 
 ## Transport security
 
+Arqen-managed responses intentionally identify the framework with
+`Server: Arqen` and `X-Powered-By: Arqen`. These headers do not expose Axum,
+Tokio, Rust, or dependency versions. A reverse proxy may remove or replace
+them according to the deployment policy.
+
 - Use HTTPS in production
 - Validate TLS certificates
 - Set appropriate CORS policies

@@ -319,6 +319,9 @@ cargo bench --bench framework
 curl -i http://127.0.0.1:8888/health
 curl -i http://127.0.0.1:8888/ready
 curl -s http://127.0.0.1:8888/agent/manifest | jq .
+
+# Confirm the public framework identity
+curl -sI http://127.0.0.1:8888/health | grep -Ei '^(server|x-powered-by):'
 ```
 
 For a durable local instance, create the directory before starting:

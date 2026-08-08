@@ -26,7 +26,7 @@ Reports are written to `target/criterion/` with HTML reports and estimates.
 
 | Workload                      | Description                                       | Fixture                                   |
 | ----------------------------- | ------------------------------------------------- | ----------------------------------------- |
-| `routing/health_route`        | End-to-end GET /health through Axum               | Health registry with AlwaysHealthy checks |
+| `routing/health_route`        | End-to-end GET /health through Arqen              | Health registry with AlwaysHealthy checks |
 | `manifest/100_tools`          | Generate manifest with 100 tools + JSON serialize | 100 ToolMetadata entries                  |
 | `validation/3_fields`         | Validate a struct with 3 fields (extensible)      | BenchPayload struct                       |
 | `thingd_memory/put_object`    | Insert object into MemoryThingdBackend            | Single object                             |

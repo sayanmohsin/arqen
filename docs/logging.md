@@ -52,7 +52,9 @@ revealing payload data. Keep high-volume successful request logs at `info` or
 sample them in the deployment collector; always retain errors and slow
 requests.
 
-`EnvFilter` takes precedence over the configured level when `RUST_LOG` is set:
+`EnvFilter` takes precedence over the configured level when the standard
+`RUST_LOG` variable is set. This is a tracing ecosystem variable, not an
+Axum-specific variable:
 
 ```bash
 RUST_LOG=arqen=debug,my_app=info arqen dev

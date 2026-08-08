@@ -47,10 +47,15 @@ arqen start
 curl --fail-with-body -i http://127.0.0.1:8888/health
 curl --fail-with-body -i http://127.0.0.1:8888/ready
 curl --fail-with-body -s http://127.0.0.1:8888/agent/manifest | jq .
+curl -sI http://127.0.0.1:8888/health | grep -Ei '^(server|x-powered-by):'
 ```
 
 `/health` indicates process liveness. `/ready` indicates required dependency
 readiness. Do not route traffic solely from a successful process start.
+
+Arqen-managed responses identify the framework with `Server: Arqen` and
+`X-Powered-By: Arqen`. These headers are intentional; a reverse proxy may
+remove or replace them.
 
 ## Logging rules
 

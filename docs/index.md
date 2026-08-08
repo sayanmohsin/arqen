@@ -52,8 +52,8 @@ before adopting a capability.
 
 ## Rust-first implementation, language-agnostic direction
 
-The current implementation uses Rust, Axum, Tokio, Tower, tracing, and native
-thingd adapters. The application positioning stays language-agnostic: future
+The current implementation uses Rust, Tokio, Tower, tracing, and native thingd
+adapters, with Axum as an internal HTTP transport. The application positioning stays language-agnostic: future
 Node.js support can use the public HTTP API, SDKs, templates, and shared
 manifests.
 
@@ -75,7 +75,7 @@ curl http://127.0.0.1:8888/health
 ## Architecture
 
 ```text
-client or agent → Axum API → typed tools / policies / jobs / logs
+client or agent → Arqen API → typed tools / policies / jobs / logs
                               ↓
               memory · native durable thingd · HTTP sidecar · future cloud
 ```

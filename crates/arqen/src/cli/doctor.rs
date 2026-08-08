@@ -110,7 +110,7 @@ pub fn run_doctor(output: &Output) -> i32 {
     let env_vars = [
         "ARQEN_HOST",
         "ARQEN_PORT",
-        "ARQEN_LOG",
+        "ARQEN_LOG_LEVEL",
         "ARQEN_STORAGE_MODE",
     ];
     let env_detail: Vec<String> = env_vars

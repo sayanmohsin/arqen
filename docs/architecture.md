@@ -4,7 +4,7 @@
 Client or agent
       |
       v
-Arqen HTTP API (Axum)
+Arqen HTTP API
       |
       +-- domain services
       +-- typed agent tools
@@ -22,7 +22,11 @@ Arqen thingd adapter
 
 Application code depends on domain repositories and job interfaces. It should not depend directly on HTTP clients, provider SDKs, or private cloud modules.
 
-The first web stack is Axum with Tokio and Tower. Application state is explicit and constructed in `main`, avoiding a general-purpose dependency-injection container.
+The first web transport is implemented with Axum, Tokio, and Tower. Applications use Arqen’s router, middleware, state, and lifecycle APIs; Axum remains an internal transport detail unless an application deliberately uses the lower-level HTTP integration.
+
+Application code should prefer `arqen::http::{Router, routing}` and Arqen’s
+server helpers. The underlying transport is re-exported only as a compatibility
+facade, so application code does not need to name Axum directly.
 
 ## Package structure
 
@@ -34,7 +38,7 @@ arqen/
     arqen/            # Single Cargo package, library and CLI
       src/bin/arqen.rs# Feature-gated CLI binary
       src/core/       # Core types, traits, and errors
-      src/http/       # Axum HTTP server, middleware, and routes
+      src/http/       # Arqen HTTP server, middleware, and routes
       src/agent/      # Agent tool definitions and manifest generation
       src/auth/       # Authentication adapters and policies
       src/thingd/     # thingd adapters (memory, native, HTTP)

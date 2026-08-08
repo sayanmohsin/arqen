@@ -1,5 +1,6 @@
 pub mod middleware_auth;
 pub mod middleware_correlation;
+pub mod middleware_identity;
 pub mod middleware_log;
 pub mod module;
 pub mod routes;
@@ -9,15 +10,16 @@ pub use middleware_auth::{
     require_auth_middleware,
 };
 pub use middleware_correlation::{X_REQUEST_ID, correlation_id_middleware};
+pub use middleware_identity::{
+    ARQEN_IDENTITY, POWERED_BY_HEADER, SERVER_HEADER, identity_middleware,
+};
 pub use middleware_log::logging_middleware;
 pub use module::{HttpModule, merge_module_routes};
 pub use routes::{agent, agent_manifest, docs, health, ready};
 
 use axum::extract::FromRef;
 use axum::{
-    Router,
     http::StatusCode,
-    middleware,
     routing::{get, post},
 };
 use std::net::SocketAddr;
@@ -27,6 +29,11 @@ use tower_http::limit::RequestBodyLimitLayer;
 use tower_http::timeout::TimeoutLayer;
 
 use crate::state::AppState;
+
+/// Arqen's application-facing HTTP facade. These re-exports let applications
+/// build routes through `arqen::http` without importing the underlying
+/// transport crate directly.
+pub use axum::{Router, body, extract, http, middleware, response, routing};
 
 /// Create the default Arqen router.
 pub fn create_router() -> Router {
@@ -103,6 +110,9 @@ where
         .layer(timeout)
         .layer(cors)
         .layer(middleware::from_fn(
+            middleware_identity::identity_middleware,
+        ))
+        .layer(middleware::from_fn(
             middleware_correlation::correlation_id_middleware,
         ))
         .layer(middleware::from_fn(middleware_log::logging_middleware))
@@ -157,7 +167,11 @@ pub fn create_router_with_state(state: AppState) -> Router {
 /// let router = create_router_with_state_and_routes(state, app_routes);
 /// ```
 pub fn create_router_with_state_and_routes(state: AppState, app_routes: Router) -> Router {
-    create_router_with_state(state).merge(app_routes)
+    create_router_with_state(state)
+        .merge(app_routes)
+        .layer(middleware::from_fn(
+            middleware_identity::identity_middleware,
+        ))
 }
 
 /// Create a router with the given app state, nesting application routes under a prefix.
@@ -182,7 +196,11 @@ pub fn create_router_with_state_and_routes(state: AppState, app_routes: Router) 
 /// // App:      GET /api/v1/users
 /// ```
 pub fn nest_routes(state: AppState, prefix: &str, app_routes: Router) -> Router {
-    create_router_with_state(state).nest(prefix, app_routes)
+    create_router_with_state(state)
+        .nest(prefix, app_routes)
+        .layer(middleware::from_fn(
+            middleware_identity::identity_middleware,
+        ))
 }
 
 pub async fn start_server(
@@ -191,9 +209,14 @@ pub async fn start_server(
 ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     let listener = TcpListener::bind(addr).await?;
     tracing::info!("Server listening on {}", addr);
-    axum::serve(listener, router)
-        .with_graceful_shutdown(shutdown_signal())
-        .await?;
+    axum::serve(
+        listener,
+        router.layer(middleware::from_fn(
+            middleware_identity::identity_middleware,
+        )),
+    )
+    .with_graceful_shutdown(shutdown_signal())
+    .await?;
     Ok(())
 }
 
@@ -342,6 +365,8 @@ mod tests {
             .await
             .unwrap();
         assert_eq!(app.status(), StatusCode::OK);
+        assert_eq!(app.headers()[SERVER_HEADER], ARQEN_IDENTITY);
+        assert_eq!(app.headers()[POWERED_BY_HEADER], ARQEN_IDENTITY);
     }
 
     #[tokio::test]
@@ -372,6 +397,8 @@ mod tests {
             .await
             .unwrap();
         assert_eq!(app.status(), StatusCode::OK);
+        assert_eq!(app.headers()[SERVER_HEADER], ARQEN_IDENTITY);
+        assert_eq!(app.headers()[POWERED_BY_HEADER], ARQEN_IDENTITY);
     }
 
     #[tokio::test]
