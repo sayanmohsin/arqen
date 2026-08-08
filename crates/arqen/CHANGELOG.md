@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.6.0](https://github.com/sayanmohsin/arqen/compare/arqen-v0.5.0...arqen-v0.6.0) (2026-08-08)
+
+
+### Features
+
+* finalize Arqen beta hardening ([64119f1](https://github.com/sayanmohsin/arqen/commit/64119f14367dbe35a9b30213431ea15f347359c1))
+
 ## [0.5.0](https://github.com/sayanmohsin/arqen/compare/arqen-v0.4.0...arqen-v0.5.0) (2026-08-06)
 
 
