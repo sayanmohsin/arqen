@@ -1,6 +1,9 @@
 # Thingd Adapter Contract
 
 The thingd adapter provides a unified interface for storage, events, search, links, and queues.
+The public Rust API also includes `reset` and `seed` test helpers. The exact
+trait signatures below should be checked against the versioned Rust API when
+implementing a third-party adapter.
 
 ## Adapter trait
 
@@ -11,17 +14,17 @@ pub trait ThingdBackend: Send + Sync {
     async fn get_object(&self, collection: &str, id: &str) -> Result<Option<ThingdObject>>;
     async fn put_object(&self, collection: &str, id: &str, data: serde_json::Value) -> Result<ThingdObject>;
     async fn delete_object(&self, collection: &str, id: &str) -> Result<()>;
-    async fn query_objects(&self, collection: &str, filter: ThingdFilter) -> Result<Vec<ThingdObject>>;
+    async fn query_objects(&self, collection: &str, options: QueryOptions) -> Result<Vec<ThingdObject>>;
 
     // Batch operations
     async fn batch_write(&self, operations: Vec<ThingdOperation>) -> Result<Vec<ThingdOperationResult>>;
 
     // Event operations
-    async fn append_event(&self, stream: &str, event: ThingdEvent) -> Result<ThingdEvent>;
+    async fn append_event(&self, stream: &str, event_type: &str, data: serde_json::Value) -> Result<ThingdEvent>;
     async fn read_events(&self, stream: &str, from: Option<String>, limit: usize) -> Result<Vec<ThingdEvent>>;
 
     // Queue operations
-    async fn push_job(&self, queue: &str, job: ThingdJob) -> Result<ThingdJob>;
+    async fn push_job(&self, queue: &str, payload: serde_json::Value, max_retries: u32) -> Result<ThingdJob>;
     async fn claim_job(&self, queue: &str, worker_id: &str, lease_seconds: u32) -> Result<Option<ThingdJob>>;
     async fn complete_job(&self, queue: &str, job_id: &str) -> Result<()>;
     async fn nack_job(&self, queue: &str, job_id: &str) -> Result<()>;
@@ -46,6 +49,19 @@ pub trait ThingdBackend: Send + Sync {
 - Suitable for development and testing
 - No external dependencies
 
+### NativeThingdBackend
+
+- Adapts embedded native thingd to the common async `ThingdBackend` contract
+- Construct it through `StorageFactory` for configured memory/native storage
+- `NativeThingdStore` remains available for advanced full-native APIs
+
+### CachingThingdBackend
+
+- Optional read-through decorator; it is never inserted automatically
+- Configurable TTL and capacity
+- Invalidates objects on writes, deletes, and batch writes
+- Exposes cache hit/miss counters
+
 ### HttpThingdBackend
 
 - Connects to thingd service via HTTP
@@ -65,11 +81,7 @@ pub trait ThingdBackend: Send + Sync {
 Switching between implementations must not change application domain services. The adapter is injected at application startup:
 
 ```rust
-let thingd: Box<dyn ThingdBackend> = match config.storage_mode {
-    "memory" => Box::new(MemoryThingdBackend::new()),
-    "http" => Box::new(HttpThingdBackend::new(&config.thingd_url)?),
-    _ => return Err(ConfigError::InvalidStorageMode),
-};
+let thingd = StorageFactory::build(&config)?;
 
 let app_state = AppState::new(thingd);
 ```

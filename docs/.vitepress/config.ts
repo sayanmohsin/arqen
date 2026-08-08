@@ -58,6 +58,7 @@ export default defineConfig({
           { text: "Feature status", link: "/feature-status" },
           { text: "Storage modes", link: "/in-memory-mode" },
           { text: "thingd integration", link: "/thingd-integration" },
+          { text: "Application hardening", link: "/application-hardening" },
         ],
       },
       {
@@ -80,6 +81,7 @@ export default defineConfig({
         text: "Operations",
         items: [
           { text: "Deployment", link: "/deployment" },
+          { text: "Production runbook", link: "/production-runbook" },
           { text: "Docker", link: "/docker" },
           { text: "Logging", link: "/logging" },
           { text: "Observability", link: "/observability" },

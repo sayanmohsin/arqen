@@ -9,7 +9,7 @@ business rules remain outside Arqen.
 
 ### Typed request context
 
-Expose a first-class request context containing:
+Arqen exposes a first-class `RequestContext` containing:
 
 - authenticated subject;
 - tenant and thingd instance identifiers;
@@ -17,7 +17,9 @@ Expose a first-class request context containing:
 - correlation ID;
 - request origin or client metadata where appropriate.
 
-The context should be available to handlers, repositories, jobs, and logs.
+The context is available to handlers and request logging; applications should
+pass it explicitly into repositories and jobs rather than using ambient global
+state.
 Tenant and instance values should be resolved from verified authentication or
 trusted server configuration, never from an untrusted request body.
 
@@ -84,7 +86,8 @@ activity feeds, projections, and reliable consumers.
 
 ### HTTP adapter hardening
 
-The HTTP thingd adapter should provide:
+The HTTP thingd adapter currently provides explicit connection pooling and
+request timeouts. It should additionally provide:
 
 - explicit connect and request timeouts;
 - retry/backoff only for safe or idempotent operations;

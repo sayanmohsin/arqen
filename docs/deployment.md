@@ -18,17 +18,17 @@ arqen dev --storage memory
 
 ### Native durable thingd
 
-Use the `persistent` storage mode for local durable storage without a
+Use the `native` storage mode for local durable storage without a
 separate thingd service.
 
 ```toml
 [storage]
-mode = "persistent"
+mode = "native"
 persistent_path = "/var/lib/arqen/data"
 ```
 
 ```bash
-ARQEN_STORAGE_MODE=persistent ARQEN_PERSISTENT_PATH=/var/lib/arqen/data arqen start
+ARQEN_STORAGE_MODE=native ARQEN_PERSISTENT_PATH=/var/lib/arqen/data arqen start
 ```
 
 ### HTTP sidecar
@@ -38,7 +38,7 @@ Connect to an external thingd service over HTTP:
 ```toml
 [storage]
 mode = "http"
-url = "http://thingd:8080"
+http_url = "http://thingd:8080"
 ```
 
 ```bash
@@ -86,15 +86,16 @@ docker run -p 8888:8888 \
 
 ## Environment variables for production
 
-| Variable             | Recommended value      |
-| -------------------- | ---------------------- |
-| `ARQEN_HOST`         | `0.0.0.0`              |
-| `ARQEN_PORT`         | `8888`                 |
-| `ARQEN_STORAGE_MODE` | `http` or `persistent` |
-| `ARQEN_THINGD_URL`   | thingd service URL     |
-| `ARQEN_LOG_LEVEL`    | `warn` or `info`       |
-| `ARQEN_LOG_FORMAT`   | `json`                 |
-| `ARQEN_JWT_SECRET`   | secret value           |
+| Variable                  | Recommended value        |
+| ------------------------- | ------------------------ |
+| `ARQEN_HOST`              | `0.0.0.0`                |
+| `ARQEN_PORT`              | `8888`                   |
+| `ARQEN_STORAGE_MODE`      | `http` or `native`       |
+| `ARQEN_THINGD_URL`        | thingd service URL       |
+| `ARQEN_THINGD_AUTH_TOKEN` | server-side thingd token |
+| `ARQEN_LOG_LEVEL`         | `warn` or `info`         |
+| `ARQEN_LOG_FORMAT`        | `json`                   |
+| `ARQEN_JWT_SECRET`        | secret value             |
 
 ## Health and readiness
 
@@ -132,6 +133,7 @@ Every deployment should address:
 - Worker scaling (`ARQEN_WORKER_CONCURRENCY`)
 - thingd connectivity and credentials
 - Structured log collection (JSON format)
+- Production configuration validation (`AppConfig::validate_production()`)
 - Durable storage and backup ownership
 - Tenant/instance routing and isolation tests
 - Conditional-write and idempotency behavior

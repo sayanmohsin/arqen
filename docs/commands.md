@@ -4,14 +4,14 @@ Full CLI reference for `arqen`.
 
 ## Global flags
 
-| Flag             | Description                              |
-| ---------------- | ---------------------------------------- |
-| `--version`      | Print version and exit                   |
-| `--verbose`      | Enable verbose output                    |
-| `--quiet`        | Suppress non-error output                |
-| `--color <when>` | Color output: `auto`, `always`, `never`  |
-| `--json`         | Output as JSON (where applicable)        |
-| `--file <path>`  | Config file path (default: `arqen.toml`) |
+| Flag             | Description                                  |
+| ---------------- | -------------------------------------------- |
+| `--version`      | Print version and exit                       |
+| `--verbose`      | Enable verbose output                        |
+| `--quiet`        | Suppress non-error output                    |
+| `--color <when>` | Color output: `auto`, `always`, `never`      |
+| `--json`         | Output as JSON (where applicable)            |
+| `--file <path>`  | Config file path for `dev`, `start`, or `up` |
 
 ## Available commands
 
@@ -77,12 +77,13 @@ arqen dev --storage memory --log debug
 
 Options:
 
-| Flag            | Default     | Description  |
-| --------------- | ----------- | ------------ |
-| `--host`        | `127.0.0.1` | Bind address |
-| `-p, --port`    | `8888`      | Port         |
-| `-l, --log`     | `info`      | Log level    |
-| `-s, --storage` | `memory`    | Storage mode |
+| Flag            | Default      | Description  |
+| --------------- | ------------ | ------------ |
+| `--host`        | `127.0.0.1`  | Bind address |
+| `-p, --port`    | `8888`       | Port         |
+| `-l, --log`     | `info`       | Log level    |
+| `-s, --storage` | `memory`     | Storage mode |
+| `--file`        | `arqen.toml` | Config file  |
 
 `arqen dev` does not include an integrated file watcher. Use an external
 `cargo-watch` process if you need automatic restarts.
@@ -97,6 +98,9 @@ arqen start --port 3000 --log warn
 ```
 
 Options: same as `arqen dev`. Uses JSON logging by default.
+The `--file` option is available here too. `start` does not itself enforce
+production guardrails; call `AppConfig::validate_production()` in an
+application bootstrap when those checks are required.
 
 ### `arqen up [SERVICE...]`
 
@@ -142,6 +146,10 @@ Run validation checks.
 ```bash
 arqen check
 ```
+
+`check` validates the discovered `arqen.toml` (or the path in
+`ARQEN_CONFIG_FILE`) and reports missing Rust/Cargo dependencies. It does not
+start the application or validate connectivity to every runtime dependency.
 
 ### `arqen lint`
 
@@ -277,3 +285,47 @@ cargo install --path crates/arqen --features cli
 
 The CLI is a thin process manager, project generator, and dev toolchain.
 Commands such as `routes` and `agent` are not part of the current CLI surface.
+
+## Useful project commands
+
+Use these commands when working directly in the repository or a generated
+application:
+
+```bash
+# Inspect the complete CLI surface
+arqen --help
+arqen dev --help
+arqen generate --help
+
+# Validate configuration and local prerequisites
+arqen check
+arqen doctor
+arqen --json check
+
+# Run the complete quality gate
+cargo fmt --all -- --check
+cargo check --workspace --all-features
+cargo test --workspace --all-features
+cargo clippy --workspace --all-targets --all-features -- -D warnings
+
+# Generate and inspect API documentation
+arqen doc
+cargo doc --workspace --all-features --no-deps
+
+# Run Criterion benchmarks when present
+cargo bench --bench framework
+
+# Probe a running application
+curl -i http://127.0.0.1:8888/health
+curl -i http://127.0.0.1:8888/ready
+curl -s http://127.0.0.1:8888/agent/manifest | jq .
+```
+
+For a durable local instance, create the directory before starting:
+
+```bash
+mkdir -p .arqen/data
+ARQEN_STORAGE_MODE=native \
+ARQEN_PERSISTENT_PATH="$PWD/.arqen/data" \
+arqen dev
+```

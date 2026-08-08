@@ -57,7 +57,7 @@ GET /agent/manifest
 - **name**: Application name (snake_case)
 - **version**: Semantic version
 - **description**: Human-readable description
-- **storage_mode**: Current storage mode (memory or http)
+- **storage_mode**: Current storage mode (`memory`, `native`, `persistent`, or `http`)
 
 ### Tool fields
 

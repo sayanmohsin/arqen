@@ -40,7 +40,7 @@ Add the one public Cargo package:
 
 ```toml
 [dependencies]
-arqen = "0.4"
+arqen = "0.5"
 ```
 
 Create a starter application from a checkout:
@@ -85,12 +85,12 @@ Application, client, or agent
 
 The same application-facing contracts are designed for four deployment modes:
 
-| Mode | Best for | Status |
-|---|---|---|
-| Memory | Local development and tests | Available |
-| Native durable | An embedded thingd process | Available; validate recovery for your workload |
-| HTTP sidecar | A separate thingd service | Available; validate the public contract |
-| Cloud | Hosted thingd services | Future integration path |
+| Mode           | Best for                    | Status                                         |
+| -------------- | --------------------------- | ---------------------------------------------- |
+| Memory         | Local development and tests | Available                                      |
+| Native durable | An embedded thingd process  | Available; validate recovery for your workload |
+| HTTP sidecar   | A separate thingd service   | Available; validate the public contract        |
+| Cloud          | Hosted thingd services      | Future integration path                        |
 
 ## For coding agents
 
@@ -130,6 +130,8 @@ operates it. It is not a model runtime, BaaS, or workflow engine.
 - [Troubleshooting](https://github.com/sayanmohsin/arqen/blob/main/docs/troubleshooting.md) · [Migration](https://github.com/sayanmohsin/arqen/blob/main/docs/migration.md) · [Standards](https://github.com/sayanmohsin/arqen/blob/main/docs/standards.md)
 - [Examples](https://github.com/sayanmohsin/arqen/blob/main/docs/examples.md) · [Health](https://github.com/sayanmohsin/arqen/blob/main/docs/health.md) · [Performance](https://github.com/sayanmohsin/arqen/blob/main/docs/performance.md)
 - [Deployment](https://sayanmohsin.github.io/arqen/deployment) · [Docker](https://sayanmohsin.github.io/arqen/docker) · [Security](https://sayanmohsin.github.io/arqen/security)
+- [Application hardening](https://sayanmohsin.github.io/arqen/application-hardening) · [Logging](https://sayanmohsin.github.io/arqen/logging) · [Commands](https://sayanmohsin.github.io/arqen/commands)
+- [Production runbook](https://sayanmohsin.github.io/arqen/production-runbook)
 - [Contributing](https://github.com/sayanmohsin/arqen/blob/main/CONTRIBUTING.md) · [Security policy](https://github.com/sayanmohsin/arqen/blob/main/SECURITY.md) · [Changelog](https://github.com/sayanmohsin/arqen/blob/main/CHANGELOG.md)
 
 ## License

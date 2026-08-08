@@ -16,9 +16,11 @@
 //! All env vars use the `ARQEN_` prefix:
 //! - `ARQEN_HOST` - Server host (default: 127.0.0.1)
 //! - `ARQEN_PORT` - Server port (default: 8888)
-//! - `ARQEN_STORAGE_MODE` - Storage mode: memory, persistent, http (default: memory)
+//! - `ARQEN_STORAGE_MODE` - Storage mode: memory, native, persistent, http, cloud (default: memory)
 //! - `ARQEN_PERSISTENT_PATH` - Path for persistent storage
 //! - `ARQEN_THINGD_URL` - Thingd HTTP URL
+//! - `ARQEN_THINGD_AUTH_TOKEN` - Thingd HTTP bearer token (redacted)
+//! - `ARQEN_CLOUD_URL` - Future public thingd.cloud URL
 //! - `ARQEN_JWT_SECRET` - JWT secret for authentication
 //! - `ARQEN_LOG_LEVEL` - Log level (default: info)
 //! - `ARQEN_LOG_FORMAT` - Log format: pretty, json, compact (default: pretty)

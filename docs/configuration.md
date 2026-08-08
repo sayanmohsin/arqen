@@ -4,28 +4,30 @@ Arqen applications are configured through environment variables and optional con
 
 ## Environment variables
 
-| Variable                     | Description                                          | Default                          |
-| ---------------------------- | ---------------------------------------------------- | -------------------------------- |
-| `ARQEN_HOST`                 | Bind address for the HTTP server                     | `127.0.0.1`                      |
-| `ARQEN_PORT`                 | Port for the HTTP server                             | `8888`                           |
-| `ARQEN_STORAGE_MODE`         | thingd storage mode (`memory`, `persistent`, `http`) | `memory`                         |
-| `ARQEN_PERSISTENT_PATH`      | Native durable thingd storage path                   | unset; required for `persistent` |
-| `ARQEN_THINGD_URL`           | thingd HTTP service URL                              | unset; required for `http`       |
-| `ARQEN_JWT_SECRET`           | JWT secret, kept redacted in configuration output    | unset                            |
-| `ARQEN_API_KEY_HEADER`       | API-key request header                               | `X-API-Key`                      |
-| `ARQEN_LOG_LEVEL`            | Log level                                            | `info`                           |
-| `ARQEN_LOG_FORMAT`           | Log format (`pretty`, `json`, `compact`)             | `pretty`                         |
-| `ARQEN_WORKER_ENABLED`       | Enable workers                                       | implementation default           |
-| `ARQEN_WORKER_QUEUES`        | Comma-separated worker queues                        | implementation default           |
-| `ARQEN_WORKER_POLL_INTERVAL` | Worker polling interval                              | implementation default           |
-| `ARQEN_WORKER_LEASE_SECONDS` | Job lease duration                                   | implementation default           |
-| `ARQEN_WORKER_MAX_RETRIES`   | Maximum job retries                                  | implementation default           |
-| `ARQEN_WORKER_CONCURRENCY`   | Worker concurrency                                   | implementation default           |
-| `ARQEN_HEALTH_CHECK_TIMEOUT` | Dependency health-check timeout                      | implementation default           |
-| `ARQEN_HEALTH_STARTUP_DELAY` | Startup delay before health checks                   | implementation default           |
-| `ARQEN_REQUEST_TIMEOUT`      | HTTP request timeout                                 | `30s`                            |
-| `ARQEN_MAX_BODY_SIZE`        | Maximum request body size                            | `1048576`                        |
-| `ARQEN_SHUTDOWN_TIMEOUT`     | Graceful shutdown timeout                            | `10s`                            |
+| Variable                     | Description                                                        | Default                              |
+| ---------------------------- | ------------------------------------------------------------------ | ------------------------------------ |
+| `ARQEN_HOST`                 | Bind address for the HTTP server                                   | `127.0.0.1`                          |
+| `ARQEN_PORT`                 | Port for the HTTP server                                           | `8888`                               |
+| `ARQEN_STORAGE_MODE`         | Storage mode: `memory`, `native`, `persistent`, `http`, or `cloud` | `memory`                             |
+| `ARQEN_PERSISTENT_PATH`      | Native durable thingd storage path                                 | unset; required for `persistent`     |
+| `ARQEN_THINGD_URL`           | thingd HTTP service URL                                            | unset; required for `http`           |
+| `ARQEN_CLOUD_URL`            | Future public thingd.cloud endpoint                                | unset; cloud mode is not implemented |
+| `ARQEN_THINGD_AUTH_TOKEN`    | Server-side thingd/cloud bearer token                              | unset; never log or commit           |
+| `ARQEN_JWT_SECRET`           | JWT secret, kept redacted in configuration output                  | unset                                |
+| `ARQEN_API_KEY_HEADER`       | API-key request header                                             | `X-API-Key`                          |
+| `ARQEN_LOG_LEVEL`            | Log level                                                          | `info`                               |
+| `ARQEN_LOG_FORMAT`           | Log format (`pretty`, `json`, `compact`)                           | `pretty`                             |
+| `ARQEN_WORKER_ENABLED`       | Enable workers                                                     | implementation default               |
+| `ARQEN_WORKER_QUEUES`        | Comma-separated worker queues                                      | implementation default               |
+| `ARQEN_WORKER_POLL_INTERVAL` | Worker polling interval                                            | implementation default               |
+| `ARQEN_WORKER_LEASE_SECONDS` | Job lease duration                                                 | implementation default               |
+| `ARQEN_WORKER_MAX_RETRIES`   | Maximum job retries                                                | implementation default               |
+| `ARQEN_WORKER_CONCURRENCY`   | Worker concurrency                                                 | implementation default               |
+| `ARQEN_HEALTH_CHECK_TIMEOUT` | Dependency health-check timeout                                    | implementation default               |
+| `ARQEN_HEALTH_STARTUP_DELAY` | Startup delay before health checks                                 | implementation default               |
+| `ARQEN_REQUEST_TIMEOUT`      | HTTP request timeout                                               | `30s`                                |
+| `ARQEN_MAX_BODY_SIZE`        | Maximum request body size                                          | `1048576`                            |
+| `ARQEN_SHUTDOWN_TIMEOUT`     | Graceful shutdown timeout                                          | `10s`                                |
 
 ## Configuration file
 
@@ -53,7 +55,9 @@ format = "pretty"  # or "json"
 
 [storage]
 mode = "memory"
-# url = "http://localhost:8080"  # required for http mode
+# persistent_path = "/var/lib/my-app/data"  # required for native/persistent
+# http_url = "http://localhost:8080"        # required for http mode
+# auth_token = "server-side-secret"         # prefer ARQEN_THINGD_AUTH_TOKEN
 ```
 
 ## Storage modes
@@ -71,11 +75,24 @@ mode = "memory"
 - Requires `ARQEN_THINGD_URL` or `storage.http_url` configuration
 - Suitable for production deployments
 
+### Native mode
+
+- Embedded persistent thingd with no separate HTTP service
+- Requires `persistent_path`
+- `persistent` is retained as a compatibility alias for `native`
+- The path must be writable and backed up by the deployment owner
+
+### Cloud mode
+
+`cloud` is reserved for a future versioned public thingd.cloud adapter. It
+fails explicitly today; Arqen never silently falls back to memory.
+
 ## Precedence chain
 
 Configuration is loaded in order of precedence (highest wins):
 
-1. **CLI flags** (`--host`, `--port`, `--log`, `--storage`, `--file`)
+1. **CLI flags** (`--host`, `--port`, `--log`, `--storage` on `dev`/`start`;
+   `--file` on `dev`, `start`, and `up`)
 2. **Environment variables** (`ARQEN_*`)
 3. **Config file** (`arqen.toml`)
 4. **Defaults**
@@ -89,7 +106,7 @@ which overrides the compiled default of `8888`.
 When an Arqen application starts, it prints a banner with essential information:
 
 ```text
-Arqen v0.4.0
+Arqen v0.5.0
 API:    http://127.0.0.1:8888
 Health: http://127.0.0.1:8888/health
 Docs:   http://127.0.0.1:8888/docs
@@ -104,8 +121,10 @@ The banner includes:
 - Health endpoint URL
 - Docs endpoint URL
 - Agent endpoint URL
-- Storage mode (memory or http)
+- Storage mode (memory, native, persistent, or http)
 
 Development mode (`arqen dev`) uses pretty logging. Production mode
 (`arqen start`) uses JSON logging. `arqen dev` does not include an
-integrated file watcher.
+integrated file watcher. Call `AppConfig::validate_production()` from a
+production bootstrap to reject memory storage, disabled authentication, and
+pretty logs.

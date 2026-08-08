@@ -8,7 +8,7 @@ Ensure `Cargo.toml` depends on the correct version and features:
 
 ```toml
 [dependencies]
-arqen = { version = "0.4", features = ["logging", "http-server"] }
+arqen = { version = "0.5", features = ["logging", "http-server"] }
 ```
 
 If you see missing types, check that the feature flags match the APIs you use.

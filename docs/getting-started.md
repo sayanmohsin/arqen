@@ -40,7 +40,7 @@ This generates:
 
 ```text
 hello-api/
-  Cargo.toml          # depends on arqen 0.4 with logging + http-server
+  Cargo.toml          # depends on arqen 0.5 with logging + http-server
   README.md
   rustfmt.toml        # formatting config
   clippy.toml         # lint config
@@ -58,7 +58,7 @@ cargo run
 Expected output:
 
 ```text
-Arqen v0.4.0
+Arqen v0.5.0
 API:    http://127.0.0.1:8888
 Health: http://127.0.0.1:8888/health
 Docs:   http://127.0.0.1:8888/docs
@@ -138,6 +138,8 @@ cargo run -p arqen --features cli --bin arqen -- new hello-api
 - [Configuration](./configuration.md) - environment variables and config files
 - [Modules](./modules.md) - module composition and lifecycle
 - [Typed tools](./typed-tools.md) - structured tool definitions
+- [Logging](./logging.md) - structured logs, fields, and redaction
+- [Application hardening](./application-hardening.md) - production boundaries
 - [Durable jobs](./durable-jobs.md) - background job processing
 - [Authentication](./authentication.md) - JWT and API key auth
 - [Validation](./validation.md) - request validation
