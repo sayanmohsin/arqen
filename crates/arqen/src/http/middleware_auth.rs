@@ -136,6 +136,8 @@ pub async fn auth_middleware(
     match auth.authenticate(req.headers()).await {
         Ok(ctx) => {
             req.extensions_mut().insert(ctx);
+            let context = crate::context::from_extensions(req.extensions());
+            req.extensions_mut().insert(context);
             next.run(req).await
         }
         Err(e) => {
@@ -194,6 +196,8 @@ pub async fn optional_auth_middleware(
 ) -> Response {
     if let Ok(ctx) = auth.authenticate(req.headers()).await {
         req.extensions_mut().insert(ctx);
+        let context = crate::context::from_extensions(req.extensions());
+        req.extensions_mut().insert(context);
     }
     next.run(req).await
 }

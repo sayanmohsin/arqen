@@ -25,6 +25,22 @@ ThingdBackend
 
 Switching implementations must not change application domain services.
 
+## Hardening boundary
+
+Applications that need local durable thingd during development and hosted
+thingd in production should use the same domain repository interfaces across
+the storage modes. The reusable gaps to solve in Arqen are documented in
+[application-hardening.md](application-hardening.md): scoped access,
+conditional writes, idempotency, event cursors, HTTP contract validation, and
+the optional public cloud adapter.
+
+Arqen must not implement local/cloud synchronization itself, import private
+thingd-cloud modules, or read cloud control-plane databases. The sync engine,
+checkpoint semantics, conflict policy, tombstones, and transport belong to
+thingd. Arqen should integrate the thingd-provided capability through a
+versioned public API and provide configuration, identity, lifecycle, health,
+metrics, and capability discovery around it.
+
 ## Adapter contract
 
 See [adapter-contract.md](adapter-contract.md) for the full trait definition, data types, and implementation details.

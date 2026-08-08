@@ -40,3 +40,20 @@ deployment, security review, recovery testing, and operational controls.
 ## Phase 17: developer experience, performance, and agent onboarding (completed)
 
 Stable CLI with exit codes, JSON output, config discovery, and integration tests. Compiling project generation. Criterion benchmarks for routing, manifest, validation, in-memory thingd, jobs, and health. Prettier and Markdownlint tooling. Comprehensive documentation for first-time developers and coding agents.
+
+## Phase 18: application hardening and cloud boundary (planned)
+
+Prioritize reusable production guarantees for thingd-backed applications:
+typed tenant/instance request context,
+scoped storage helpers, optimistic concurrency, durable idempotency, JWKS and
+public cloud customer API support, thingd sync capability integration,
+cursor-based event consumption, hardened HTTP adapter behavior, separate
+worker roles, production configuration guardrails, cursor pagination,
+schema/version envelopes, and exporter hooks.
+
+The sync protocol and replication engine remain owned by thingd. Arqen only
+provides the application/runtime integration boundary.
+
+See [application-hardening.md](application-hardening.md) for scope and
+boundary rules. This phase must not introduce Watchloom-specific domain types
+or depend on private thingd-cloud modules.

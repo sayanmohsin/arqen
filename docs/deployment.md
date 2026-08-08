@@ -51,6 +51,12 @@ Cloud integration is optional. A hosted thingd-cloud adapter must use a
 documented public customer API, not control-plane databases or private
 modules.
 
+Before using cloud storage for a multi-user application, validate the
+application-hardening requirements: production configuration guardrails,
+tenant/instance identity, scoped repositories, HTTP contract tests, request
+idempotency, conditional writes, backups, and a separate worker role. See
+[application-hardening.md](application-hardening.md).
+
 ## Docker deployment
 
 Build a release binary and containerize it:
@@ -127,3 +133,7 @@ Every deployment should address:
 - thingd connectivity and credentials
 - Structured log collection (JSON format)
 - Durable storage and backup ownership
+- Tenant/instance routing and isolation tests
+- Conditional-write and idempotency behavior
+- Cloud API contract/version compatibility
+- Queue lag, dead-letter, and worker health monitoring

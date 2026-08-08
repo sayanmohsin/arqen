@@ -38,6 +38,7 @@ pub fn serve_dev(
     crate::logging::init_logging(&config.logging.level, "pretty");
 
     let state = match crate::AppState::builder()
+        .with_config(config.clone())
         .with_storage_mode(storage)
         .with_tool_registry(crate::ToolRegistry::new(
             "arqen-app",
@@ -111,6 +112,7 @@ pub fn serve_start(
     crate::logging::init_logging(&config.logging.level, "json");
 
     let state = match crate::AppState::builder()
+        .with_config(config.clone())
         .with_storage_mode(storage)
         .with_tool_registry(crate::ToolRegistry::new(
             "arqen-app",

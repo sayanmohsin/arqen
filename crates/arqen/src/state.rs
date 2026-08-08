@@ -8,7 +8,7 @@ use crate::agent::ToolRegistry;
 use crate::config::{AppConfig, ConfigError};
 use crate::health::HealthRegistry;
 use crate::module::{Module, ModuleBuilder, ModuleError};
-use crate::thingd::{MemoryThingdBackend, ThingdBackend};
+use crate::thingd::{StorageFactory, ThingdBackend};
 
 /// Application state shared across all handlers.
 #[derive(Clone)]
@@ -138,14 +138,15 @@ impl AppStateBuilder {
 
     /// Build the `AppState`.
     ///
-    /// If no storage is provided, creates a `MemoryThingdBackend`.
+    /// If no storage is provided, constructs the backend selected by config.
     /// If no tool registry is provided, creates a default `ToolRegistry`.
     pub fn build(self) -> Result<AppState, ConfigError> {
         let config = self.config.unwrap_or_default();
 
-        let storage = self
-            .storage
-            .unwrap_or_else(|| Arc::new(MemoryThingdBackend::new()));
+        let storage = match self.storage {
+            Some(storage) => storage,
+            None => StorageFactory::build(&config)?,
+        };
 
         let tool_registry = self.tool_registry.unwrap_or_else(|| {
             Arc::new(ToolRegistry::new(
@@ -185,6 +186,7 @@ impl Default for AppStateBuilder {
 mod tests {
     use super::*;
     use crate::config::StorageMode;
+    use crate::thingd::MemoryThingdBackend;
 
     #[test]
     fn test_app_state_builder_defaults() {

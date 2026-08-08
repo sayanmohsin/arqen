@@ -30,6 +30,8 @@ pub mod auth;
 #[cfg(feature = "cli")]
 pub mod cli;
 pub mod config;
+#[cfg(feature = "http-server")]
+pub mod context;
 pub mod core;
 #[cfg(feature = "cli")]
 pub mod dev;
@@ -62,13 +64,17 @@ pub use config::{
     AppConfig, AuthConfig, CliOverrides, HealthConfig, LogFormat, LoggingConfig, Secret,
     ServerConfig, StorageConfig, StorageMode, WorkerConfig,
 };
+#[cfg(feature = "http-server")]
+pub use context::RequestContext;
 pub use core::{AppError, ErrorKind};
 pub use jobs::{JobConfig, JobHandler, JobWorker, Worker};
 pub use module::{
     Module, ModuleBuilder, ModuleContext, ModuleError, ModuleGraphError, ModuleHealth,
 };
 pub use state::{AppState, AppStateBuilder};
-pub use thingd::{MemoryThingdBackend, ThingdBackend};
+pub use thingd::{
+    CachePolicy, CachingThingdBackend, MemoryThingdBackend, StorageFactory, ThingdBackend,
+};
 
 #[cfg(feature = "http-server")]
 pub use auth::{AuthContext, AuthError, Authentication};
@@ -90,4 +96,4 @@ pub use logging::{init_logging, init_logging_with_config};
 #[cfg(feature = "http-client")]
 pub use thingd::HttpThingdBackend;
 #[cfg(feature = "thingd-native")]
-pub use thingd::NativeThingdStore;
+pub use thingd::{NativeThingdBackend, NativeThingdStore};

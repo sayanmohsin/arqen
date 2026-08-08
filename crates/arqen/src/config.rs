@@ -131,6 +131,10 @@ pub struct StorageConfig {
     pub mode: StorageMode,
     pub persistent_path: Option<PathBuf>,
     pub http_url: Option<String>,
+    /// Optional hosted thingd/cloud endpoint.
+    pub cloud_url: Option<String>,
+    /// Server-side credential for remote thingd/cloud storage.
+    pub auth_token: Option<Secret<String>>,
 }
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq)]
@@ -138,20 +142,25 @@ pub struct StorageConfig {
 pub enum StorageMode {
     #[default]
     Memory,
+    /// Embedded native thingd. `persistent` remains accepted as a legacy name.
+    Native,
     Persistent,
     Http,
+    Cloud,
 }
 
 impl StorageMode {
     pub fn parse_str(s: &str) -> Result<Self, ConfigError> {
         match s.to_lowercase().as_str() {
             "memory" => Ok(Self::Memory),
+            "native" => Ok(Self::Native),
             "persistent" => Ok(Self::Persistent),
             "http" => Ok(Self::Http),
+            "cloud" => Ok(Self::Cloud),
             _ => Err(ConfigError::InvalidValue {
                 field: "storage_mode".to_string(),
                 value: s.to_string(),
-                expected: "memory, persistent, or http".to_string(),
+                expected: "memory, native, persistent, http, or cloud".to_string(),
             }),
         }
     }
@@ -163,6 +172,8 @@ impl Default for StorageConfig {
             mode: StorageMode::Memory,
             persistent_path: None,
             http_url: None,
+            cloud_url: None,
+            auth_token: None,
         }
     }
 }
@@ -388,6 +399,12 @@ impl AppConfig {
         if let Ok(url) = std::env::var("ARQEN_THINGD_URL") {
             self.storage.http_url = Some(url);
         }
+        if let Ok(url) = std::env::var("ARQEN_CLOUD_URL") {
+            self.storage.cloud_url = Some(url);
+        }
+        if let Ok(token) = std::env::var("ARQEN_THINGD_AUTH_TOKEN") {
+            self.storage.auth_token = Some(Secret::new(token));
+        }
         if let Ok(secret) = std::env::var("ARQEN_JWT_SECRET") {
             self.auth.enabled = true;
             self.auth.jwt_secret = Some(Secret::new(secret));
@@ -565,10 +582,66 @@ impl AppConfig {
                 context: "required when storage mode is persistent".to_string(),
             });
         }
+        if self.storage.mode == StorageMode::Native && self.storage.persistent_path.is_none() {
+            return Err(ConfigError::MissingField {
+                field: "persistent_path".to_string(),
+                context: "required when storage mode is native".to_string(),
+            });
+        }
         if self.storage.mode == StorageMode::Http && self.storage.http_url.is_none() {
             return Err(ConfigError::MissingField {
                 field: "http_url".to_string(),
                 context: "required when storage mode is http".to_string(),
+            });
+        }
+        if self.storage.mode == StorageMode::Cloud && self.storage.cloud_url.is_none() {
+            return Err(ConfigError::MissingField {
+                field: "cloud_url".to_string(),
+                context: "required when storage mode is cloud".to_string(),
+            });
+        }
+        if self.worker.lease_seconds == 0 {
+            return Err(ConfigError::InvalidValue {
+                field: "worker.lease_seconds".to_string(),
+                value: "0".to_string(),
+                expected: "greater than zero".to_string(),
+            });
+        }
+        if self.worker.max_retries > 1_000_000 {
+            return Err(ConfigError::InvalidValue {
+                field: "worker.max_retries".to_string(),
+                value: self.worker.max_retries.to_string(),
+                expected: "a bounded retry count".to_string(),
+            });
+        }
+        Ok(())
+    }
+
+    /// Apply guardrails intended for a production deployment.
+    ///
+    /// This is explicit so libraries can still use the permissive development
+    /// defaults without accidentally changing their startup behavior.
+    pub fn validate_production(&self) -> Result<(), ConfigError> {
+        self.validate()?;
+        if self.storage.mode == StorageMode::Memory {
+            return Err(ConfigError::InvalidValue {
+                field: "storage.mode".to_string(),
+                value: "memory".to_string(),
+                expected: "native, http, or cloud in production".to_string(),
+            });
+        }
+        if !self.auth.enabled {
+            return Err(ConfigError::InvalidValue {
+                field: "auth.enabled".to_string(),
+                value: "false".to_string(),
+                expected: "true in production".to_string(),
+            });
+        }
+        if matches!(self.logging.format, LogFormat::Pretty) {
+            return Err(ConfigError::InvalidValue {
+                field: "logging.format".to_string(),
+                value: "pretty".to_string(),
+                expected: "json or compact in production".to_string(),
             });
         }
         Ok(())

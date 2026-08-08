@@ -1,6 +1,7 @@
 use async_trait::async_trait;
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
+use std::time::Duration;
 
 use crate::thingd::traits::*;
 
@@ -24,7 +25,12 @@ impl HttpThingdBackend {
         };
         Self {
             base_url: base,
-            client: Client::new(),
+            client: Client::builder()
+                .connect_timeout(Duration::from_secs(5))
+                .timeout(Duration::from_secs(30))
+                .pool_max_idle_per_host(32)
+                .build()
+                .expect("valid reqwest client configuration"),
             auth_token: None,
         }
     }
