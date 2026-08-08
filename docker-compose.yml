@@ -5,17 +5,21 @@ services:
       dockerfile: Dockerfile
     ports:
       - "8888:8888"
-    # The CLI is flag-driven (see the Dockerfile CMD); these vars mirror the
-    # canonical ARQEN_* config names for library/config consumers.
+    # Production startup is intentionally strict: use the thingd HTTP sidecar,
+    # structured logs, and an explicit development JWT secret for this smoke
+    # environment. Replace the secret in real deployments.
     environment:
       - ARQEN_LOG_LEVEL=info
+      - ARQEN_LOG_FORMAT=json
+      - ARQEN_STORAGE_MODE=http
+      - ARQEN_THINGD_URL=http://thingd:8757
+      - ARQEN_THINGD_AUTH_TOKEN=${THINGD_AUTH_TOKEN:-dev-token}
+      - ARQEN_JWT_SECRET=${ARQEN_JWT_SECRET:-arqen-docker-smoke-secret}
     volumes:
       - arqen_data:/data
     restart: unless-stopped
 
-  # Standalone thingd sidecar. Note: the current `arqen start` binary does not
-  # read ARQEN_THINGD_URL, so arqen runs on in-memory storage; thingd is
-  # available here for sidecar-style local development.
+  # Standalone thingd sidecar used by the production-style Arqen smoke test.
   thingd:
     image: sayanmohsin/thingd:latest
     ports:

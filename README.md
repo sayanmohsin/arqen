@@ -130,8 +130,8 @@ operates it. It is not a model runtime, BaaS, or workflow engine.
 - [Troubleshooting](https://github.com/sayanmohsin/arqen/blob/main/docs/troubleshooting.md) · [Migration](https://github.com/sayanmohsin/arqen/blob/main/docs/migration.md) · [Standards](https://github.com/sayanmohsin/arqen/blob/main/docs/standards.md)
 - [Examples](https://github.com/sayanmohsin/arqen/blob/main/docs/examples.md) · [Health](https://github.com/sayanmohsin/arqen/blob/main/docs/health.md) · [Performance](https://github.com/sayanmohsin/arqen/blob/main/docs/performance.md)
 - [Deployment](https://sayanmohsin.github.io/arqen/deployment) · [Docker](https://sayanmohsin.github.io/arqen/docker) · [Security](https://sayanmohsin.github.io/arqen/security)
-- [Application hardening](https://sayanmohsin.github.io/arqen/application-hardening) · [Logging](https://sayanmohsin.github.io/arqen/logging) · [Commands](https://sayanmohsin.github.io/arqen/commands)
-- [Production runbook](https://sayanmohsin.github.io/arqen/production-runbook)
+- [Application hardening](docs/application-hardening.md) · [Logging](docs/logging.md) · [Commands](docs/commands.md)
+- [Production runbook](docs/production-runbook.md)
 - [Contributing](https://github.com/sayanmohsin/arqen/blob/main/CONTRIBUTING.md) · [Security policy](https://github.com/sayanmohsin/arqen/blob/main/SECURITY.md) · [Changelog](https://github.com/sayanmohsin/arqen/blob/main/CHANGELOG.md)
 
 ## License

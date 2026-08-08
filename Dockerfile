@@ -6,8 +6,8 @@ WORKDIR /build
 COPY Cargo.toml Cargo.lock ./
 COPY crates/ ./crates/
 
-# The `arqen` binary requires the `cli` feature.
-RUN cargo build --release --bin arqen --features cli
+# The production image requires the CLI and HTTP thingd adapter features.
+RUN cargo build --release --bin arqen --features cli,http-client
 
 FROM debian:trixie-slim AS runtime
 
@@ -24,4 +24,4 @@ HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
   CMD curl -fs http://127.0.0.1:8888/health || exit 1
 
 ENTRYPOINT ["arqen"]
-CMD ["start", "--host", "0.0.0.0", "--port", "8888", "--storage", "memory"]
+CMD ["start", "--host", "0.0.0.0", "--port", "8888", "--storage", "http"]
