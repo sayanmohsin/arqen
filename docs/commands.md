@@ -296,6 +296,7 @@ application:
 arqen --help
 arqen dev --help
 arqen generate --help
+arqen thingd --help
 
 # Validate configuration and local prerequisites
 arqen check
@@ -332,3 +333,18 @@ ARQEN_STORAGE_MODE=native \
 ARQEN_PERSISTENT_PATH="$PWD/.arqen/data" \
 arqen dev
 ```
+
+For Thingd 0.77 schema inspection:
+
+```bash
+# Loads the local file and computes its stable hash. Add --url for Thingd's
+# authoritative parser and compatibility validation.
+arqen thingd schema-validate schema.thingd --url http://127.0.0.1:8770
+
+# Inspect the remote current schema and migration history.
+arqen thingd schema-remote http://127.0.0.1:8770
+```
+
+These commands never apply migrations. Keep credentials in environment or a
+secret manager rather than shell history where possible; Arqen redacts them
+from errors and diagnostics.

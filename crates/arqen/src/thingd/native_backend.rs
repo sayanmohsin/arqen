@@ -29,7 +29,14 @@ impl NativeThingdBackend {
     }
 
     pub fn persistent(path: impl AsRef<Path>) -> Result<Self, AppError> {
-        let store = NativeThingdStore::persistent(path).map_err(|e| {
+        Self::persistent_with_options(path, thingd::PersistentOpenOptions::default())
+    }
+
+    pub fn persistent_with_options(
+        path: impl AsRef<Path>,
+        options: thingd::PersistentOpenOptions,
+    ) -> Result<Self, AppError> {
+        let store = NativeThingdStore::persistent_with_options(path, options).map_err(|e| {
             AppError::new(
                 ErrorKind::Internal,
                 format!("failed to open native store: {e}"),

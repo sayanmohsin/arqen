@@ -137,6 +137,10 @@ pub struct StorageConfig {
     pub cloud_url: Option<String>,
     /// Server-side credential for remote thingd/cloud storage.
     pub auth_token: Option<Secret<String>>,
+    /// Optional 64-character hexadecimal Thingd persistent encryption key.
+    pub encryption_key: Option<Secret<String>>,
+    /// Optional `.thingd` schema document used for startup validation.
+    pub schema_path: Option<PathBuf>,
 }
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq)]
@@ -176,6 +180,51 @@ impl Default for StorageConfig {
             http_url: None,
             cloud_url: None,
             auth_token: None,
+            encryption_key: None,
+            schema_path: None,
+        }
+    }
+}
+
+/// Opt-in local-to-remote Thingd replication settings.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SyncConfig {
+    #[serde(default)]
+    pub enabled: bool,
+    pub source_id: Option<String>,
+    pub target_url: Option<String>,
+    pub target_auth_token: Option<Secret<String>>,
+    #[serde(default)]
+    pub collections: Vec<String>,
+    #[serde(default = "default_sync_poll_interval")]
+    pub poll_interval: Duration,
+    #[serde(default = "default_sync_batch_size")]
+    pub batch_size: u32,
+    #[serde(default = "default_sync_snapshot_fallback")]
+    pub snapshot_fallback: bool,
+}
+
+fn default_sync_poll_interval() -> Duration {
+    Duration::from_secs(5)
+}
+fn default_sync_batch_size() -> u32 {
+    500
+}
+fn default_sync_snapshot_fallback() -> bool {
+    true
+}
+
+impl Default for SyncConfig {
+    fn default() -> Self {
+        Self {
+            enabled: false,
+            source_id: None,
+            target_url: None,
+            target_auth_token: None,
+            collections: Vec::new(),
+            poll_interval: default_sync_poll_interval(),
+            batch_size: default_sync_batch_size(),
+            snapshot_fallback: default_sync_snapshot_fallback(),
         }
     }
 }
@@ -332,6 +381,8 @@ pub struct AppConfig {
     pub worker: WorkerConfig,
     #[serde(default)]
     pub health: HealthConfig,
+    #[serde(default)]
+    pub sync: SyncConfig,
 }
 
 /// CLI overrides for configuration (highest precedence).
@@ -406,6 +457,49 @@ impl AppConfig {
         }
         if let Ok(token) = std::env::var("ARQEN_THINGD_AUTH_TOKEN") {
             self.storage.auth_token = Some(Secret::new(token));
+        }
+        if let Ok(key) = std::env::var("ARQEN_THINGD_ENCRYPTION_KEY") {
+            self.storage.encryption_key = Some(Secret::new(key));
+        }
+        if let Ok(path) = std::env::var("ARQEN_THINGD_SCHEMA_PATH") {
+            self.storage.schema_path = Some(PathBuf::from(path));
+        }
+        if let Ok(enabled) = std::env::var("ARQEN_SYNC_ENABLED") {
+            self.sync.enabled = enabled == "true" || enabled == "1";
+        }
+        if let Ok(source_id) = std::env::var("ARQEN_SYNC_SOURCE_ID") {
+            self.sync.source_id = Some(source_id);
+        }
+        if let Ok(url) = std::env::var("ARQEN_SYNC_TARGET_URL") {
+            self.sync.target_url = Some(url);
+        }
+        if let Ok(token) = std::env::var("ARQEN_SYNC_TARGET_AUTH_TOKEN") {
+            self.sync.target_auth_token = Some(Secret::new(token));
+        }
+        if let Ok(collections) = std::env::var("ARQEN_SYNC_COLLECTIONS") {
+            self.sync.collections = collections
+                .split(',')
+                .map(|s| s.trim().to_string())
+                .filter(|s| !s.is_empty())
+                .collect();
+        }
+        if let Ok(interval) = std::env::var("ARQEN_SYNC_POLL_INTERVAL") {
+            self.sync.poll_interval =
+                Duration::from_secs(interval.parse().map_err(|_| ConfigError::InvalidValue {
+                    field: "sync.poll_interval".to_string(),
+                    value: interval,
+                    expected: "a valid u64 (seconds)".to_string(),
+                })?);
+        }
+        if let Ok(batch_size) = std::env::var("ARQEN_SYNC_BATCH_SIZE") {
+            self.sync.batch_size = batch_size.parse().map_err(|_| ConfigError::InvalidValue {
+                field: "sync.batch_size".to_string(),
+                value: batch_size,
+                expected: "a valid u32".to_string(),
+            })?;
+        }
+        if let Ok(fallback) = std::env::var("ARQEN_SYNC_SNAPSHOT_FALLBACK") {
+            self.sync.snapshot_fallback = fallback == "true" || fallback == "1";
         }
         if let Ok(secret) = std::env::var("ARQEN_JWT_SECRET") {
             self.auth.enabled = true;
@@ -601,6 +695,28 @@ impl AppConfig {
                 field: "cloud_url".to_string(),
                 context: "required when storage mode is cloud".to_string(),
             });
+        }
+        if self.sync.enabled {
+            if self.sync.target_url.is_none() {
+                return Err(ConfigError::MissingField {
+                    field: "sync.target_url".to_string(),
+                    context: "required when sync is enabled".to_string(),
+                });
+            }
+            if self.sync.batch_size == 0 || self.sync.batch_size > 1000 {
+                return Err(ConfigError::InvalidValue {
+                    field: "sync.batch_size".to_string(),
+                    value: self.sync.batch_size.to_string(),
+                    expected: "between 1 and 1000".to_string(),
+                });
+            }
+            if self.sync.poll_interval.is_zero() {
+                return Err(ConfigError::InvalidValue {
+                    field: "sync.poll_interval".to_string(),
+                    value: "0".to_string(),
+                    expected: "greater than zero".to_string(),
+                });
+            }
         }
         if self.worker.lease_seconds == 0 {
             return Err(ConfigError::InvalidValue {

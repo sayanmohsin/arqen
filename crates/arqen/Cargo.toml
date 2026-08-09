@@ -1,6 +1,6 @@
 [package]
 name = "arqen"
-version = "0.6.0"
+version = "0.6.1"
 edition.workspace = true
 license.workspace = true
 repository.workspace = true
@@ -17,7 +17,7 @@ required-features = ["cli"]
 
 [features]
 default = ["http-server", "thingd-native"]
-cli = ["http-server", "logging", "dep:libc"]
+cli = ["http-server", "logging", "http-client", "dep:libc"]
 http-server = ["dep:axum", "dep:tower", "dep:tower-http"]
 http-client = ["dep:reqwest"]
 thingd-native = ["dep:thingd"]
@@ -40,7 +40,7 @@ serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 sha2 = "0.10"
 subtle = "2"
-thingd = { version = "0.73", optional = true }
+thingd = { version = "0.77", optional = true, features = ["persistent", "search"] }
 thiserror = "1"
 tokio = { version = "1", features = ["full"] }
 toml = "0.8"

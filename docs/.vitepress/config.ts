@@ -59,6 +59,10 @@ export default defineConfig({
           { text: "API stability", link: "/api-stability" },
           { text: "Storage modes", link: "/in-memory-mode" },
           { text: "thingd integration", link: "/thingd-integration" },
+          {
+            text: "Thingd 0.77 sync",
+            link: "/thingd-integration#thingd-077-encryption-schemas-and-sync",
+          },
           { text: "Application hardening", link: "/application-hardening" },
         ],
       },

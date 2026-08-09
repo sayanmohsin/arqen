@@ -41,6 +41,7 @@ pub mod module;
 pub mod observability;
 pub mod openapi;
 pub mod prelude;
+pub mod schema;
 pub mod state;
 pub mod thingd;
 
@@ -77,12 +78,16 @@ pub use observability::{
     StorageMetric,
 };
 pub use state::{AppState, AppStateBuilder};
+#[cfg(feature = "http-client")]
+pub use thingd::{
+    ApplyResult, HttpClientPolicy, HttpThingdBackend, ReplicationChange, ReplicationSnapshot,
+    ReplicationStatus, SyncCheckpointStore, SyncClientPolicy, SyncEndpoint, SyncPage,
+    ThingdSyncClient, ThingdSyncWorker,
+};
 pub use thingd::{
     CachePolicy, CachingThingdBackend, MemoryThingdBackend, ScopeSubject, ScopedThingdBackend,
     StorageFactory, StorageScope, ThingdBackend,
 };
-#[cfg(feature = "http-client")]
-pub use thingd::{HttpClientPolicy, HttpThingdBackend};
 
 #[cfg(feature = "http-server")]
 pub use auth::{AuthContext, AuthError, Authentication};

@@ -69,6 +69,16 @@ pub trait ThingdBackend: Send + Sync {
 - Suitable for production deployments
 - Requires network connectivity
 
+### Thingd 0.77 synchronization
+
+With the `http-client` feature, `ThingdSyncClient` and `ThingdSyncWorker` wrap
+Thingd's public `/v1/replication/events`, `/apply`, `/status`, `/conflicts`, and
+`/snapshot` endpoints. `SyncCheckpointStore` lets applications persist the
+last applied cursor in their selected backend. The worker supports bounded
+retry, collection allowlists, stale-cursor snapshot bootstrap, and graceful
+shutdown. It is opt-in and experimental; Thingd remains the owner of
+replication semantics, provenance, tombstones, and conflict quarantine.
+
 ### CloudThingdBackend (future)
 
 - Optional hosted thingd-cloud integration

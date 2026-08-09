@@ -22,14 +22,36 @@ impl StorageFactory {
                             context: "required for native storage".to_string(),
                         }
                     })?;
-                    let backend =
-                        crate::thingd::NativeThingdBackend::persistent(path).map_err(|error| {
+                    let options = if let Some(key) = &config.storage.encryption_key {
+                        let bytes = hex::decode(key.inner()).map_err(|error| {
                             ConfigError::InvalidValue {
+                                field: "storage.encryption_key".to_string(),
+                                value: "[REDACTED]".to_string(),
+                                expected: format!("64 hexadecimal characters: {error}"),
+                            }
+                        })?;
+                        let encryption =
+                            thingd::EncryptionConfig::from_key(&bytes).map_err(|error| {
+                                ConfigError::InvalidValue {
+                                    field: "storage.encryption_key".to_string(),
+                                    value: "[REDACTED]".to_string(),
+                                    expected: error.to_string(),
+                                }
+                            })?;
+                        thingd::PersistentOpenOptions {
+                            encryption: Some(encryption),
+                            ..Default::default()
+                        }
+                    } else {
+                        thingd::PersistentOpenOptions::default()
+                    };
+                    let backend =
+                        crate::thingd::NativeThingdBackend::persistent_with_options(path, options)
+                            .map_err(|error| ConfigError::InvalidValue {
                                 field: "persistent_path".to_string(),
                                 value: path.display().to_string(),
                                 expected: error.to_string(),
-                            }
-                        })?;
+                            })?;
                     Ok(Arc::new(backend))
                 }
                 #[cfg(not(feature = "thingd-native"))]

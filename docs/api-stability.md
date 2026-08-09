@@ -10,17 +10,19 @@ state, configuration, storage factories and adapters, validation, modules,
 jobs, health, and vendor-neutral metrics. `arqen::http` is the supported HTTP
 facade; applications do not need to import Axum directly.
 
-The `ThingdBackend` contract, memory backend, native adapter, HTTP policy, and
-scoped backend are supported APIs. Native thingd's synchronous store remains
-available as an explicit advanced API, while Arqen's async adapter always
-runs it on blocking threads.
+The `ThingdBackend` contract, memory backend, native adapter, HTTP policy,
+scoped backend, schema report, and Thingd 0.77 sync client types are supported
+public APIs. Sync workers and schema inspection are opt-in operational APIs;
+Thingd remains authoritative for replication, conflicts, encryption, and
+migrations. Native thingd's synchronous store remains available as an explicit
+advanced API, while Arqen's async adapter always runs it on blocking threads.
 
 ## Experimental surface
 
-Cloud storage, synchronization, JWKS rotation, and cursor-based sync APIs are
-experimental or blocked until thingd publishes versioned public contracts.
-Arqen will discover those capabilities and expose lifecycle/readiness state;
-it will not define a private replication protocol.
+Cloud storage and JWKS rotation remain experimental or blocked until Thingd
+Cloud publishes versioned public contracts. Thingd 0.77 synchronization and
+cursor APIs now have a public contract, but Arqen's worker integration remains
+experimental and opt-in. Arqen will not define a private replication protocol.
 
 Experimental modules may change without the normal deprecation window. They
 are marked in Rust documentation and the feature-status table.

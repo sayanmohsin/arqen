@@ -72,8 +72,15 @@ impl NativeThingdStore {
 
     /// Open a durable persistent native thingd store.
     pub fn persistent(path: impl AsRef<Path>) -> Result<Self, thingd::ThingdError> {
-        let engine = thingd::PersistentEngine::open(path)
-            .map_err(|error| thingd::ThingdError::Storage(error.to_string()))?;
+        Self::persistent_with_options(path, thingd::PersistentOpenOptions::default())
+    }
+
+    /// Open a durable store with Thingd's explicit persistence options.
+    pub fn persistent_with_options(
+        path: impl AsRef<Path>,
+        options: thingd::PersistentOpenOptions,
+    ) -> Result<Self, thingd::ThingdError> {
+        let engine = thingd::PersistentEngine::open_with_options(path, options)?;
         Ok(Self {
             engine: Arc::new(Mutex::new(NativeThingdEngine::Persistent(engine))),
         })

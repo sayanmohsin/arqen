@@ -9,6 +9,7 @@ pub mod lint;
 pub mod output;
 pub mod serve;
 pub mod test;
+pub mod thingd_schema;
 
 use clap::{Parser, Subcommand};
 
@@ -116,6 +117,30 @@ pub enum Commands {
     },
     /// Generate documentation
     Doc,
+    /// Validate Thingd schemas and inspect a remote Thingd instance.
+    Thingd {
+        #[command(subcommand)]
+        command: ThingdCommand,
+    },
+}
+
+#[derive(Subcommand)]
+pub enum ThingdCommand {
+    /// Validate a local `.thingd` schema file.
+    SchemaValidate {
+        path: std::path::PathBuf,
+        /// Optional Thingd URL for authoritative syntax validation.
+        #[arg(long)]
+        url: Option<String>,
+        #[arg(long)]
+        token: Option<String>,
+    },
+    /// Read the current remote schema and migration history.
+    SchemaRemote {
+        url: String,
+        #[arg(long)]
+        token: Option<String>,
+    },
 }
 
 #[derive(Subcommand)]
@@ -218,6 +243,12 @@ fn dispatch(cli: &Cli, output: &Output) -> anyhow::Result<()> {
         }
         Commands::Doc => {
             let code = doc::run_doc(output);
+            if code != exit::SUCCESS {
+                std::process::exit(code);
+            }
+        }
+        Commands::Thingd { command } => {
+            let code = thingd_schema::run(command, output);
             if code != exit::SUCCESS {
                 std::process::exit(code);
             }

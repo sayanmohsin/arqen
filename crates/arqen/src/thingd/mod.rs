@@ -5,6 +5,9 @@ pub mod scoped;
 pub mod traits;
 
 #[cfg(feature = "http-client")]
+pub mod sync;
+
+#[cfg(feature = "http-client")]
 pub mod http;
 #[cfg(feature = "thingd-native")]
 pub mod native;
@@ -16,6 +19,12 @@ pub use factory::StorageFactory;
 pub use memory::MemoryThingdBackend;
 pub use scoped::{ScopeSubject, ScopedThingdBackend, StorageScope};
 pub use traits::*;
+
+#[cfg(feature = "http-client")]
+pub use sync::{
+    ApplyResult, ReplicationChange, ReplicationSnapshot, ReplicationStatus, SyncCheckpointStore,
+    SyncClientPolicy, SyncEndpoint, SyncPage, ThingdSyncClient, ThingdSyncWorker,
+};
 
 #[cfg(feature = "http-client")]
 pub use http::HttpClientPolicy;

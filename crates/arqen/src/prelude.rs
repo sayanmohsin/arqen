@@ -17,9 +17,14 @@ pub use crate::core::{AppError, ErrorKind};
 pub use crate::jobs::JobHandler;
 pub use crate::module::{Module, ModuleContext, ModuleError, ModuleHealth};
 pub use crate::observability::{MetricsSink, NoopMetricsSink};
+pub use crate::schema::SchemaReport;
 pub use crate::state::AppState;
 #[cfg(feature = "http-client")]
-pub use crate::thingd::HttpClientPolicy;
+pub use crate::thingd::{
+    ApplyResult, HttpClientPolicy, ReplicationChange, ReplicationSnapshot, ReplicationStatus,
+    SyncCheckpointStore, SyncClientPolicy, SyncEndpoint, SyncPage, ThingdSyncClient,
+    ThingdSyncWorker,
+};
 pub use crate::thingd::{
     CachePolicy, CachingThingdBackend, ScopedThingdBackend, StorageFactory, StorageScope,
     ThingdBackend,
