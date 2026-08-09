@@ -16,7 +16,7 @@ Arqen applications are configured through environment variables and optional con
 | `ARQEN_THINGD_ENCRYPTION_KEY`  | 64-hex-character native Thingd encryption key                      | unset; server-side only              |
 | `ARQEN_THINGD_SCHEMA_PATH`     | Versioned `.thingd` schema path                                    | unset                                |
 | `ARQEN_SYNC_ENABLED`           | Enable opt-in Thingd source-to-replica sync                        | `false`                              |
-| `ARQEN_SYNC_MODE`              | Sync capability: `disabled`, `http`, or `native`                  | `disabled`                           |
+| `ARQEN_SYNC_MODE`              | Sync capability: `disabled`, `http`, or `native`                   | `disabled`                           |
 | `ARQEN_SYNC_SOURCE_ID`         | Stable source instance identifier                                  | unset                                |
 | `ARQEN_SYNC_TARGET_URL`        | Thingd replication target URL                                      | unset; required when enabled         |
 | `ARQEN_SYNC_TARGET_AUTH_TOKEN` | Target bearer credential                                           | unset; required by target policy     |
