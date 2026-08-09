@@ -20,10 +20,13 @@ pub use memory::MemoryThingdBackend;
 pub use scoped::{ScopeSubject, ScopedThingdBackend, StorageScope};
 pub use traits::*;
 
+#[cfg(all(feature = "thingd-native", feature = "http-client"))]
+pub use sync::NativeThingdSyncEndpoint;
 #[cfg(feature = "http-client")]
 pub use sync::{
-    ApplyResult, ReplicationChange, ReplicationSnapshot, ReplicationStatus, SyncCheckpointStore,
-    SyncClientPolicy, SyncEndpoint, SyncPage, ThingdSyncClient, ThingdSyncWorker,
+    ApplyResult, FileSyncCheckpointStore, ReplicationChange, ReplicationSnapshot,
+    ReplicationStatus, SyncCheckpointStore, SyncClientPolicy, SyncEndpoint, SyncPage,
+    SyncRuntimeStatus, ThingdSyncClient, ThingdSyncWorker,
 };
 
 #[cfg(feature = "http-client")]

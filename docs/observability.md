@@ -20,6 +20,9 @@ types cover requests, storage operations, cache hits/misses/evictions, and
 jobs; adapters should record latency in milliseconds and never include tokens,
 provider keys, raw payloads, or authorization headers.
 
+Sync metrics include mode, duration, retry count, cursor, conflict count, and
+snapshot fallback state. They never include replicated payloads or secrets.
+
 At minimum, alert on readiness failures, elevated 5xx/error rate, p95 and p99
 latency, storage dependency failures, queue lag, retry growth, and dead-letter
 growth. Preserve correlation IDs across HTTP requests, repository calls, and

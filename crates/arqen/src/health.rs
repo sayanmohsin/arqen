@@ -9,6 +9,8 @@ use std::time::{Duration, Instant};
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 
+use crate::config::ThingdSyncMode;
+
 /// Health status of a dependency.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
@@ -74,6 +76,41 @@ pub trait HealthCheck: Send + Sync {
     /// Whether this check is required for readiness.
     fn required_for_readiness(&self) -> bool {
         true
+    }
+}
+
+/// Reports whether the configured Thingd sync capability is available.
+///
+/// This is a capability check, not a network probe. Applications should
+/// register a separate endpoint check when HTTP sync is enabled.
+pub struct ThingdSyncHealth {
+    mode: ThingdSyncMode,
+}
+
+impl ThingdSyncHealth {
+    #[must_use]
+    pub fn new(mode: ThingdSyncMode) -> Self {
+        Self { mode }
+    }
+}
+
+#[async_trait]
+impl HealthCheck for ThingdSyncHealth {
+    fn name(&self) -> &str {
+        "thingd-sync-capability"
+    }
+
+    async fn check(&self) -> HealthStatus {
+        match self.mode {
+            ThingdSyncMode::Disabled | ThingdSyncMode::Http => HealthStatus::Healthy,
+            ThingdSyncMode::Native => HealthStatus::Degraded {
+                reason: "native Thingd replication contract is not published".to_string(),
+            },
+        }
+    }
+
+    fn required_for_readiness(&self) -> bool {
+        false
     }
 }
 
@@ -450,6 +487,13 @@ mod tests {
         assert_eq!(check.name(), "always_timeout");
         let status = check.check().await;
         assert!(status.is_healthy());
+    }
+
+    #[tokio::test]
+    async fn native_sync_health_is_degraded_and_optional() {
+        let check = ThingdSyncHealth::new(ThingdSyncMode::Native);
+        assert!(check.check().await.is_degraded());
+        assert!(!check.required_for_readiness());
     }
 
     #[tokio::test]

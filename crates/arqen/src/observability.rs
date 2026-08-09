@@ -40,6 +40,20 @@ pub struct JobMetric {
     pub success: bool,
 }
 
+/// A replication operation metric. The event contains operational counters,
+/// never credentials, request bodies, or replicated payloads.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SyncMetric {
+    pub operation: String,
+    pub mode: String,
+    pub duration_ms: u64,
+    pub retries: u32,
+    pub cursor: u64,
+    pub conflicts: u64,
+    pub snapshot_fallback: bool,
+    pub success: bool,
+}
+
 /// Vendor-neutral metrics integration point. Implementations may forward
 /// these events to Prometheus, OpenTelemetry, or an application-owned system.
 pub trait MetricsSink: Send + Sync {
@@ -47,6 +61,9 @@ pub trait MetricsSink: Send + Sync {
     fn record_storage(&self, event: StorageMetric);
     fn record_cache(&self, event: CacheMetric);
     fn record_job(&self, event: JobMetric);
+
+    /// Record a Thingd replication operation.
+    fn record_sync(&self, _event: SyncMetric) {}
 }
 
 #[derive(Debug, Default)]
