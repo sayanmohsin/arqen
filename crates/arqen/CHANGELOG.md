@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.7.0](https://github.com/sayanmohsin/arqen/compare/arqen-v0.6.0...arqen-v0.7.0) (2026-08-09)
+
+
+### Features
+
+* integrate Thingd 0.77 storage and sync ([316b46f](https://github.com/sayanmohsin/arqen/commit/316b46f70bc8935e6dd1c88414a73a68d73f9fce))
+
+
+### Bug Fixes
+
+* align thingd HTTP adapter with public REST contract ([4a9dec5](https://github.com/sayanmohsin/arqen/commit/4a9dec5be1d290b762c532981e537b5b446471a2))
+
 ## [0.6.0](https://github.com/sayanmohsin/arqen/compare/arqen-v0.5.0...arqen-v0.6.0) (2026-08-08)
 
 
