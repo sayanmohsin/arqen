@@ -8,6 +8,7 @@
 use std::collections::HashMap;
 use std::sync::Arc;
 
+#[cfg(feature = "http-server")]
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
@@ -124,6 +125,7 @@ impl<T: Authentication + ?Sized> Authentication for Arc<T> {
 }
 
 /// Constant-time string comparison to prevent timing attacks.
+#[cfg(any(feature = "http-server", test))]
 fn constant_time_eq(a: &str, b: &str) -> bool {
     if a.len() != b.len() {
         return false;

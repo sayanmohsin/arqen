@@ -16,10 +16,12 @@ Arqen applications are configured through environment variables and optional con
 | `ARQEN_THINGD_ENCRYPTION_KEY`  | 64-hex-character native Thingd encryption key                      | unset; server-side only              |
 | `ARQEN_THINGD_SCHEMA_PATH`     | Versioned `.thingd` schema path                                    | unset                                |
 | `ARQEN_SYNC_ENABLED`           | Enable opt-in Thingd source-to-replica sync                        | `false`                              |
+| `ARQEN_SYNC_MODE`              | Sync capability: `disabled`, `http`, or `native`                  | `disabled`                           |
 | `ARQEN_SYNC_SOURCE_ID`         | Stable source instance identifier                                  | unset                                |
 | `ARQEN_SYNC_TARGET_URL`        | Thingd replication target URL                                      | unset; required when enabled         |
 | `ARQEN_SYNC_TARGET_AUTH_TOKEN` | Target bearer credential                                           | unset; required by target policy     |
 | `ARQEN_SYNC_COLLECTIONS`       | Comma-separated replication allowlist                              | empty                                |
+| `ARQEN_SYNC_REPLICATE_ALL`     | Explicitly replicate all supported application collections         | `false`                              |
 | `ARQEN_SYNC_POLL_INTERVAL`     | Sync polling interval in seconds                                   | `5`                                  |
 | `ARQEN_SYNC_BATCH_SIZE`        | Maximum changes per replication page                               | `500`                                |
 | `ARQEN_SYNC_SNAPSHOT_FALLBACK` | Bootstrap stale replicas from a snapshot                           | `true`                               |
@@ -77,9 +79,11 @@ mode = "memory"
 
 [sync]
 enabled = false
+# mode = "http" # disabled, http, or native; native is unavailable until Thingd publishes its native contract
 # source_id = "local-instance"
 # target_url = "https://thingd-replica.internal"
 # collections = ["watchloom_titles"]
+# replicate_all = false
 # snapshot_fallback = true
 ```
 

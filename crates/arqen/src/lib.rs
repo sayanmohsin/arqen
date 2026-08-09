@@ -25,6 +25,7 @@
 //! ```
 
 pub mod agent;
+#[cfg(feature = "http-server")]
 pub mod app;
 pub mod auth;
 #[cfg(feature = "cli")]
@@ -63,7 +64,7 @@ pub use agent::{
 };
 pub use config::{
     AppConfig, AuthConfig, CliOverrides, HealthConfig, LogFormat, LoggingConfig, Secret,
-    ServerConfig, StorageConfig, StorageMode, WorkerConfig,
+    ServerConfig, StorageConfig, StorageMode, ThingdSyncMode, WorkerConfig,
 };
 #[cfg(feature = "http-server")]
 pub use context::RequestContext;
@@ -75,14 +76,14 @@ pub use module::{
 #[cfg(feature = "http-server")]
 pub use observability::{
     CacheMetric, JobMetric, MetricsSink, NoopMetricsSink, RequestMetric, SharedMetricsSink,
-    StorageMetric,
+    StorageMetric, SyncMetric,
 };
 pub use state::{AppState, AppStateBuilder};
 #[cfg(feature = "http-client")]
 pub use thingd::{
-    ApplyResult, HttpClientPolicy, HttpThingdBackend, ReplicationChange, ReplicationSnapshot,
-    ReplicationStatus, SyncCheckpointStore, SyncClientPolicy, SyncEndpoint, SyncPage,
-    ThingdSyncClient, ThingdSyncWorker,
+    ApplyResult, FileSyncCheckpointStore, HttpClientPolicy, HttpThingdBackend, ReplicationChange,
+    ReplicationSnapshot, ReplicationStatus, SyncCheckpointStore, SyncClientPolicy, SyncEndpoint,
+    SyncPage, SyncRuntimeStatus, ThingdSyncClient, ThingdSyncWorker,
 };
 pub use thingd::{
     CachePolicy, CachingThingdBackend, MemoryThingdBackend, ScopeSubject, ScopedThingdBackend,
@@ -92,7 +93,9 @@ pub use thingd::{
 #[cfg(feature = "http-server")]
 pub use auth::{AuthContext, AuthError, Authentication};
 #[cfg(feature = "http-server")]
-pub use health::{HealthCheck, HealthRegistry, HealthReport, HealthStatus, ProbeType};
+pub use health::{
+    HealthCheck, HealthRegistry, HealthReport, HealthStatus, ProbeType, ThingdSyncHealth,
+};
 #[cfg(feature = "http-server")]
 pub use observability::{MetricsReport, RequestMetrics};
 #[cfg(feature = "http-server")]
@@ -106,5 +109,7 @@ pub use http::{
 };
 #[cfg(feature = "logging")]
 pub use logging::{init_logging, init_logging_with_config};
+#[cfg(all(feature = "thingd-native", feature = "http-client"))]
+pub use thingd::NativeThingdSyncEndpoint;
 #[cfg(feature = "thingd-native")]
 pub use thingd::{NativeThingdBackend, NativeThingdStore};

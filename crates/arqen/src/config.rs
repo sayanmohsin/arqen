@@ -155,6 +155,39 @@ pub enum StorageMode {
     Cloud,
 }
 
+/// Replication transport supported by Arqen.
+///
+/// `Native` is a capability boundary for the future public native Thingd
+/// replication API. It must not be treated as an HTTP server or implemented
+/// by reading Thingd internals.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
+#[serde(rename_all = "lowercase")]
+pub enum ThingdSyncMode {
+    /// Replication is disabled.
+    #[default]
+    Disabled,
+    /// Replication uses Thingd's public HTTP API.
+    Http,
+    /// Replication uses a future public native Thingd API.
+    Native,
+}
+
+impl ThingdSyncMode {
+    /// Parse a configured sync mode.
+    pub fn parse_str(value: &str) -> Result<Self, ConfigError> {
+        match value.trim().to_ascii_lowercase().as_str() {
+            "disabled" | "off" | "none" => Ok(Self::Disabled),
+            "http" => Ok(Self::Http),
+            "native" => Ok(Self::Native),
+            _ => Err(ConfigError::InvalidValue {
+                field: "sync.mode".to_string(),
+                value: value.to_string(),
+                expected: "disabled, http, or native".to_string(),
+            }),
+        }
+    }
+}
+
 impl StorageMode {
     pub fn parse_str(s: &str) -> Result<Self, ConfigError> {
         match s.to_lowercase().as_str() {
@@ -191,11 +224,16 @@ impl Default for StorageConfig {
 pub struct SyncConfig {
     #[serde(default)]
     pub enabled: bool,
+    #[serde(default)]
+    pub mode: ThingdSyncMode,
     pub source_id: Option<String>,
     pub target_url: Option<String>,
     pub target_auth_token: Option<Secret<String>>,
     #[serde(default)]
     pub collections: Vec<String>,
+    /// Explicitly opt into replicating every supported application collection.
+    #[serde(default)]
+    pub replicate_all: bool,
     #[serde(default = "default_sync_poll_interval")]
     pub poll_interval: Duration,
     #[serde(default = "default_sync_batch_size")]
@@ -218,10 +256,12 @@ impl Default for SyncConfig {
     fn default() -> Self {
         Self {
             enabled: false,
+            mode: ThingdSyncMode::Disabled,
             source_id: None,
             target_url: None,
             target_auth_token: None,
             collections: Vec::new(),
+            replicate_all: false,
             poll_interval: default_sync_poll_interval(),
             batch_size: default_sync_batch_size(),
             snapshot_fallback: default_sync_snapshot_fallback(),
@@ -467,6 +507,13 @@ impl AppConfig {
         if let Ok(enabled) = std::env::var("ARQEN_SYNC_ENABLED") {
             self.sync.enabled = enabled == "true" || enabled == "1";
         }
+        if let Ok(mode) = std::env::var("ARQEN_SYNC_MODE") {
+            self.sync.mode = ThingdSyncMode::parse_str(&mode)?;
+        } else if self.sync.enabled && self.sync.mode == ThingdSyncMode::Disabled {
+            // Preserve compatibility with the original enabled-only config
+            // while making the effective transport explicit internally.
+            self.sync.mode = ThingdSyncMode::Http;
+        }
         if let Ok(source_id) = std::env::var("ARQEN_SYNC_SOURCE_ID") {
             self.sync.source_id = Some(source_id);
         }
@@ -482,6 +529,9 @@ impl AppConfig {
                 .map(|s| s.trim().to_string())
                 .filter(|s| !s.is_empty())
                 .collect();
+        }
+        if let Ok(replicate_all) = std::env::var("ARQEN_SYNC_REPLICATE_ALL") {
+            self.sync.replicate_all = replicate_all == "true" || replicate_all == "1";
         }
         if let Ok(interval) = std::env::var("ARQEN_SYNC_POLL_INTERVAL") {
             self.sync.poll_interval =
@@ -697,10 +747,37 @@ impl AppConfig {
             });
         }
         if self.sync.enabled {
+            if self.sync.mode == ThingdSyncMode::Disabled {
+                return Err(ConfigError::InvalidValue {
+                    field: "sync.mode".to_string(),
+                    value: "disabled".to_string(),
+                    expected: "http or native when sync is enabled".to_string(),
+                });
+            }
+            if self.sync.mode == ThingdSyncMode::Native {
+                return Err(ConfigError::InvalidValue {
+                    field: "sync.mode".to_string(),
+                    value: "native".to_string(),
+                    expected: "native Thingd replication API is not published yet; use http or disable sync".to_string(),
+                });
+            }
             if self.sync.target_url.is_none() {
                 return Err(ConfigError::MissingField {
                     field: "sync.target_url".to_string(),
                     context: "required when sync is enabled".to_string(),
+                });
+            }
+            if self.sync.source_id.as_deref().is_none_or(str::is_empty) {
+                return Err(ConfigError::MissingField {
+                    field: "sync.source_id".to_string(),
+                    context: "required when sync is enabled".to_string(),
+                });
+            }
+            if self.sync.collections.is_empty() && !self.sync.replicate_all {
+                return Err(ConfigError::InvalidValue {
+                    field: "sync.collections".to_string(),
+                    value: "empty".to_string(),
+                    expected: "a non-empty allowlist or sync.replicate_all=true".to_string(),
                 });
             }
             if self.sync.batch_size == 0 || self.sync.batch_size > 1000 {
@@ -971,6 +1048,24 @@ concurrency = 8
             ..Default::default()
         };
         assert!(config.validate().is_err());
+    }
+
+    #[test]
+    fn sync_mode_defaults_to_disabled() {
+        let config = AppConfig::default();
+        assert_eq!(config.sync.mode, ThingdSyncMode::Disabled);
+        assert!(!config.sync.enabled);
+    }
+
+    #[test]
+    fn native_sync_fails_closed_until_public_native_contract_exists() {
+        let mut config = AppConfig::default();
+        config.sync.enabled = true;
+        config.sync.mode = ThingdSyncMode::Native;
+        config.sync.source_id = Some("local".to_string());
+        config.sync.target_url = Some("https://cloud.example".to_string());
+        let error = config.validate().unwrap_err();
+        assert!(error.to_string().contains("native Thingd replication API"));
     }
 
     #[test]

@@ -9,21 +9,25 @@
 pub use crate::agent::{
     JobMetadata, ToolContext, ToolEffect, ToolHandler, ToolMetadata, ToolOutcome, ToolRegistry,
 };
+#[cfg(feature = "http-server")]
 pub use crate::app::ArqenApp;
-pub use crate::config::{AppConfig, StorageMode};
+pub use crate::config::{AppConfig, StorageMode, ThingdSyncMode};
 #[cfg(feature = "http-server")]
 pub use crate::context::RequestContext;
 pub use crate::core::{AppError, ErrorKind};
+pub use crate::health::ThingdSyncHealth;
 pub use crate::jobs::JobHandler;
 pub use crate::module::{Module, ModuleContext, ModuleError, ModuleHealth};
-pub use crate::observability::{MetricsSink, NoopMetricsSink};
+pub use crate::observability::{MetricsSink, NoopMetricsSink, SyncMetric};
 pub use crate::schema::SchemaReport;
 pub use crate::state::AppState;
+#[cfg(all(feature = "thingd-native", feature = "http-client"))]
+pub use crate::thingd::NativeThingdSyncEndpoint;
 #[cfg(feature = "http-client")]
 pub use crate::thingd::{
-    ApplyResult, HttpClientPolicy, ReplicationChange, ReplicationSnapshot, ReplicationStatus,
-    SyncCheckpointStore, SyncClientPolicy, SyncEndpoint, SyncPage, ThingdSyncClient,
-    ThingdSyncWorker,
+    ApplyResult, FileSyncCheckpointStore, HttpClientPolicy, ReplicationChange, ReplicationSnapshot,
+    ReplicationStatus, SyncCheckpointStore, SyncClientPolicy, SyncEndpoint, SyncPage,
+    SyncRuntimeStatus, ThingdSyncClient, ThingdSyncWorker,
 };
 pub use crate::thingd::{
     CachePolicy, CachingThingdBackend, ScopedThingdBackend, StorageFactory, StorageScope,

@@ -27,7 +27,7 @@ support can use the public HTTP API, SDKs, templates, and shared manifests.
 Arqen is early-stage and actively maturing. The current single package
 contains the library and feature-gated CLI, including configuration,
 authentication, validation, jobs, observability, OpenAPI helpers, module
-composition, testing utilities, and Thingd 0.77 encryption, schema, and
+composition, testing utilities, and Thingd 0.77.3 encryption, schema, and
 opt-in replication integration. Production adoption still requires
 application-specific security review, durability and recovery testing, public
 thingd compatibility checks, and operational ownership.
@@ -79,10 +79,10 @@ Application, client, or agent
               |
        Arqen adapter contract
         /         |          \
-   memory     native durable   HTTP sidecar
-  local/test     thingd        thingd service
+   memory     native durable   HTTP Thingd
+  local/test  embedded engine  Thingd service
                                   |
-                         future optional cloud API
+                         optional Cloud replica
 ```
 
 The same application-facing contracts are designed for four deployment modes:
@@ -90,15 +90,17 @@ The same application-facing contracts are designed for four deployment modes:
 | Mode           | Best for                    | Status                                         |
 | -------------- | --------------------------- | ---------------------------------------------- |
 | Memory         | Local development and tests | Available                                      |
-| Native durable | An embedded thingd process  | Available; validate recovery for your workload |
-| HTTP sidecar   | A separate thingd service   | Available; validate the public contract        |
+| Native durable | An embedded Thingd engine in the Arqen process | Available; validate recovery for your workload |
+| HTTP Thingd    | A separate Thingd HTTP service                | Available; validate the public contract        |
 | Cloud          | Hosted thingd services      | Future integration path                        |
 
-Thingd 0.77 adds the supported integration boundary for encrypted native
-storage, versioned `.thingd` schema inspection, and opt-in source-to-replica
-sync. Thingd owns encryption format, checkpoints, tombstones, and conflict
-semantics; Arqen owns configuration, lifecycle, typed adapters, health, and
-metrics around those capabilities.
+Thingd 0.77.3 adds the supported integration boundary for encrypted native
+storage, versioned `.thingd` schema inspection, and opt-in HTTP source-to-
+replica sync. Thingd owns encryption format, checkpoints, tombstones, and
+conflict semantics; Arqen owns configuration, lifecycle, typed adapters,
+health, and metrics around those capabilities. Native storage is embedded in
+the Arqen process and does not require a local sidecar. Native-to-Cloud sync
+is unavailable until Thingd publishes its native Rust replication contract.
 
 ## For coding agents
 

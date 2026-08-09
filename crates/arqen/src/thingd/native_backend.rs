@@ -746,6 +746,24 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn persistent_storage_survives_backend_reopen() {
+        let path = std::env::temp_dir().join(format!("arqen-native-{}", Uuid::new_v4()));
+        {
+            let backend = NativeThingdBackend::persistent(&path).unwrap();
+            backend
+                .put_object("titles", "t1", serde_json::json!({"title": "Matrix"}))
+                .await
+                .unwrap();
+        }
+        {
+            let backend = NativeThingdBackend::persistent(&path).unwrap();
+            let object = backend.get_object("titles", "t1").await.unwrap();
+            assert_eq!(object.unwrap().data["title"], "Matrix");
+        }
+        std::fs::remove_dir_all(path).unwrap();
+    }
+
+    #[tokio::test]
     async fn query_objects_with_filter() {
         let backend = NativeThingdBackend::memory();
         for (id, season) in [("s1", "season1"), ("s2", "season2")] {

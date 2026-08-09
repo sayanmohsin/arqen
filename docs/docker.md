@@ -4,7 +4,9 @@ Generated applications should include a multi-stage `Dockerfile`, `.dockerignore
 
 The image should compile a release Rust binary in a builder stage and run only the application binary in the runtime stage. The deployment documentation must explain the application port, `/health`, `/ready`, graceful shutdown, storage configuration, worker processes, and secret injection.
 
-Local Compose should optionally run Arqen with a thingd sidecar so the same application can move from memory mode to HTTP-backed durable mode.
+Local Compose may optionally run Arqen with a Thingd HTTP service so the same
+application can move from memory mode to HTTP-backed durable mode. Native mode
+embeds Thingd in the Arqen process and does not require that service.
 
 # Build context
 

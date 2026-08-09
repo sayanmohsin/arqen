@@ -52,7 +52,9 @@ worker roles, production configuration guardrails, cursor pagination,
 schema/version envelopes, and exporter hooks.
 
 The sync protocol and replication engine remain owned by thingd. Arqen only
-provides the application/runtime integration boundary.
+provides the application/runtime integration boundary. HTTP replication is
+supported now; native embedded-engine replication remains gated on Thingd's
+public Rust contract.
 
 See [application-hardening.md](application-hardening.md) for scope and
 boundary rules. This phase must not introduce Watchloom-specific domain types

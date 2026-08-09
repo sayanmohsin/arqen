@@ -9,10 +9,10 @@ use std::sync::Arc;
 
 use async_trait::async_trait;
 
-use crate::HealthCheck;
 use crate::agent::ToolRegistry;
 use crate::config::ConfigError;
 use crate::core::{AppError, ErrorKind};
+use crate::health::HealthCheck;
 use crate::health::{HealthRegistry, HealthStatus};
 
 /// Errors from module graph validation.

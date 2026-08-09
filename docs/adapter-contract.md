@@ -69,7 +69,7 @@ pub trait ThingdBackend: Send + Sync {
 - Suitable for production deployments
 - Requires network connectivity
 
-### Thingd 0.77 synchronization
+### Thingd 0.77.3 synchronization
 
 With the `http-client` feature, `ThingdSyncClient` and `ThingdSyncWorker` wrap
 Thingd's public `/v1/replication/events`, `/apply`, `/status`, `/conflicts`, and
@@ -78,6 +78,11 @@ last applied cursor in their selected backend. The worker supports bounded
 retry, collection allowlists, stale-cursor snapshot bootstrap, and graceful
 shutdown. It is opt-in and experimental; Thingd remains the owner of
 replication semantics, provenance, tombstones, and conflict quarantine.
+
+Native storage is embedded in the Arqen process and does not require a local
+sidecar. `NativeThingdSyncEndpoint` is an explicit unavailable capability
+until Thingd publishes a stable native Rust replication API; constructing it
+fails with `ErrorKind::NotImpl` rather than falling back to HTTP or memory.
 
 ### CloudThingdBackend (future)
 
