@@ -40,7 +40,7 @@ This generates:
 
 ```text
 hello-api/
-  Cargo.toml          # depends on arqen 0.5 with logging + http-server
+  Cargo.toml          # depends on arqen 0.6 with logging + http-server
   README.md
   rustfmt.toml        # formatting config
   clippy.toml         # lint config

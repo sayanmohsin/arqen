@@ -40,7 +40,7 @@ Add the one public Cargo package:
 
 ```toml
 [dependencies]
-arqen = "0.5"
+arqen = "0.6"
 ```
 
 Create a starter application from a checkout:

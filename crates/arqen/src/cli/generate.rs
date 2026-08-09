@@ -36,7 +36,7 @@ edition = "2024"
 rust-version = "1.96"
 
 [dependencies]
-arqen = {{ version = "0.5", features = ["logging"] }}
+arqen = {{ version = "0.6", features = ["logging"] }}
 tokio = {{ version = "1", features = ["full"] }}
 serde = {{ version = "1", features = ["derive"] }}
 serde_json = "1"
