@@ -27,7 +27,7 @@ support can use the public HTTP API, SDKs, templates, and shared manifests.
 Arqen is early-stage and actively maturing. The current single package
 contains the library and feature-gated CLI, including configuration,
 authentication, validation, jobs, observability, OpenAPI helpers, module
-composition, testing utilities, and Thingd 0.78.0 encryption, schema, and
+composition, testing utilities, and Thingd 0.79.0 encryption, schema, and
 opt-in replication integration. Production adoption still requires
 application-specific security review, durability and recovery testing, public
 thingd compatibility checks, and operational ownership.
@@ -94,7 +94,7 @@ The same application-facing contracts are designed for four deployment modes:
 | HTTP Thingd    | A separate Thingd HTTP service                | Available; validate the public contract        |
 | Cloud          | Hosted thingd services      | Future integration path                        |
 
-Thingd 0.78.0 adds the supported integration boundary for encrypted native
+Thingd 0.79.0 adds the supported integration boundary for encrypted native
 storage, versioned `.thingd` schema inspection, and opt-in HTTP source-to-
 replica sync. Thingd owns encryption format, checkpoints, tombstones, and
 conflict semantics; Arqen owns configuration, lifecycle, typed adapters,
@@ -137,7 +137,7 @@ operates it. It is not a model runtime, BaaS, or workflow engine.
 - [Architecture](https://sayanmohsin.github.io/arqen/architecture) · [Modules](https://github.com/sayanmohsin/arqen/blob/main/docs/modules.md) · [Feature status](https://sayanmohsin.github.io/arqen/feature-status)
 - [Authentication](https://github.com/sayanmohsin/arqen/blob/main/docs/authentication.md) · [Validation](https://github.com/sayanmohsin/arqen/blob/main/docs/validation.md) · [OpenAPI](https://github.com/sayanmohsin/arqen/blob/main/docs/openapi.md)
 - [Jobs](https://sayanmohsin.github.io/arqen/durable-jobs) · [Observability](https://github.com/sayanmohsin/arqen/blob/main/docs/observability.md) · [Testing](https://github.com/sayanmohsin/arqen/blob/main/docs/testing.md)
-- [Agent guide](https://sayanmohsin.github.io/arqen/agent-guide) · [Manifest contract](https://sayanmohsin.github.io/arqen/manifest) · [thingd integration](https://sayanmohsin.github.io/arqen/thingd-integration) · [Thingd 0.77 sync](https://sayanmohsin.github.io/arqen/thingd-integration#thingd-077-encryption-schemas-and-sync)
+- [Agent guide](https://sayanmohsin.github.io/arqen/agent-guide) · [Manifest contract](https://sayanmohsin.github.io/arqen/manifest) · [thingd integration](https://sayanmohsin.github.io/arqen/thingd-integration) · [Thingd 0.79 sync](https://sayanmohsin.github.io/arqen/thingd-integration#thingd-079-encryption-schemas-and-sync)
 - [Troubleshooting](https://github.com/sayanmohsin/arqen/blob/main/docs/troubleshooting.md) · [Migration](https://github.com/sayanmohsin/arqen/blob/main/docs/migration.md) · [Standards](https://github.com/sayanmohsin/arqen/blob/main/docs/standards.md)
 - [Examples](https://github.com/sayanmohsin/arqen/blob/main/docs/examples.md) · [Health](https://github.com/sayanmohsin/arqen/blob/main/docs/health.md) · [Performance](https://github.com/sayanmohsin/arqen/blob/main/docs/performance.md)
 - [Deployment](https://sayanmohsin.github.io/arqen/deployment) · [Docker](https://sayanmohsin.github.io/arqen/docker) · [Security](https://sayanmohsin.github.io/arqen/security)

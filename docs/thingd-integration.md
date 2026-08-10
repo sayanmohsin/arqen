@@ -1,6 +1,6 @@
 # thingd integration
 
-thingd 0.78.0 is a first-class Arqen dependency. It supplies objects, events,
+thingd 0.79.0 is a first-class Arqen dependency. It supplies objects, events,
 search, links, durable queues, encryption-aware persistence, and a public
 replication contract.
 
@@ -51,7 +51,7 @@ Native durable and HTTP modes should be treated as deployment-specific paths
 until recovery, timeout, retry, and compatibility tests have been run against
 the target thingd version. Cloud hosting is not implemented by this package.
 
-## Thingd 0.78.0 encryption, schemas, and sync
+## Thingd 0.79.0 encryption, schemas, and sync
 
 Native storage accepts a 32-byte encryption key as 64 hexadecimal characters
 through `ARQEN_THINGD_ENCRYPTION_KEY`. Arqen passes this to Thingd's
@@ -73,7 +73,7 @@ Schema migration application is deliberately not automatic. Operators should
 inspect the remote migration history and use Thingd's supported migration
 workflow; Arqen will not delete or rewrite data to make a schema fit.
 
-The `arqen::thingd::sync` module is a typed HTTP client/worker over Thingd 0.78.0's
+The `arqen::thingd::sync` module is a typed HTTP client/worker over Thingd 0.79.0's
 `/v1/replication/events`, `/apply`, `/status`, `/conflicts`, and `/snapshot`
 endpoints. It provides cursor checkpoints, bounded retries, collection
 allowlists, idempotent replay, stale-cursor snapshot fallback, and graceful

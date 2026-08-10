@@ -1,4 +1,4 @@
-//! Provider-neutral Thingd 0.78.0 replication client.
+//! Provider-neutral Thingd 0.79.0 replication client.
 //!
 //! Arqen exposes the public Thingd replication contract as a typed lifecycle
 //! boundary. It does not implement replication semantics, conflict resolution,
@@ -99,7 +99,7 @@ impl RequestSafety {
     }
 }
 
-/// Native sync endpoint over an embedded Thingd 0.78.0 engine.
+/// Native sync endpoint over an embedded Thingd 0.79.0 engine.
 #[cfg(all(feature = "thingd-native", feature = "http-client"))]
 #[derive(Clone)]
 pub struct NativeThingdSyncEndpoint {
