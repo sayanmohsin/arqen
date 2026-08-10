@@ -24,11 +24,21 @@
 //! Use `NativeThingdStore` when you need the complete thingd feature set
 //! (search, aggregation, vector search, links, etc.). Use `MemoryThingdBackend`
 //! or `HttpThingdBackend` when you need async trait-object polymorphism.
+//!
+//! The replication-aware mutation helpers below are the normal path for a
+//! native source that feeds `ThingdSyncWorker`. Callers using
+//! [`NativeThingdStore::with_engine`] or [`NativeThingdStore::lock`] directly
+//! are taking an advanced escape hatch and must call Thingd's public
+//! `ReplicationService::record_*` methods themselves after source mutations.
 
 use std::path::Path;
 use std::sync::{Arc, Mutex, MutexGuard};
 
 use crate::core::{AppError, ErrorKind};
+
+use thingd::{
+    MemoryEvent, MemoryObject, ReplicationConfig, ReplicationService, ThingStore, ThingdResult,
+};
 
 /// An embedded thingd engine selected by deployment mode.
 pub enum NativeThingdEngine {
@@ -36,6 +46,23 @@ pub enum NativeThingdEngine {
     Memory(thingd::MemoryEngine),
     /// Durable persistent engine for a single Arqen process.
     Persistent(thingd::PersistentEngine),
+}
+
+impl NativeThingdEngine {
+    pub(crate) fn with_store<R>(&mut self, operation: impl FnOnce(&mut dyn ThingStore) -> R) -> R {
+        match self {
+            Self::Memory(engine) => operation(engine),
+            Self::Persistent(engine) => operation(engine),
+        }
+    }
+
+    pub(crate) fn with_replication_service<R>(
+        &mut self,
+        config: ReplicationConfig,
+        operation: impl FnOnce(&mut ReplicationService<'_>) -> ThingdResult<R>,
+    ) -> ThingdResult<R> {
+        self.with_store(|store| operation(&mut ReplicationService::new(store, config)))
+    }
 }
 
 /// Thread-safe handle for an embedded native thingd engine.
@@ -103,4 +130,84 @@ impl NativeThingdStore {
     pub fn lock(&self) -> Result<MutexGuard<'_, NativeThingdEngine>, AppError> {
         lock_engine(&self.engine)
     }
+
+    /// Put an object and record its source replication change while holding
+    /// the same native engine lock.
+    pub fn put_object_replicated(
+        &self,
+        object: MemoryObject,
+        config: &ReplicationConfig,
+    ) -> Result<MemoryObject, AppError> {
+        ensure_source_config(config)?;
+        let config = config.clone();
+        self.with_engine(|engine| {
+            engine.with_store(|store| {
+                let object = store
+                    .put_object(object)
+                    .map_err(|error| AppError::new(ErrorKind::Internal, error.to_string()))?;
+                ReplicationService::new(store, config)
+                    .record_object_upsert(&object)
+                    .map_err(|error| AppError::new(ErrorKind::Internal, error.to_string()))?;
+                Ok(object)
+            })
+        })?
+    }
+
+    /// Delete an object and record its source replication tombstone change.
+    pub fn delete_object_replicated(
+        &self,
+        collection: &str,
+        id: &str,
+        config: &ReplicationConfig,
+    ) -> Result<(), AppError> {
+        ensure_source_config(config)?;
+        let config = config.clone();
+        self.with_engine(|engine| {
+            engine.with_store(|store| {
+                store
+                    .delete_object(collection, id)
+                    .map_err(|error| AppError::new(ErrorKind::Internal, error.to_string()))?;
+                ReplicationService::new(store, config)
+                    .record_object_delete(collection, id)
+                    .map_err(|error| AppError::new(ErrorKind::Internal, error.to_string()))
+            })
+        })?
+    }
+
+    /// Append an application event and record its source replication change.
+    pub fn append_event_replicated(
+        &self,
+        event: MemoryEvent,
+        config: &ReplicationConfig,
+    ) -> Result<MemoryEvent, AppError> {
+        ensure_source_config(config)?;
+        let config = config.clone();
+        self.with_engine(|engine| {
+            engine.with_store(|store| {
+                let event = store
+                    .append_event(event)
+                    .map_err(|error| AppError::new(ErrorKind::Internal, error.to_string()))?;
+                ReplicationService::new(store, config)
+                    .record_event_append(&event)
+                    .map_err(|error| AppError::new(ErrorKind::Internal, error.to_string()))?;
+                Ok(event)
+            })
+        })?
+    }
+}
+
+fn ensure_source_config(config: &ReplicationConfig) -> Result<(), AppError> {
+    if config.role != thingd::ReplicationRole::Source {
+        return Err(AppError::new(
+            ErrorKind::Validation,
+            "replication-aware native mutations require a source configuration",
+        ));
+    }
+    if config.source_id.trim().is_empty() {
+        return Err(AppError::new(
+            ErrorKind::Validation,
+            "replication-aware native mutations require a source ID",
+        ));
+    }
+    Ok(())
 }

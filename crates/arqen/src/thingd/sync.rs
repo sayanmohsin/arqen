@@ -1,4 +1,4 @@
-//! Provider-neutral Thingd 0.77.3 replication client.
+//! Provider-neutral Thingd 0.78.0 replication client.
 //!
 //! Arqen exposes the public Thingd replication contract as a typed lifecycle
 //! boundary. It does not implement replication semantics, conflict resolution,
@@ -7,7 +7,7 @@
 use async_trait::async_trait;
 use reqwest::{Client, StatusCode};
 use serde::{Deserialize, Serialize};
-use serde_json::Value;
+use serde_json::{Value, json};
 use std::path::{Path, PathBuf};
 use std::sync::{
     Arc,
@@ -20,6 +20,9 @@ use tokio::time::sleep;
 
 use crate::core::{AppError, ErrorKind};
 use crate::observability::{SharedMetricsSink, SyncMetric};
+
+#[cfg(all(feature = "thingd-native", feature = "http-client"))]
+use crate::thingd::NativeThingdStore;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -34,8 +37,11 @@ pub struct ReplicationChange {
 #[serde(rename_all = "camelCase")]
 pub struct ReplicationStatus {
     pub source_id: String,
+    #[serde(default)]
     pub provider: String,
+    #[serde(default)]
     pub project_id: String,
+    #[serde(default)]
     pub instance_slug: String,
     pub role: String,
     pub latest_cursor: u64,
@@ -93,35 +99,86 @@ impl RequestSafety {
     }
 }
 
-/// A native sync endpoint placeholder.
-///
-/// Native Thingd storage is supported by Arqen, but Thingd 0.77.3 does not yet
-/// publish the native Rust replication contract needed to implement this
-/// endpoint. Keeping this type explicit prevents applications from assuming
-/// that embedded storage is automatically Cloud-sync capable.
-#[cfg(feature = "thingd-native")]
-#[derive(Debug, Clone, Default)]
-pub struct NativeThingdSyncEndpoint;
+/// Native sync endpoint over an embedded Thingd 0.78.0 engine.
+#[cfg(all(feature = "thingd-native", feature = "http-client"))]
+#[derive(Clone)]
+pub struct NativeThingdSyncEndpoint {
+    store: NativeThingdStore,
+    config: thingd::ReplicationConfig,
+}
 
-#[cfg(feature = "thingd-native")]
+#[cfg(all(feature = "thingd-native", feature = "http-client"))]
 impl NativeThingdSyncEndpoint {
-    /// Constructing native replication currently fails closed until Thingd
-    /// publishes its stable native replication API.
-    pub fn try_new() -> Result<Self, AppError> {
-        Err(Self::unsupported_error())
+    /// Construct a native endpoint over an embedded Thingd store.
+    pub fn try_new(
+        store: NativeThingdStore,
+        config: thingd::ReplicationConfig,
+    ) -> Result<Self, AppError> {
+        if config.source_id.trim().is_empty() {
+            return Err(AppError::new(
+                ErrorKind::Validation,
+                "native Thingd replication requires a source ID",
+            ));
+        }
+        Ok(Self { store, config })
     }
 
-    /// Return a typed endpoint value for capability inspection and health
-    /// wiring. Any operation on it returns `NotImpl`.
-    pub fn unavailable() -> Self {
-        Self
-    }
-
-    fn unsupported_error() -> AppError {
-        AppError::new(
-            ErrorKind::NotImpl,
-            "native Thingd replication is unavailable until Thingd publishes its native replication contract",
+    /// Construct a source endpoint with an optional collection allowlist.
+    pub fn source(
+        store: NativeThingdStore,
+        source_id: impl Into<String>,
+        collections: Vec<String>,
+    ) -> Result<Self, AppError> {
+        Self::try_new(
+            store,
+            thingd::ReplicationConfig {
+                source_id: source_id.into(),
+                role: thingd::ReplicationRole::Source,
+                collections,
+            },
         )
+    }
+
+    /// Return the public Thingd replication configuration used by this endpoint.
+    #[must_use]
+    pub fn config(&self) -> &thingd::ReplicationConfig {
+        &self.config
+    }
+
+    async fn blocking<R, F>(&self, operation: F) -> Result<R, AppError>
+    where
+        R: Send + 'static,
+        F: FnOnce(NativeThingdStore, thingd::ReplicationConfig) -> Result<R, AppError>
+            + Send
+            + 'static,
+    {
+        let store = self.store.clone();
+        let config = self.config.clone();
+        tokio::task::spawn_blocking(move || operation(store, config))
+            .await
+            .map_err(|error| {
+                AppError::new(
+                    ErrorKind::Internal,
+                    format!("native Thingd replication task failed: {error}"),
+                )
+            })?
+    }
+
+    fn map_thingd_error(error: thingd::ThingdError) -> AppError {
+        let kind = match error {
+            thingd::ThingdError::InvalidInput(_) | thingd::ThingdError::Protected(_) => {
+                ErrorKind::Validation
+            }
+            thingd::ThingdError::NotFound(_) => ErrorKind::NotFound,
+            thingd::ThingdError::Conflict(_) => ErrorKind::Conflict,
+            thingd::ThingdError::Storage(_)
+            | thingd::ThingdError::EncryptionRequired(_)
+            | thingd::ThingdError::InvalidEncryptionKey(_)
+            | thingd::ThingdError::EncryptionAuthentication(_)
+            | thingd::ThingdError::UnsupportedEncryptionVersion(_)
+            | thingd::ThingdError::EncryptionMigration(_) => ErrorKind::Dependency,
+        };
+        AppError::new(kind, error.to_string())
     }
 }
 
@@ -139,35 +196,176 @@ pub trait SyncEndpoint: Send + Sync {
     ) -> Result<ApplyResult, AppError>;
 }
 
-#[cfg(feature = "thingd-native")]
+#[cfg(all(feature = "thingd-native", feature = "http-client"))]
 #[async_trait]
 impl SyncEndpoint for NativeThingdSyncEndpoint {
-    async fn events(&self, _after: u64, _limit: u32) -> Result<SyncPage, AppError> {
-        Err(Self::unsupported_error())
+    async fn events(&self, after: u64, limit: u32) -> Result<SyncPage, AppError> {
+        let page = self
+            .blocking(move |store, config| {
+                store
+                    .with_engine(|engine| {
+                        engine.with_replication_service(config, |service| {
+                            service.events(after, u64::from(limit))
+                        })
+                    })?
+                    .map_err(Self::map_thingd_error)
+            })
+            .await?;
+        Ok(SyncPage {
+            source_id: page.source_id,
+            after: page.after,
+            next: page.next,
+            changes: page
+                .changes
+                .into_iter()
+                .map(|change| ReplicationChange {
+                    source_id: change.source_id,
+                    cursor: change.cursor,
+                    idempotency_key: change.idempotency_key,
+                    change: change.change,
+                })
+                .collect(),
+        })
     }
 
-    async fn apply(&self, _changes: &[ReplicationChange]) -> Result<ApplyResult, AppError> {
-        Err(Self::unsupported_error())
+    async fn apply(&self, changes: &[ReplicationChange]) -> Result<ApplyResult, AppError> {
+        let changes = changes.to_vec();
+        let result = self
+            .blocking(move |store, config| {
+                store
+                    .with_engine(|engine| {
+                        engine.with_replication_service(config, |service| {
+                            let changes = changes
+                                .iter()
+                                .map(|change| thingd::ReplicationChange {
+                                    source_id: change.source_id.clone(),
+                                    cursor: change.cursor,
+                                    idempotency_key: change.idempotency_key.clone(),
+                                    change: change.change.clone(),
+                                })
+                                .collect::<Vec<_>>();
+                            service.apply(&changes)
+                        })
+                    })?
+                    .map_err(Self::map_thingd_error)
+            })
+            .await?;
+        Ok(ApplyResult {
+            applied: result.applied,
+            skipped: result.skipped,
+            conflicts: result.conflicts,
+            last_applied_cursor: result.last_applied_cursor,
+        })
     }
 
     async fn status(&self, _source_id: Option<&str>) -> Result<ReplicationStatus, AppError> {
-        Err(Self::unsupported_error())
+        let status = self
+            .blocking(|store, config| {
+                store
+                    .with_engine(|engine| {
+                        engine.with_replication_service(config, |service| service.status())
+                    })?
+                    .map_err(Self::map_thingd_error)
+            })
+            .await?;
+        Ok(ReplicationStatus {
+            source_id: status.source_id,
+            provider: String::new(),
+            project_id: String::new(),
+            instance_slug: String::new(),
+            role: match status.role {
+                thingd::ReplicationRole::Source => "source".to_string(),
+                thingd::ReplicationRole::Replica => "replica".to_string(),
+            },
+            latest_cursor: status.latest_cursor,
+            change_count: status.change_count,
+            last_applied_cursor: status.last_applied_cursor,
+            quarantined_conflicts: status.quarantined_conflicts,
+        })
     }
 
     async fn conflicts(&self) -> Result<Vec<Value>, AppError> {
-        Err(Self::unsupported_error())
+        Ok(self
+            .blocking(|store, config| {
+                store
+                    .with_engine(|engine| {
+                        engine.with_replication_service(config, |service| service.conflicts())
+                    })?
+                    .map(|conflicts| {
+                        conflicts
+                            .into_iter()
+                            .map(|conflict| serde_json::to_value(conflict).unwrap_or(Value::Null))
+                            .collect::<Vec<_>>()
+                    })
+                    .map_err(Self::map_thingd_error)
+            })
+            .await?)
     }
 
     async fn snapshot(&self) -> Result<ReplicationSnapshot, AppError> {
-        Err(Self::unsupported_error())
+        let snapshot = self
+            .blocking(|store, config| {
+                store
+                    .with_engine(|engine| {
+                        engine.with_replication_service(config, |service| service.snapshot())
+                    })?
+                    .map_err(Self::map_thingd_error)
+            })
+            .await?;
+        Ok(ReplicationSnapshot {
+            source_id: snapshot.source_id,
+            cursor: snapshot.cursor,
+            objects: snapshot
+                .objects
+                .into_iter()
+                .map(native_object_to_value)
+                .collect(),
+            events: snapshot
+                .events
+                .into_iter()
+                .map(|event| serde_json::to_value(event).unwrap_or(Value::Null))
+                .collect(),
+        })
     }
 
     async fn apply_snapshot(
         &self,
-        _snapshot: &ReplicationSnapshot,
-        _replace: bool,
+        snapshot: &ReplicationSnapshot,
+        replace: bool,
     ) -> Result<ApplyResult, AppError> {
-        Err(Self::unsupported_error())
+        let snapshot = snapshot.clone();
+        let result = self
+            .blocking(move |store, config| {
+                let snapshot = thingd::ReplicationSnapshot {
+                    source_id: snapshot.source_id,
+                    cursor: snapshot.cursor,
+                    objects: snapshot
+                        .objects
+                        .into_iter()
+                        .map(native_object_from_value)
+                        .collect::<Result<Vec<_>, _>>()?,
+                    events: snapshot
+                        .events
+                        .into_iter()
+                        .map(serde_json::from_value)
+                        .collect::<Result<Vec<_>, _>>()
+                        .map_err(|error| AppError::new(ErrorKind::Validation, error.to_string()))?,
+                };
+                store.with_engine(|engine| {
+                    engine
+                        .with_replication_service(config, |service| {
+                            service.apply_snapshot(&snapshot, replace)
+                        })
+                        .map_err(Self::map_thingd_error)
+                })?
+            })
+            .await?;
+        Ok(ApplyResult {
+            applied: result.applied,
+            skipped: result.skipped,
+            conflicts: result.conflicts,
+            last_applied_cursor: result.last_applied_cursor,
+        })
     }
 }
 
@@ -248,8 +446,62 @@ pub struct SyncPage {
 pub struct ApplyResult {
     pub applied: u64,
     pub skipped: u64,
-    pub conflicts: Vec<Value>,
+    pub conflicts: u64,
     pub last_applied_cursor: u64,
+}
+
+#[cfg(all(feature = "thingd-native", feature = "http-client"))]
+fn native_object_to_value(object: thingd::MemoryObject) -> Value {
+    json!({
+        "id": object.key.id,
+        "collection": object.key.collection,
+        "body": serde_json::from_str::<Value>(&object.body).unwrap_or(Value::Null),
+        "version": object.version,
+        "createdAt": object.created_at,
+        "updatedAt": object.updated_at,
+    })
+}
+
+#[cfg(all(feature = "thingd-native", feature = "http-client"))]
+fn native_object_from_value(value: Value) -> Result<thingd::MemoryObject, AppError> {
+    if value.get("key").is_some() {
+        return serde_json::from_value(value)
+            .map_err(|error| AppError::new(ErrorKind::Validation, error.to_string()));
+    }
+    let collection = value
+        .get("collection")
+        .and_then(Value::as_str)
+        .ok_or_else(|| {
+            AppError::new(
+                ErrorKind::Validation,
+                "snapshot object is missing collection",
+            )
+        })?;
+    let id = value
+        .get("id")
+        .and_then(Value::as_str)
+        .ok_or_else(|| AppError::new(ErrorKind::Validation, "snapshot object is missing id"))?;
+    let mut object = thingd::MemoryObject::new(
+        collection,
+        id,
+        value
+            .get("body")
+            .cloned()
+            .unwrap_or(Value::Null)
+            .to_string(),
+    );
+    object.version = value.get("version").and_then(Value::as_u64).unwrap_or(0);
+    object.created_at = value
+        .get("createdAt")
+        .and_then(Value::as_str)
+        .unwrap_or_default()
+        .to_string();
+    object.updated_at = value
+        .get("updatedAt")
+        .and_then(Value::as_str)
+        .unwrap_or_default()
+        .to_string();
+    Ok(object)
 }
 
 /// Operational sync counters safe to expose through health and diagnostics.
@@ -621,7 +873,7 @@ impl<S: SyncEndpoint + 'static, T: SyncEndpoint + 'static> ThingdSyncWorker<S, T
                 duration_ms: started.elapsed().as_millis() as u64,
                 retries: 0,
                 cursor: result.last_applied_cursor,
-                conflicts: result.conflicts.len() as u64,
+                conflicts: result.conflicts,
                 snapshot_fallback: snapshot,
                 success: true,
             });
@@ -669,7 +921,7 @@ impl<S: SyncEndpoint + 'static, T: SyncEndpoint + 'static> ThingdSyncWorker<S, T
             let result = ApplyResult {
                 applied: 0,
                 skipped: 0,
-                conflicts: Vec::new(),
+                conflicts: 0,
                 last_applied_cursor: self.cursor(),
             };
             self.record_metric("poll", started, &result, false);
@@ -680,10 +932,17 @@ impl<S: SyncEndpoint + 'static, T: SyncEndpoint + 'static> ThingdSyncWorker<S, T
                 .iter()
                 .filter(|item| {
                     item.change
-                        .get("collection")
+                        .get("operation")
                         .and_then(Value::as_str)
-                        .is_some_and(|collection| {
-                            allowlist.iter().any(|allowed| allowed == collection)
+                        .is_some_and(|operation| {
+                            operation == "event.append"
+                                || item
+                                    .change
+                                    .get("collection")
+                                    .and_then(Value::as_str)
+                                    .is_some_and(|collection| {
+                                        allowlist.iter().any(|allowed| allowed == collection)
+                                    })
                         })
                 })
                 .cloned()
@@ -699,15 +958,14 @@ impl<S: SyncEndpoint + 'static, T: SyncEndpoint + 'static> ThingdSyncWorker<S, T
             let result = ApplyResult {
                 applied: 0,
                 skipped: page.changes.len() as u64,
-                conflicts: Vec::new(),
+                conflicts: 0,
                 last_applied_cursor: page.next,
             };
             self.record_metric("filter", started, &result, false);
             return Ok(result);
         }
         let result = self.target.apply(&changes).await?;
-        self.conflicts
-            .fetch_add(result.conflicts.len() as u64, Ordering::AcqRel);
+        self.conflicts.fetch_add(result.conflicts, Ordering::AcqRel);
         self.cursor
             .store(result.last_applied_cursor.max(page.next), Ordering::Release);
         if let Some(checkpoint) = &self.checkpoint {
@@ -760,18 +1018,136 @@ mod tests {
         let result: ApplyResult = serde_json::from_value(serde_json::json!({
             "applied": 1,
             "skipped": 0,
-            "conflicts": [],
+            "conflicts": 0,
             "lastAppliedCursor": 9
         }))
         .unwrap();
         assert_eq!(result.last_applied_cursor, 9);
     }
 
-    #[cfg(feature = "thingd-native")]
-    #[test]
-    fn native_sync_construction_fails_closed() {
-        let error = NativeThingdSyncEndpoint::try_new().unwrap_err();
-        assert_eq!(error.kind, ErrorKind::NotImpl);
+    #[cfg(all(feature = "thingd-native", feature = "http-client"))]
+    #[tokio::test]
+    async fn native_source_records_object_delete_and_event_changes() {
+        let store = NativeThingdStore::memory();
+        let config = thingd::ReplicationConfig::source("native-source");
+        store
+            .put_object_replicated(
+                thingd::MemoryObject::new("notes", "1", r#"{"ok":true}"#),
+                &config,
+            )
+            .unwrap();
+        store
+            .delete_object_replicated("notes", "1", &config)
+            .unwrap();
+        store
+            .append_event_replicated(
+                thingd::MemoryEvent::new("notes", "created", r#"{"id":"1"}"#),
+                &config,
+            )
+            .unwrap();
+
+        let endpoint = NativeThingdSyncEndpoint::source(store, "native-source", vec![]).unwrap();
+        let page = endpoint.events(0, 100).await.unwrap();
+        assert_eq!(page.changes.len(), 3);
+        assert_eq!(page.changes[0].change["operation"], "object.upsert");
+        assert_eq!(page.changes[1].change["operation"], "object.delete");
+        assert_eq!(page.changes[2].change["operation"], "event.append");
+    }
+
+    #[cfg(all(feature = "thingd-native", feature = "http-client"))]
+    #[tokio::test]
+    async fn native_snapshot_and_replica_apply_are_idempotent() {
+        let source_store = NativeThingdStore::memory();
+        let source_config = thingd::ReplicationConfig::source("native-source");
+        source_store
+            .put_object_replicated(
+                thingd::MemoryObject::new("notes", "1", r#"{"ok":true}"#),
+                &source_config,
+            )
+            .unwrap();
+        let source =
+            NativeThingdSyncEndpoint::source(source_store, "native-source", vec![]).unwrap();
+        let snapshot = source.snapshot().await.unwrap();
+
+        let target_store = NativeThingdStore::memory();
+        let target = NativeThingdSyncEndpoint::try_new(
+            target_store.clone(),
+            thingd::ReplicationConfig::replica("native-source"),
+        )
+        .unwrap();
+        let first = target.apply_snapshot(&snapshot, true).await.unwrap();
+        assert_eq!(first.applied, 1);
+        let page = source.events(0, 100).await.unwrap();
+        let second = target.apply(&page.changes).await.unwrap();
+        assert_eq!(second.skipped, 1);
+        let status = target.status(None).await.unwrap();
+        assert_eq!(status.last_applied_cursor, snapshot.cursor);
+    }
+
+    #[cfg(all(feature = "thingd-native", feature = "http-client"))]
+    #[tokio::test]
+    async fn native_allowlist_keeps_events_and_filters_objects() {
+        let store = NativeThingdStore::memory();
+        let config = thingd::ReplicationConfig {
+            source_id: "native-source".into(),
+            role: thingd::ReplicationRole::Source,
+            collections: vec!["allowed".into()],
+        };
+        store
+            .put_object_replicated(
+                thingd::MemoryObject::new("ignored", "1", r#"{"ok":true}"#),
+                &config,
+            )
+            .unwrap();
+        store
+            .append_event_replicated(
+                thingd::MemoryEvent::new("notes", "created", r#"{"id":"1"}"#),
+                &config,
+            )
+            .unwrap();
+        let endpoint = NativeThingdSyncEndpoint::try_new(store, config).unwrap();
+        let page = endpoint.events(0, 100).await.unwrap();
+        assert_eq!(page.changes.len(), 1);
+        assert_eq!(page.changes[0].change["operation"], "event.append");
+    }
+
+    #[cfg(all(feature = "thingd-native", feature = "http-client"))]
+    #[tokio::test]
+    async fn native_replica_rejects_source_only_mutations() {
+        let store = NativeThingdStore::memory();
+        let error = store
+            .put_object_replicated(
+                thingd::MemoryObject::new("notes", "1", r#"{"ok":true}"#),
+                &thingd::ReplicationConfig::replica("source"),
+            )
+            .unwrap_err();
+        assert_eq!(error.kind, ErrorKind::Validation);
+    }
+
+    #[cfg(all(feature = "thingd-native", feature = "http-client"))]
+    #[tokio::test]
+    async fn native_persistent_source_retains_cursor_after_restart() {
+        let path = std::env::temp_dir().join(format!("arqen-native-{}", uuid::Uuid::new_v4()));
+        let config = thingd::ReplicationConfig::source("persistent-source");
+        {
+            let store = NativeThingdStore::persistent(&path).unwrap();
+            store
+                .put_object_replicated(
+                    thingd::MemoryObject::new("notes", "1", r#"{"ok":true}"#),
+                    &config,
+                )
+                .unwrap();
+            let endpoint =
+                NativeThingdSyncEndpoint::source(store, "persistent-source", vec![]).unwrap();
+            assert_eq!(endpoint.events(0, 100).await.unwrap().next, 1);
+        }
+        let store = NativeThingdStore::persistent(&path).unwrap();
+        let endpoint =
+            NativeThingdSyncEndpoint::source(store, "persistent-source", vec![]).unwrap();
+        let page = endpoint.events(0, 100).await.unwrap();
+        assert_eq!(page.changes.len(), 1);
+        assert_eq!(page.changes[0].cursor, 1);
+        std::fs::remove_dir_all(path).unwrap();
     }
 
     #[test]
