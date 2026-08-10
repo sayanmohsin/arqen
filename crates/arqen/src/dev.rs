@@ -20,6 +20,7 @@
 //! ```
 
 use std::collections::HashMap;
+use std::io::IsTerminal;
 use std::path::{Path, PathBuf};
 use std::process::{ExitStatus, Stdio};
 use std::time::Duration;
@@ -85,7 +86,8 @@ pub async fn run_up(path: &Path, selection: &[String], dry_run: bool) -> anyhow:
         anyhow::bail!("no [[dev.services]] found in '{}'", path.display());
     }
 
-    println!("[arqen] dev services (Ctrl+C to stop)");
+    let console = Console::new();
+    console.header(services.len());
     for service in &services {
         let args = service.args.join(" ");
         let cwd = service
@@ -93,11 +95,9 @@ pub async fn run_up(path: &Path, selection: &[String], dry_run: bool) -> anyhow:
             .as_deref()
             .map(|p| p.display().to_string())
             .unwrap_or_else(|| ".".to_string());
-        println!(
-            "[arqen]   {:<12} {} {}  (cwd: {})",
-            service.name, service.command, args, cwd
-        );
+        console.plan(&service.name, &service.command, &args, &cwd);
     }
+    console.footer();
 
     if dry_run {
         return Ok(());
@@ -154,7 +154,7 @@ pub async fn run_up(path: &Path, selection: &[String], dry_run: bool) -> anyhow:
     loop {
         tokio::select! {
             _ = tokio::signal::ctrl_c() => {
-                println!("[arqen] received interrupt, stopping services");
+                console.info("stopping services");
                 if !saw_shutdown {
                     saw_shutdown = true;
                     let _ = shutdown_tx.send(true);
@@ -166,7 +166,7 @@ pub async fn run_up(path: &Path, selection: &[String], dry_run: bool) -> anyhow:
                 let exited_on_its_own = !saw_shutdown;
                 if exited_on_its_own {
                     saw_shutdown = true;
-                    println!("[arqen] '{}' stopped; shutting down the rest", info.name);
+                    console.warn(&format!("{} stopped; shutting down the rest", info.name));
                     let _ = shutdown_tx.send(true);
                 }
                 if exited_on_its_own && info.status.is_none_or(|status| !status.success()) {
@@ -207,9 +207,11 @@ fn select_services<'a>(
 }
 
 fn report_exit(info: &ExitInfo) {
+    let console = Console::new();
     match info.status.and_then(|s| s.code()) {
-        Some(code) => println!("[arqen] '{}' exited with code {}", info.name, code),
-        None => println!("[arqen] '{}' terminated by signal", info.name),
+        Some(0) => console.success(&format!("{} exited cleanly", info.name)),
+        Some(code) => console.error(&format!("{} exited with code {}", info.name, code)),
+        None => console.error(&format!("{} terminated by signal", info.name)),
     }
 }
 
@@ -269,7 +271,89 @@ async fn supervise(
 async fn forward_output(prefix: &str, stream: impl AsyncRead + Unpin) {
     let mut lines = BufReader::new(stream).lines();
     while let Ok(Some(line)) = lines.next_line().await {
-        println!("[{}] {}", prefix, line);
+        Console::new().child_line(prefix, &line);
+    }
+}
+
+struct Console {
+    color: bool,
+}
+
+impl Console {
+    fn new() -> Self {
+        Self {
+            color: std::io::stdout().is_terminal(),
+        }
+    }
+
+    fn header(&self, count: usize) {
+        println!(
+            "{} arqen dev {}· {} service{}",
+            self.paint("◆", 36),
+            self.dim(""),
+            count,
+            if count == 1 { "" } else { "s" }
+        );
+    }
+
+    fn plan(&self, name: &str, command: &str, args: &str, cwd: &str) {
+        let command_line = if args.is_empty() {
+            command.to_string()
+        } else {
+            format!("{command} {args}")
+        };
+        println!(
+            "  {} {:<12} {} {}",
+            self.paint("│", 90),
+            self.service(name),
+            command_line,
+            self.dim(&format!("· {cwd}"))
+        );
+    }
+
+    fn footer(&self) {
+        println!("  {} {}", self.paint("└", 90), self.dim("Ctrl+C to stop"));
+    }
+
+    fn child_line(&self, name: &str, line: &str) {
+        println!("{} {} {}", self.service(name), self.paint("│", 90), line);
+    }
+
+    fn info(&self, message: &str) {
+        println!("{} {}", self.paint("ℹ", 36), message);
+    }
+
+    fn success(&self, message: &str) {
+        println!("{} {}", self.paint("✓", 32), message);
+    }
+
+    fn warn(&self, message: &str) {
+        println!("{} {}", self.paint("!", 33), message);
+    }
+
+    fn error(&self, message: &str) {
+        println!("{} {}", self.paint("×", 31), message);
+    }
+
+    fn service(&self, name: &str) -> String {
+        let color = [36, 35, 33, 32, 34][name.bytes().map(usize::from).sum::<usize>() % 5];
+        self.paint(&format!("{name:<12}"), color)
+    }
+
+    fn dim(&self, text: &str) -> String {
+        if self.color {
+            format!("\x1b[2m{text}\x1b[0m")
+        } else {
+            text.to_string()
+        }
+    }
+
+    fn paint(&self, text: &str, color: u8) -> String {
+        if self.color {
+            format!("\x1b[{}m{text}\x1b[0m", color)
+        } else {
+            text.to_string()
+        }
     }
 }
 

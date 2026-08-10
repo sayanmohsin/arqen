@@ -79,7 +79,7 @@ mode = "memory"
 
 [sync]
 enabled = false
-# mode = "http" # disabled, http, or native; native is unavailable until Thingd publishes its native contract
+# mode = "http" # disabled, http, or native; native requires storage.mode = "native"
 # source_id = "local-instance"
 # target_url = "https://thingd-replica.internal"
 # collections = ["watchloom_titles"]

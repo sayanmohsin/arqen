@@ -85,12 +85,23 @@ pub trait HealthCheck: Send + Sync {
 /// register a separate endpoint check when HTTP sync is enabled.
 pub struct ThingdSyncHealth {
     mode: ThingdSyncMode,
+    native_available: bool,
 }
 
 impl ThingdSyncHealth {
     #[must_use]
     pub fn new(mode: ThingdSyncMode) -> Self {
-        Self { mode }
+        Self {
+            mode,
+            native_available: false,
+        }
+    }
+
+    /// Mark native sync healthy after its endpoint has been constructed.
+    #[must_use]
+    pub fn with_native_availability(mut self, available: bool) -> Self {
+        self.native_available = available;
+        self
     }
 }
 
@@ -103,8 +114,9 @@ impl HealthCheck for ThingdSyncHealth {
     async fn check(&self) -> HealthStatus {
         match self.mode {
             ThingdSyncMode::Disabled | ThingdSyncMode::Http => HealthStatus::Healthy,
+            ThingdSyncMode::Native if self.native_available => HealthStatus::Healthy,
             ThingdSyncMode::Native => HealthStatus::Degraded {
-                reason: "native Thingd replication contract is not published".to_string(),
+                reason: "native Thingd replication endpoint is unavailable".to_string(),
             },
         }
     }
@@ -490,9 +502,11 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn native_sync_health_is_degraded_and_optional() {
+    async fn native_sync_health_requires_an_available_endpoint() {
         let check = ThingdSyncHealth::new(ThingdSyncMode::Native);
         assert!(check.check().await.is_degraded());
+        let check = ThingdSyncHealth::new(ThingdSyncMode::Native).with_native_availability(true);
+        assert!(check.check().await.is_healthy());
         assert!(!check.required_for_readiness());
     }
 

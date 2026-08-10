@@ -5,17 +5,19 @@ use super::output::Output;
 
 pub fn serve_dev(
     file: Option<&str>,
-    host: &str,
-    port: u16,
-    log: &str,
-    storage: &str,
+    host: Option<&str>,
+    port: Option<u16>,
+    log: Option<&str>,
+    storage: Option<&str>,
+    log_format: Option<&crate::config::LogFormat>,
     output: &Output,
 ) -> i32 {
     let cli = crate::config::CliOverrides {
-        host: Some(host.to_string()),
-        port: Some(port),
-        log_level: Some(log.to_string()),
-        storage_mode: Some(storage.to_string()),
+        host: host.map(str::to_owned),
+        port,
+        log_level: log.map(str::to_owned),
+        log_format: log_format.copied(),
+        storage_mode: storage.map(str::to_owned),
     };
 
     let path = file.map(std::path::PathBuf::from);
@@ -27,6 +29,7 @@ pub fn serve_dev(
         }
     };
 
+    let storage = config.storage.mode.as_str();
     let addr: SocketAddr = match config.address() {
         Ok(a) => a,
         Err(e) => {
@@ -35,7 +38,7 @@ pub fn serve_dev(
         }
     };
 
-    crate::logging::init_logging(&config.logging.level, "pretty");
+    crate::logging::init_logging_with_config(&config.logging);
 
     let state = match crate::AppState::builder()
         .with_config(config.clone())
@@ -56,12 +59,7 @@ pub fn serve_dev(
     };
     let router = crate::http::create_router_with_state(state);
 
-    output.print(&format!("Arqen v{}", env!("CARGO_PKG_VERSION")));
-    output.print(&format!("API:    http://{}", addr));
-    output.print(&format!("Health: http://{}/health", addr));
-    output.print(&format!("Docs:   http://{}/docs", addr));
-    output.print(&format!("Agent:  http://{}/agent", addr));
-    output.print(&format!("Storage: {}", storage));
+    output.print_banner(&addr, storage, "development");
 
     let rt = match tokio::runtime::Runtime::new() {
         Ok(r) => r,
@@ -79,17 +77,23 @@ pub fn serve_dev(
 
 pub fn serve_start(
     file: Option<&str>,
-    host: &str,
-    port: u16,
-    log: &str,
-    storage: &str,
+    host: Option<&str>,
+    port: Option<u16>,
+    log: Option<&str>,
+    storage: Option<&str>,
+    log_format: Option<&crate::config::LogFormat>,
     output: &Output,
 ) -> i32 {
     let cli = crate::config::CliOverrides {
-        host: Some(host.to_string()),
-        port: Some(port),
-        log_level: Some(log.to_string()),
-        storage_mode: Some(storage.to_string()),
+        host: host.map(str::to_owned),
+        port,
+        log_level: log.map(str::to_owned),
+        log_format: Some(
+            log_format
+                .copied()
+                .unwrap_or(crate::config::LogFormat::Json),
+        ),
+        storage_mode: storage.map(str::to_owned),
     };
 
     let path = file.map(std::path::PathBuf::from);
@@ -106,6 +110,7 @@ pub fn serve_start(
         return exit::CONFIG;
     }
 
+    let storage = config.storage.mode.as_str();
     let addr: SocketAddr = match config.address() {
         Ok(a) => a,
         Err(e) => {
@@ -114,7 +119,7 @@ pub fn serve_start(
         }
     };
 
-    crate::logging::init_logging(&config.logging.level, "json");
+    crate::logging::init_logging_with_config(&config.logging);
 
     let state = match crate::AppState::builder()
         .with_config(config.clone())
@@ -135,7 +140,7 @@ pub fn serve_start(
     };
     let router = crate::http::create_router_with_state(state);
 
-    output.print(&format!("Arqen listening on {}", addr));
+    output.print_banner(&addr, storage, "production");
 
     let rt = match tokio::runtime::Runtime::new() {
         Ok(r) => r,

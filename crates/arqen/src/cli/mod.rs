@@ -11,7 +11,7 @@ pub mod serve;
 pub mod test;
 pub mod thingd_schema;
 
-use clap::{Parser, Subcommand};
+use clap::{Parser, Subcommand, ValueEnum};
 
 use output::Output;
 
@@ -32,7 +32,14 @@ pub struct Cli {
     #[arg(long, global = true)]
     quiet: bool,
     #[arg(long, global = true, default_value = "auto")]
-    color: String,
+    color: ColorChoice,
+}
+
+#[derive(Clone, Copy, Debug, ValueEnum)]
+enum ColorChoice {
+    Auto,
+    Always,
+    Never,
 }
 
 #[derive(Subcommand)]
@@ -50,35 +57,42 @@ pub enum Commands {
     /// Run the application in development mode
     Dev {
         /// Host to bind to
-        #[arg(long, default_value = "127.0.0.1")]
-        host: String,
+        #[arg(long)]
+        host: Option<String>,
         /// Port to bind to
-        #[arg(short, long, default_value = "8888")]
-        port: u16,
+        #[arg(short, long)]
+        port: Option<u16>,
         /// Log level
-        #[arg(short, long, default_value = "info")]
-        log: String,
+        #[arg(short, long)]
+        log: Option<String>,
         /// Storage mode
-        #[arg(short, long, default_value = "memory")]
-        storage: String,
+        #[arg(short, long)]
+        storage: Option<String>,
+        /// Log output format
+        #[arg(long, value_enum)]
+        log_format: Option<crate::config::LogFormat>,
         /// Config file path
         #[arg(long = "file")]
         config_file: Option<String>,
     },
-    /// Run the application
+    /// Run the application (aliases: run, serve)
+    #[command(visible_alias = "run", alias = "serve")]
     Start {
         /// Host to bind to
-        #[arg(long, default_value = "127.0.0.1")]
-        host: String,
+        #[arg(long)]
+        host: Option<String>,
         /// Port to bind to
-        #[arg(short, long, default_value = "8888")]
-        port: u16,
+        #[arg(short, long)]
+        port: Option<u16>,
         /// Log level
-        #[arg(short, long, default_value = "info")]
-        log: String,
+        #[arg(short, long)]
+        log: Option<String>,
         /// Storage mode
-        #[arg(short, long, default_value = "memory")]
-        storage: String,
+        #[arg(short, long)]
+        storage: Option<String>,
+        /// Log output format (production defaults to JSON)
+        #[arg(long, value_enum)]
+        log_format: Option<crate::config::LogFormat>,
         /// Config file path
         #[arg(long = "file")]
         config_file: Option<String>,
@@ -178,8 +192,17 @@ fn dispatch(cli: &Cli, output: &Output) -> anyhow::Result<()> {
             log,
             storage,
             config_file,
+            log_format,
         } => {
-            let code = serve::serve_dev(config_file.as_deref(), host, *port, log, storage, output);
+            let code = serve::serve_dev(
+                config_file.as_deref(),
+                host.as_deref(),
+                *port,
+                log.as_deref(),
+                storage.as_deref(),
+                log_format.as_ref(),
+                output,
+            );
             if code != exit::SUCCESS {
                 std::process::exit(code);
             }
@@ -190,9 +213,17 @@ fn dispatch(cli: &Cli, output: &Output) -> anyhow::Result<()> {
             log,
             storage,
             config_file,
+            log_format,
         } => {
-            let code =
-                serve::serve_start(config_file.as_deref(), host, *port, log, storage, output);
+            let code = serve::serve_start(
+                config_file.as_deref(),
+                host.as_deref(),
+                *port,
+                log.as_deref(),
+                storage.as_deref(),
+                log_format.as_ref(),
+                output,
+            );
             if code != exit::SUCCESS {
                 std::process::exit(code);
             }
@@ -259,7 +290,12 @@ fn dispatch(cli: &Cli, output: &Output) -> anyhow::Result<()> {
 
 pub fn run() -> i32 {
     let cli = Cli::parse();
-    let output = Output::from_args(cli.json, cli.quiet, cli.verbose, &cli.color);
+    let color = match cli.color {
+        ColorChoice::Auto => "auto",
+        ColorChoice::Always => "always",
+        ColorChoice::Never => "never",
+    };
+    let output = Output::from_args(cli.json, cli.quiet, cli.verbose, color);
 
     match dispatch(&cli, &output) {
         Ok(()) => exit::SUCCESS,
