@@ -80,14 +80,14 @@ arqen dev --storage memory --log debug
 
 Options:
 
-| Flag            | Default      | Description  |
-| --------------- | ------------ | ------------ |
-| `--host`        | `127.0.0.1`  | Bind address |
-| `-p, --port`    | `8888`       | Port         |
-| `-l, --log`     | `info`       | Log level    |
-| `-s, --storage` | `memory`     | Storage mode |
+| Flag            | Default      | Description                    |
+| --------------- | ------------ | ------------------------------ |
+| `--host`        | `127.0.0.1`  | Bind address                   |
+| `-p, --port`    | `8888`       | Port                           |
+| `-l, --log`     | `info`       | Log level                      |
+| `-s, --storage` | `memory`     | Storage mode                   |
 | `--log-format`  | config       | `pretty`, `compact`, or `json` |
-| `--file`        | `arqen.toml` | Config file  |
+| `--file`        | `arqen.toml` | Config file                    |
 
 `arqen dev` does not include an integrated file watcher. Use an external
 `cargo-watch` process if you need automatic restarts.
@@ -120,9 +120,9 @@ arqen up --file mydev.toml  # use custom config
 
 Options:
 
-| Flag        | Default      | Description                |
-| ----------- | ------------ | -------------------------- |
-| `--file`    | `arqen.toml` | Config file                |
+| Flag     | Default      | Description |
+| -------- | ------------ | ----------- |
+| `--file` | `arqen.toml` | Config file |
 
 Arqen is framework-agnostic here. A service is just a process definition;
 Arqen does not try to identify whether the process is Expo, Vite, Next.js,
@@ -140,7 +140,7 @@ cwd = "frontend"
 
 The `name` is a stable console label; `command`, `args`, `cwd`, and `env` are
 the source of truth for how the service starts.
-| `--dry-run` | false        | Print plan without running |
+| `--dry-run` | false | Print plan without running |
 
 Example `arqen.toml` service definitions:
 
