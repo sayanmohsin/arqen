@@ -13,6 +13,9 @@ Full CLI reference for `arqen`.
 | `--json`         | Output as JSON (where applicable)            |
 | `--file <path>`  | Config file path for `dev`, `start`, or `up` |
 
+`--color auto` is the default; use `--color never` in CI. Startup banners are
+suppressed automatically for `--quiet` and `--json`.
+
 ## Available commands
 
 ### `arqen new <NAME>`
@@ -83,6 +86,7 @@ Options:
 | `-p, --port`    | `8888`       | Port         |
 | `-l, --log`     | `info`       | Log level    |
 | `-s, --storage` | `memory`     | Storage mode |
+| `--log-format`  | config       | `pretty`, `compact`, or `json` |
 | `--file`        | `arqen.toml` | Config file  |
 
 `arqen dev` does not include an integrated file watcher. Use an external
@@ -97,7 +101,8 @@ arqen start
 arqen start --port 3000 --log warn
 ```
 
-Options: same as `arqen dev`. Uses JSON logging by default. Before binding,
+`arqen run` and `arqen serve` are aliases for `arqen start`. Options are the
+same as `arqen dev`. Uses JSON logging by default. Before binding,
 `start` calls `AppConfig::validate_production()` and fails closed for memory
 storage, missing durable paths/endpoints/credentials, disabled auth, pretty
 logs, and invalid worker settings. Use `arqen dev` for permissive local work.
@@ -118,6 +123,23 @@ Options:
 | Flag        | Default      | Description                |
 | ----------- | ------------ | -------------------------- |
 | `--file`    | `arqen.toml` | Config file                |
+
+Arqen is framework-agnostic here. A service is just a process definition;
+Arqen does not try to identify whether the process is Expo, Vite, Next.js,
+Angular, Astro, Cargo, Docker, or another tool. This keeps `up` predictable
+when a project changes frontend frameworks. Update only the command in
+`arqen.toml`:
+
+```toml
+[[dev.services]]
+name = "frontend"
+command = "pnpm"
+args = ["dev"]
+cwd = "frontend"
+```
+
+The `name` is a stable console label; `command`, `args`, `cwd`, and `env` are
+the source of truth for how the service starts.
 | `--dry-run` | false        | Print plan without running |
 
 Example `arqen.toml` service definitions:

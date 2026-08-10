@@ -15,6 +15,8 @@ impl ColorChoice {
     }
 }
 
+use std::io::IsTerminal;
+
 pub struct Output {
     json: bool,
     quiet: bool,
@@ -49,6 +51,32 @@ impl Output {
         if !self.quiet {
             println!("{}", msg);
         }
+    }
+
+    pub fn print_banner(&self, addr: &std::net::SocketAddr, storage: &str, environment: &str) {
+        if self.json || self.quiet {
+            return;
+        }
+        let use_color = match self.color {
+            ColorChoice::Always => true,
+            ColorChoice::Never => false,
+            ColorChoice::Auto => std::io::stdout().is_terminal(),
+        };
+        let cyan = if use_color { "\x1b[36m" } else { "" };
+        let dim = if use_color { "\x1b[2m" } else { "" };
+        let reset = if use_color { "\x1b[0m" } else { "" };
+        println!(
+            "{cyan}     _\n    / \\\n   / __ \\  _ __ __ _  ___ _ __\n  / /  \\ \\| '__/ _` |/ _ \\ '__|\n / /____\\ \\| | | (_| |  __/ |\n/_/      \\_\\_|  \\__, |\\___|_|\n                  |___/{reset}"
+        );
+        println!(
+            "{dim}  Arqen v{} · {} · {}{reset}",
+            env!("CARGO_PKG_VERSION"),
+            environment,
+            storage
+        );
+        println!(
+            "  API:    http://{addr}\n  Health: http://{addr}/health\n  Docs:   http://{addr}/docs\n  Agent:  http://{addr}/agent\n"
+        );
     }
 
     pub fn print_json(&self, value: serde_json::Value) {

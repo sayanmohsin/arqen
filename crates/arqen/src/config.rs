@@ -27,6 +27,8 @@
 
 use std::fmt;
 use std::path::PathBuf;
+
+use clap::ValueEnum;
 use std::time::Duration;
 
 use serde::{Deserialize, Serialize};
@@ -153,6 +155,18 @@ pub enum StorageMode {
     Persistent,
     Http,
     Cloud,
+}
+
+impl StorageMode {
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            Self::Memory => "memory",
+            Self::Native => "native",
+            Self::Persistent => "persistent",
+            Self::Http => "http",
+            Self::Cloud => "cloud",
+        }
+    }
 }
 
 /// Replication transport supported by Arqen.
@@ -388,7 +402,7 @@ fn default_log_level() -> String {
     "info".to_string()
 }
 
-#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, Default, Serialize, Deserialize, ValueEnum)]
 #[serde(rename_all = "lowercase")]
 pub enum LogFormat {
     #[default]
@@ -431,6 +445,7 @@ pub struct CliOverrides {
     pub host: Option<String>,
     pub port: Option<u16>,
     pub log_level: Option<String>,
+    pub log_format: Option<LogFormat>,
     pub storage_mode: Option<String>,
 }
 
@@ -663,6 +678,9 @@ impl AppConfig {
         }
         if let Some(level) = cli.log_level {
             self.logging.level = level;
+        }
+        if let Some(format) = cli.log_format {
+            self.logging.format = format;
         }
         if let Some(mode) = cli.storage_mode
             && let Ok(m) = StorageMode::parse_str(&mode)
@@ -986,6 +1004,7 @@ concurrency = 8
             host: Some("0.0.0.0".to_string()),
             port: Some(8080),
             log_level: Some("debug".to_string()),
+            log_format: None,
             storage_mode: None,
         };
         let config = config.apply_cli(cli);
