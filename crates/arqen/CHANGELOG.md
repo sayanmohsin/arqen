@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.8.0](https://github.com/sayanmohsin/arqen/compare/arqen-v0.7.0...arqen-v0.8.0) (2026-08-10)
+
+
+### Features
+
+* add native Thingd 0.78 replication ([#35](https://github.com/sayanmohsin/arqen/issues/35)) ([deee00a](https://github.com/sayanmohsin/arqen/commit/deee00ab012e2aca09442a095b3cc44e595751f2))
+
 ## [0.7.0](https://github.com/sayanmohsin/arqen/compare/arqen-v0.6.0...arqen-v0.7.0) (2026-08-09)
 
 
