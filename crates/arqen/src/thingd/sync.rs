@@ -176,6 +176,8 @@ impl NativeThingdSyncEndpoint {
             | thingd::ThingdError::InvalidEncryptionKey(_)
             | thingd::ThingdError::EncryptionAuthentication(_)
             | thingd::ThingdError::UnsupportedEncryptionVersion(_)
+            | thingd::ThingdError::UnsupportedStorageFormat(_)
+            | thingd::ThingdError::StorageValidation(_)
             | thingd::ThingdError::EncryptionMigration(_) => ErrorKind::Dependency,
         };
         AppError::new(kind, error.to_string())

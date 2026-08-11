@@ -163,12 +163,45 @@ pub enum ProbeType {
 /// Registry for health checks.
 pub struct HealthRegistry {
     checks: Vec<Arc<dyn HealthCheck>>,
+    default_timeout: Option<Duration>,
+    startup_at: Instant,
+    startup_delay: Duration,
 }
 
 impl HealthRegistry {
     /// Create a new health registry.
     pub fn new() -> Self {
-        Self { checks: Vec::new() }
+        Self {
+            checks: Vec::new(),
+            default_timeout: None,
+            startup_at: Instant::now(),
+            startup_delay: Duration::ZERO,
+        }
+    }
+
+    /// Override the timeout used for checks that do not provide an
+    /// application-specific timeout.
+    #[must_use]
+    pub fn with_timeout(mut self, timeout: Duration) -> Self {
+        self.default_timeout = Some(timeout);
+        self
+    }
+
+    /// Keep readiness in startup grace until the delay has elapsed. Liveness
+    /// remains available during this period so orchestrators do not restart a
+    /// process merely because a dependency is still warming up.
+    #[must_use]
+    pub fn with_startup_delay(mut self, delay: Duration) -> Self {
+        self.startup_at = Instant::now();
+        self.startup_delay = delay;
+        self
+    }
+
+    /// Apply runtime health settings from application configuration.
+    pub fn configure(&mut self, timeout: Duration, startup_delay: Duration) {
+        self.default_timeout = Some(timeout);
+        self.startup_at = Instant::now();
+        self.startup_delay = startup_delay;
     }
 
     /// Register a health check.
@@ -193,6 +226,25 @@ impl HealthRegistry {
 
     /// Run checks with specified probe type.
     async fn check_with_type(&self, probe_type: ProbeType) -> HealthReport {
+        if probe_type == ProbeType::Readiness && self.startup_at.elapsed() < self.startup_delay {
+            let remaining = self.startup_delay.saturating_sub(self.startup_at.elapsed());
+            tracing::debug!(
+                remaining_ms = remaining.as_millis() as u64,
+                "readiness is in startup grace period"
+            );
+            return HealthReport {
+                status: HealthStatus::Unhealthy {
+                    reason: format!(
+                        "startup grace period active; {}ms remaining",
+                        remaining.as_millis()
+                    ),
+                },
+                checks: Vec::new(),
+                timestamp: chrono::Utc::now().to_rfc3339(),
+                probe_type,
+            };
+        }
+
         let checks_to_run: Vec<_> = match probe_type {
             ProbeType::Liveness => self.checks.clone(),
             ProbeType::Readiness => self
@@ -202,6 +254,7 @@ impl HealthRegistry {
                 .cloned()
                 .collect(),
         };
+        let default_timeout = self.default_timeout;
 
         let mut results = Vec::new();
         let mut overall_status = HealthStatus::Healthy;
@@ -211,8 +264,17 @@ impl HealthRegistry {
         for check in checks_to_run {
             handles.push(tokio::spawn(async move {
                 let start = Instant::now();
-                let status = run_check_with_timeout(check.as_ref(), check.timeout()).await;
+                let check_timeout = check.timeout();
+                let timeout = if check_timeout == Duration::from_secs(5) {
+                    default_timeout.unwrap_or(check_timeout)
+                } else {
+                    check_timeout
+                };
+                let status = run_check_with_timeout(check.as_ref(), timeout).await;
                 let duration_ms = start.elapsed().as_millis() as u64;
+                if duration_ms > 3_000 {
+                    tracing::warn!(check = %check.name(), duration_ms, "slow health check");
+                }
                 CheckResult {
                     name: check.name().to_string(),
                     status,

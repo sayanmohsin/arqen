@@ -43,16 +43,16 @@ use thingd::{
 /// An embedded thingd engine selected by deployment mode.
 pub enum NativeThingdEngine {
     /// Ephemeral engine for local development and tests.
-    Memory(thingd::MemoryEngine),
+    Memory(Box<thingd::MemoryEngine>),
     /// Durable persistent engine for a single Arqen process.
-    Persistent(thingd::PersistentEngine),
+    Persistent(Box<thingd::PersistentEngine>),
 }
 
 impl NativeThingdEngine {
     pub(crate) fn with_store<R>(&mut self, operation: impl FnOnce(&mut dyn ThingStore) -> R) -> R {
         match self {
-            Self::Memory(engine) => operation(engine),
-            Self::Persistent(engine) => operation(engine),
+            Self::Memory(engine) => operation(engine.as_mut()),
+            Self::Persistent(engine) => operation(engine.as_mut()),
         }
     }
 
@@ -91,9 +91,9 @@ impl NativeThingdStore {
     #[must_use]
     pub fn memory() -> Self {
         Self {
-            engine: Arc::new(Mutex::new(NativeThingdEngine::Memory(
+            engine: Arc::new(Mutex::new(NativeThingdEngine::Memory(Box::new(
                 thingd::MemoryEngine::new(),
-            ))),
+            )))),
         }
     }
 
@@ -109,7 +109,7 @@ impl NativeThingdStore {
     ) -> Result<Self, thingd::ThingdError> {
         let engine = thingd::PersistentEngine::open_with_options(path, options)?;
         Ok(Self {
-            engine: Arc::new(Mutex::new(NativeThingdEngine::Persistent(engine))),
+            engine: Arc::new(Mutex::new(NativeThingdEngine::Persistent(Box::new(engine)))),
         })
     }
 

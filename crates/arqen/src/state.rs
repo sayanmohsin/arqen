@@ -163,7 +163,12 @@ impl AppStateBuilder {
 
         let thingd_ready = self.thingd_ready.unwrap_or(true);
 
-        let health_registry = self.health_registry;
+        let health_registry = self.health_registry.map(|mut registry| {
+            if let Some(registry) = Arc::get_mut(&mut registry) {
+                registry.configure(config.health.check_timeout, config.health.startup_delay);
+            }
+            registry
+        });
 
         Ok(AppState {
             config,

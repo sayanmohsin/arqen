@@ -16,6 +16,7 @@ impl StorageFactory {
             StorageMode::Native | StorageMode::Persistent => {
                 #[cfg(feature = "thingd-native")]
                 {
+                    warn_if_low_native_memory();
                     let path = config.storage.persistent_path.as_ref().ok_or_else(|| {
                         ConfigError::MissingField {
                             field: "persistent_path".to_string(),
@@ -95,6 +96,31 @@ impl StorageFactory {
         }
     }
 }
+
+#[cfg(target_os = "linux")]
+fn warn_if_low_native_memory() {
+    let total_kb = std::fs::read_to_string("/proc/meminfo")
+        .ok()
+        .and_then(|contents| {
+            contents
+                .lines()
+                .find(|line| line.starts_with("MemTotal:"))
+                .and_then(|line| line.split_whitespace().nth(1))
+                .and_then(|value| value.parse::<u64>().ok())
+        });
+
+    if let Some(total_kb) = total_kb
+        && total_kb < 2_000_000
+    {
+        tracing::warn!(
+            available_mb = total_kb / 1024,
+            "low memory for native storage; recommend at least 2 GB or ARQEN_STORAGE_MODE=http"
+        );
+    }
+}
+
+#[cfg(not(target_os = "linux"))]
+fn warn_if_low_native_memory() {}
 
 #[cfg(test)]
 mod tests {

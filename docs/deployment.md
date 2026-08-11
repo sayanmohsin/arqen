@@ -18,6 +18,13 @@ arqen dev --storage memory
 
 ### Native durable thingd
 
+Native mode embeds Fjall/Tantivy in the application process. It is intended
+for durable deployments with at least 4 GB RAM (`e2-medium` or larger); the
+native store alone can consume hundreds of MB and Linux OOM kills commonly
+appear only as exit code 137. For e2-micro and other small VMs, use HTTP mode
+and run thingd separately. See the thingd memory and native-store compatibility
+documentation for the store-specific requirements.
+
 Use the `native` storage mode for local durable storage without a
 separate thingd service.
 
@@ -33,6 +40,10 @@ ARQEN_STORAGE_MODE=native ARQEN_PERSISTENT_PATH=/var/lib/arqen/data arqen start
 
 ### HTTP sidecar
 
+HTTP mode is the recommended production path for small VMs. The application
+does not open the native store, and the remote thingd service owns its schema,
+index lifecycle, memory budget, and backup format.
+
 Connect to an external thingd service over HTTP:
 
 ```toml
@@ -44,6 +55,18 @@ http_url = "http://thingd:8080"
 ```bash
 ARQEN_STORAGE_MODE=http ARQEN_THINGD_URL=http://thingd:8080 arqen start
 ```
+
+For a native deployment, stop Arqen before making a backup so the lock and all
+store files are consistent:
+
+```bash
+arqen store export --data-dir /var/lib/arqen/data --output /var/backups/arqen-$(date +%Y%m%d).tar.gz
+arqen store import --data-dir /var/lib/arqen/data --input /var/backups/arqen-20260811.tar.gz
+```
+
+The CLI includes lock metadata and excludes macOS `._*` and `.DS_Store`
+artifacts. Restore ownership to the runtime user after transferring an
+archive; the CLI does not assume a container UID.
 
 ### Cloud (future)
 
@@ -134,6 +157,7 @@ Every deployment should address:
 - thingd connectivity and credentials
 - Structured log collection (JSON format)
 - Production configuration validation (`AppConfig::validate_production()`)
+- Native memory and store compatibility requirements
 - Durable storage and backup ownership
 - Tenant/instance routing and isolation tests
 - Conditional-write and idempotency behavior

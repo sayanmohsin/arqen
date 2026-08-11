@@ -376,7 +376,7 @@ fn default_health_timeout() -> Duration {
     Duration::from_secs(5)
 }
 fn default_startup_delay() -> Duration {
-    Duration::from_secs(1)
+    Duration::ZERO
 }
 
 impl Default for HealthConfig {
@@ -835,6 +835,15 @@ impl AppConfig {
     /// This is explicit so libraries can still use the permissive development
     /// defaults without accidentally changing their startup behavior.
     pub fn validate_production(&self) -> Result<(), ConfigError> {
+        self.validate_production_with_schema_validation(true)
+    }
+
+    /// Apply production guardrails, optionally allowing an application to
+    /// defer native schema validation to its own startup workflow.
+    pub fn validate_production_with_schema_validation(
+        &self,
+        require_schema_validation: bool,
+    ) -> Result<(), ConfigError> {
         self.validate()?;
         if self.storage.mode == StorageMode::Memory {
             return Err(ConfigError::InvalidValue {
@@ -855,6 +864,16 @@ impl AppConfig {
                 field: "logging.format".to_string(),
                 value: "pretty".to_string(),
                 expected: "json or compact in production".to_string(),
+            });
+        }
+        if require_schema_validation
+            && !matches!(self.storage.mode, StorageMode::Http | StorageMode::Cloud)
+            && self.storage.schema_path.is_none()
+        {
+            return Err(ConfigError::MissingField {
+                field: "storage.schema_path".to_string(),
+                context: "required for native storage; HTTP mode uses the remote thingd schema"
+                    .to_string(),
             });
         }
         Ok(())
@@ -1028,7 +1047,7 @@ concurrency = 8
     fn test_health_config_defaults() {
         let config = HealthConfig::default();
         assert_eq!(config.check_timeout, Duration::from_secs(5));
-        assert_eq!(config.startup_delay, Duration::from_secs(1));
+        assert_eq!(config.startup_delay, Duration::ZERO);
     }
 
     #[test]

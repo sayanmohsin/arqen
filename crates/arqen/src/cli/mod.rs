@@ -8,6 +8,7 @@ pub mod generate;
 pub mod lint;
 pub mod output;
 pub mod serve;
+pub mod store;
 pub mod test;
 pub mod thingd_schema;
 
@@ -96,6 +97,9 @@ pub enum Commands {
         /// Config file path
         #[arg(long = "file")]
         config_file: Option<String>,
+        /// Defer native schema validation to the application startup workflow
+        #[arg(long)]
+        skip_schema_validation: bool,
     },
     /// Run and supervise local dev services defined in arqen.toml
     Up {
@@ -135,6 +139,29 @@ pub enum Commands {
     Thingd {
         #[command(subcommand)]
         command: ThingdCommand,
+    },
+    /// Export or import an embedded native Thingd store.
+    Store {
+        #[command(subcommand)]
+        command: StoreCommand,
+    },
+}
+
+#[derive(Subcommand)]
+pub enum StoreCommand {
+    /// Export native store files, including lock metadata, to a gzip archive.
+    Export {
+        #[arg(long)]
+        output: std::path::PathBuf,
+        #[arg(long)]
+        data_dir: Option<std::path::PathBuf>,
+    },
+    /// Import a native store archive into a directory.
+    Import {
+        #[arg(long)]
+        input: std::path::PathBuf,
+        #[arg(long)]
+        data_dir: Option<std::path::PathBuf>,
     },
 }
 
@@ -214,6 +241,7 @@ fn dispatch(cli: &Cli, output: &Output) -> anyhow::Result<()> {
             storage,
             config_file,
             log_format,
+            skip_schema_validation,
         } => {
             let code = serve::serve_start(
                 config_file.as_deref(),
@@ -222,6 +250,7 @@ fn dispatch(cli: &Cli, output: &Output) -> anyhow::Result<()> {
                 log.as_deref(),
                 storage.as_deref(),
                 log_format.as_ref(),
+                *skip_schema_validation,
                 output,
             );
             if code != exit::SUCCESS {
@@ -280,6 +309,21 @@ fn dispatch(cli: &Cli, output: &Output) -> anyhow::Result<()> {
         }
         Commands::Thingd { command } => {
             let code = thingd_schema::run(command, output);
+            if code != exit::SUCCESS {
+                std::process::exit(code);
+            }
+        }
+        Commands::Store { command } => {
+            let code = match command {
+                StoreCommand::Export {
+                    output: path,
+                    data_dir,
+                } => store::export(data_dir.as_deref(), path, output),
+                StoreCommand::Import {
+                    input: path,
+                    data_dir,
+                } => store::import(data_dir.as_deref(), path, output),
+            };
             if code != exit::SUCCESS {
                 std::process::exit(code);
             }

@@ -75,6 +75,7 @@ pub fn serve_dev(
     exit::SUCCESS
 }
 
+#[allow(clippy::too_many_arguments)]
 pub fn serve_start(
     file: Option<&str>,
     host: Option<&str>,
@@ -82,6 +83,7 @@ pub fn serve_start(
     log: Option<&str>,
     storage: Option<&str>,
     log_format: Option<&crate::config::LogFormat>,
+    skip_schema_validation: bool,
     output: &Output,
 ) -> i32 {
     let cli = crate::config::CliOverrides {
@@ -105,7 +107,7 @@ pub fn serve_start(
         }
     };
 
-    if let Err(error) = config.validate_production() {
+    if let Err(error) = config.validate_production_with_schema_validation(!skip_schema_validation) {
         output.print_error(&format!("production configuration is unsafe: {error}"));
         return exit::CONFIG;
     }

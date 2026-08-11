@@ -1,6 +1,13 @@
 # Health and readiness
 
 Health checks let liveness and readiness probes observe dependency state.
+
+`ARQEN_HEALTH_CHECK_TIMEOUT` configures the default check timeout (5 seconds
+by default), and `ARQEN_HEALTH_STARTUP_DELAY` (disabled by default) keeps
+readiness unhealthy during the dependency warm-up window while liveness remains available. Checks taking
+more than three seconds emit a structured `slow health check` warning. The
+startup grace period is applied when an application registers its checks
+through `AppState`.
 Arqen provides a registry-based system with parallel execution, timeouts,
 and degraded states.
 

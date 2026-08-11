@@ -108,6 +108,9 @@ enabled = false
 - Requires `persistent_path`
 - `persistent` is retained as a compatibility alias for `native`
 - The path must be writable and backed up by the deployment owner
+- Production validation requires `ARQEN_THINGD_SCHEMA_PATH` for native mode;
+  HTTP mode skips this requirement because the remote thingd service owns the
+  schema.
 
 ### Cloud mode
 
