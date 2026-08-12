@@ -7,19 +7,25 @@ const diagram = ref<HTMLElement | null>(null);
 let observer: MutationObserver | undefined;
 
 const definitions = {
-  architecture: `flowchart LR
+  architecture: `flowchart TB
     client["People, programs, and agents"] --> api["Arqen HTTP boundary"]
-    api --> policy["Auth + policy"]
-    api --> tools["Typed tools + manifests"]
-    api --> jobs["Durable jobs + workers"]
-    api --> health["Health + observability"]
-    policy --> domain["Application domain services"]
-    tools --> domain
-    jobs --> domain
+    api --> core
+    subgraph core["Arqen application boundary"]
+      direction LR
+      policy["Auth + policy"]
+      tools["Typed tools + manifests"]
+      jobs["Durable jobs + workers"]
+      health["Health + observability"]
+    end
+    core --> domain["Application domain services"]
     domain --> adapter["ThingdBackend adapter"]
-    adapter --> memory["Memory backend"]
-    adapter --> native["Native Thingd"]
-    adapter --> http["HTTP Thingd"]
+    adapter --> stores
+    subgraph stores["Storage paths"]
+      direction LR
+      memory["Memory backend"]
+      native["Native Thingd"]
+      http["HTTP Thingd"]
+    end
     http -. future contract .-> cloud["Hosted Thingd / Cloud"]
     classDef edge fill:#171127,stroke:#a78bfa,color:#f5f3ff
     classDef core fill:#102530,stroke:#22d3ee,color:#ecfeff
@@ -74,6 +80,7 @@ async function render() {
       lineColor: "#8b5cf6",
       secondaryColor: "#102530",
       tertiaryColor: "#21152a",
+      fontSize: "18px",
       fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace",
     },
   });
@@ -92,5 +99,11 @@ onBeforeUnmount(() => observer?.disconnect());
 </script>
 
 <template>
-  <div ref="diagram" class="mermaid-diagram" role="img" :aria-label="`${type} diagram`" />
+  <div
+    ref="diagram"
+    class="mermaid-diagram"
+    :class="`mermaid-diagram--${type}`"
+    role="img"
+    :aria-label="`${type} diagram`"
+  />
 </template>

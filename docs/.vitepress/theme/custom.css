@@ -291,6 +291,12 @@
   padding: 1.25rem;
 }
 
+.mermaid-diagram--architecture svg {
+  width: 100%;
+  min-width: 0;
+  max-width: 1000px;
+}
+
 @media (max-width: 640px) {
   .VPHomeHero .name {
     font-size: 3.2rem;
