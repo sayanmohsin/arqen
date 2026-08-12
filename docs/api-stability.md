@@ -7,8 +7,9 @@ promise.
 
 Use `arqen::prelude` for application code. The prelude includes application
 state, configuration, storage factories and adapters, validation, modules,
-jobs, health, and vendor-neutral metrics. `arqen::http` is the supported HTTP
-facade; applications do not need to import Axum directly.
+jobs, health, and vendor-neutral metrics. `arqen::http` provides the supported
+HTTP helpers and re-exported integration types for applications that use the
+Arqen HTTP layer.
 
 The `ThingdBackend` contract, memory backend, native adapter, HTTP policy,
 scoped backend, schema report, and <CurrentVersion kind="thingd" /> sync client types are supported

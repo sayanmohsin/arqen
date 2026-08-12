@@ -8,11 +8,13 @@ public Thingd contracts rather than private cloud modules.
 
 Application code depends on domain repositories and job interfaces. It should not depend directly on HTTP clients, provider SDKs, or private cloud modules.
 
-The first web transport is implemented with Axum, Tokio, and Tower. Applications use Arqen’s router, middleware, state, and lifecycle APIs; Axum remains an internal transport detail unless an application deliberately uses the lower-level HTTP integration.
+The HTTP integration uses Axum, Tokio, and Tower. Applications can use Arqen’s
+router, middleware, state, and lifecycle helpers, or use the re-exported HTTP
+types when they need lower-level control.
 
-Application code should prefer `arqen::http::{Router, routing}` and Arqen’s
-server helpers. The underlying transport is re-exported only as a compatibility
-facade, so application code does not need to name Axum directly.
+The common starting point is `arqen::http::{Router, routing}` with Arqen’s
+server helpers. The HTTP types are re-exported from that module so applications
+can choose the level of control that fits their routes.
 
 ## Package structure
 

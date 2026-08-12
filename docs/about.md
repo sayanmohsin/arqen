@@ -12,12 +12,11 @@ framework, or a hosted control plane.
 
 - **Public tagline:** Backend infrastructure for agent-ready applications.
 - **Public description:** A developer-focused backend toolkit for agent-ready applications, with typed tools, durable jobs, discoverable APIs, and thingd integration.
-- **Implementation:** Rust-first, using Arqen’s APIs over Tokio, Tower, tracing, and native thingd; Axum is the current internal HTTP transport.
+- **Implementation:** Rust-first, using Arqen’s APIs over Tokio, Tower, tracing,
+  and native thingd. The HTTP integration is feature-gated and built on Axum.
 
-Applications created and served through Arqen identify themselves publicly as
-Arqen. Axum is an internal implementation detail, not the application’s
-public framework identity. Generated and recommended application code should
-import HTTP types from `arqen::http`, not from Axum directly.
+Applications can use Arqen’s HTTP helpers and re-exported integration types,
+or compose the lower-level HTTP layer directly when they need more control.
 
 - **Compatibility direction:** Node.js through HTTP APIs, SDKs, templates, and shared manifests.
 

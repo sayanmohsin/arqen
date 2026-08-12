@@ -88,7 +88,8 @@ cargo run -p arqen --features cli --bin arqen -- --help
 ## Conventions
 
 - Prefer Arqen HTTP APIs, Tokio, Tower, tracing, and explicit application state;
-  use the `arqen::http` facade instead of importing the transport directly
+  use `arqen::http` helpers and re-exported HTTP types when they fit your route
+  composition
 - Do not create a NestJS-like dependency-injection framework
 - Keep provider and cloud credentials server-side
 - Treat the public thingd HTTP API as the first integration boundary

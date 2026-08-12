@@ -17,7 +17,7 @@ service and workload you deploy.
 
 | Capability                         | Status              | What is included                                                                                                                                                        |
 | ---------------------------------- | ------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| HTTP server and router composition | Available           | Axum routes, application route merging, request limits, timeouts, CORS, correlation IDs, and response identity headers.                                                 |
+| HTTP server and router composition | Available           | Axum-based routes, application route merging, request limits, timeouts, CORS, and correlation IDs.                                                                      |
 | Layered configuration              | Available / partial | CLI overrides → environment → config file → defaults, typed validation, secret redaction, and production checks. Deployment-specific secrets and policy remain yours.   |
 | Authentication and authorization   | Available / partial | JWT, API keys, session adapters, constant-time checks, hashing, and `AllOf`/`AnyOf`/role policies. JWKS rotation and key lifecycle remain application responsibilities. |
 | Request validation                 | Available / partial | Field, enum, pattern, cross-field, and nested validation through `Validate` and `Validated<T>`. No derive macro is promised.                                            |

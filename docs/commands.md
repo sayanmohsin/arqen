@@ -343,8 +343,8 @@ curl -i http://127.0.0.1:8888/health
 curl -i http://127.0.0.1:8888/ready
 curl -s http://127.0.0.1:8888/agent/manifest | jq .
 
-# Confirm the public framework identity
-curl -sI http://127.0.0.1:8888/health | grep -Ei '^(server|x-powered-by):'
+# Inspect the health response
+curl -s http://127.0.0.1:8888/health | jq .
 ```
 
 For a durable local instance, create the directory before starting:
