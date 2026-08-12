@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.8.1](https://github.com/sayanmohsin/arqen/compare/arqen-v0.8.0...arqen-v0.8.1) (2026-08-11)
+
+
+### Bug Fixes
+
+* harden deployment with Thingd 0.79.1 ([fac7272](https://github.com/sayanmohsin/arqen/commit/fac7272f3f9d8f9e7e5f976acf381fb55633dcf2))
+
 ## [0.8.0](https://github.com/sayanmohsin/arqen/compare/arqen-v0.7.0...arqen-v0.8.0) (2026-08-10)
 
 
