@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.9.1](https://github.com/sayanmohsin/arqen/compare/arqen-v0.9.0...arqen-v0.9.1) (2026-08-12)
+
+
+### Bug Fixes
+
+* apply Thingd search filters consistently ([c00a734](https://github.com/sayanmohsin/arqen/commit/c00a734145d559963bf1a355651495517c87a65b))
+
 ## [0.9.0](https://github.com/sayanmohsin/arqen/compare/arqen-v0.8.1...arqen-v0.9.0) (2026-08-12)
 
 
