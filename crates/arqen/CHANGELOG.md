@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.9.0](https://github.com/sayanmohsin/arqen/compare/arqen-v0.8.1...arqen-v0.9.0) (2026-08-12)
+
+
+### Features
+
+* add native Thingd migration support ([47ec629](https://github.com/sayanmohsin/arqen/commit/47ec629928ec33ecd2c574c7378106e9259939dc))
+
 ## [0.8.1](https://github.com/sayanmohsin/arqen/compare/arqen-v0.8.0...arqen-v0.8.1) (2026-08-11)
 
 
