@@ -11,7 +11,7 @@ jobs, health, and vendor-neutral metrics. `arqen::http` is the supported HTTP
 facade; applications do not need to import Axum directly.
 
 The `ThingdBackend` contract, memory backend, native adapter, HTTP policy,
-scoped backend, schema report, and Thingd 0.79.0 sync client types are supported
+scoped backend, schema report, and <CurrentVersion kind="thingd" /> sync client types are supported
 public APIs. Sync workers and schema inspection are opt-in operational APIs;
 Thingd remains authoritative for replication, conflicts, encryption, and
 migrations. Native thingd's synchronous store remains available as an explicit
@@ -20,7 +20,7 @@ advanced API, while Arqen's async adapter always runs it on blocking threads.
 ## Experimental surface
 
 Cloud storage and JWKS rotation remain experimental or blocked until Thingd
-Cloud publishes versioned public contracts. Thingd 0.79.0 synchronization and
+Cloud publishes versioned public contracts. <CurrentVersion kind="thingd" /> synchronization and
 cursor APIs now have a public contract, but Arqen's worker integration remains
 experimental and opt-in. Arqen will not define a private replication protocol.
 

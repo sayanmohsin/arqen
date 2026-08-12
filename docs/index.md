@@ -50,6 +50,25 @@ the application being built. Check the [feature status](./feature-status.md)
 before adopting a capability.
 :::
 
+<ProjectStatus />
+
+<ArqenConsole />
+
+The short version: Arqen gives your application one place for HTTP routes,
+authentication, typed tools, durable jobs, health, and storage adapters. It is
+not a hosted database or an AI model runtime.
+
+## Choose a starting path
+
+| You need                       | Start here                                    | What you get                                                         |
+| ------------------------------ | --------------------------------------------- | -------------------------------------------------------------------- |
+| A quick local prototype        | [Getting started](./getting-started.md)       | A runnable app with memory storage                                   |
+| Durable single-process storage | [Deployment](./deployment.md)                 | Embedded native Thingd with recovery responsibilities clearly stated |
+| A separate data service        | [Thingd integration](./thingd-integration.md) | The public HTTP adapter and its compatibility boundary               |
+| To move existing data          | [Migration](./migration.md)                   | A checked, resumable native-to-HTTP JSONL workflow                   |
+| Agent-facing capabilities      | [Agent guide](./agent-guide.md)               | Discovery, permissions, typed inputs, and invocation                 |
+| Production readiness           | [Production runbook](./production-runbook.md) | Deployment checks, health, logs, backups, and ownership              |
+
 ## Rust-first implementation, language-agnostic direction
 
 The current implementation uses Rust, Tokio, Tower, tracing, and native thingd
@@ -86,9 +105,9 @@ contract, not private cloud modules. See [architecture](./architecture.md) and
 
 ## thingd integration
 
-thingd supplies the storage, events, search, links, and queue boundary that
-Arqen adapts. Arqen keeps that integration optional and public-contract based;
-cloud hosting is a future path rather than a current promise.
+thingd supplies the object, event, search, link, and queue records that Arqen
+adapts. Arqen keeps that integration optional and public-contract based. Cloud
+hosting is a future path rather than a current promise.
 
 Learn more about the thingd ecosystem at
 [thingd.cloud](https://thingd.cloud), the home for thingd’s hosted data engine

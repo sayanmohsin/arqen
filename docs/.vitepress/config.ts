@@ -1,6 +1,36 @@
 import { defineConfig } from "vitepress";
+import { execFileSync } from "node:child_process";
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
+
+const repoRoot = resolve(__dirname, "../..");
+const crateManifest = readFileSync(resolve(repoRoot, "crates/arqen/Cargo.toml"), "utf8");
+const workspaceManifest = readFileSync(resolve(repoRoot, "Cargo.toml"), "utf8");
+const changelog = readFileSync(resolve(repoRoot, "crates/arqen/CHANGELOG.md"), "utf8");
+const arqenVersion = crateManifest.match(/^version\s*=\s*"([^"]+)"/m)?.[1] ?? "unknown";
+const thingdVersion =
+  workspaceManifest.match(/thingd\s*=.*?version\s*=\s*"=([^\"]+)"/)?.[1] ?? "unknown";
+const releaseDate = changelog.match(/## \[[^\]]+\][^\n]*\((\d{4}-\d{2}-\d{2})\)/)?.[1] ?? "unknown";
+let docsRevision = "local";
+try {
+  docsRevision = execFileSync("git", ["rev-parse", "--short", "HEAD"], { cwd: repoRoot })
+    .toString()
+    .trim();
+} catch {
+  // Git is not required when the documentation is built from an archive.
+}
 
 export default defineConfig({
+  vite: {
+    define: {
+      __ARQEN_DOCS_META__: JSON.stringify({
+        arqenVersion,
+        thingdVersion,
+        releaseDate,
+        docsRevision,
+      }),
+    },
+  },
   title: "Arqen — Backend infrastructure for agent-ready applications",
   description:
     "A developer-focused backend toolkit for agent-ready applications, with typed tools, durable jobs, discoverable APIs, and thingd integration.",
@@ -60,8 +90,8 @@ export default defineConfig({
           { text: "Storage modes", link: "/in-memory-mode" },
           { text: "thingd integration", link: "/thingd-integration" },
           {
-            text: "Thingd 0.77 sync",
-            link: "/thingd-integration#thingd-077-encryption-schemas-and-sync",
+            text: "Storage and migration",
+            link: "/migration",
           },
           { text: "Application hardening", link: "/application-hardening" },
         ],
