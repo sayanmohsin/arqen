@@ -406,23 +406,12 @@ impl ThingdBackend for HttpThingdBackend {
             }
         }
         let values: Value = self.get(&path).await?;
-        let mut objects = values
+        let objects = values
             .as_array()
             .map(|items| items.iter().map(object_from_json).collect::<Vec<_>>())
             .unwrap_or_default();
-        objects.retain(|object| {
-            options.filters.iter().all(|filter| match filter.operator {
-                FilterOperator::Eq => object.data.get(&filter.field) == Some(&filter.value),
-                FilterOperator::Contains => object
-                    .data
-                    .get(&filter.field)
-                    .and_then(Value::as_str)
-                    .zip(filter.value.as_str())
-                    .is_some_and(|(a, b)| a.contains(b)),
-                _ => true,
-            })
-        });
-        Ok(objects
+        let filtered = crate::thingd::traits::filter_objects(objects, &options.filters)?;
+        Ok(filtered
             .into_iter()
             .skip(options.offset)
             .take(options.limit.unwrap_or(usize::MAX))
@@ -619,17 +608,21 @@ impl ThingdBackend for HttpThingdBackend {
         let values: Value = self
             .post(
                 "/search",
-                json!({ "query": query, "limit": options.limit, "offset": options.offset }),
+                json!({ "query": query, "limit": usize::MAX, "offset": 0 }),
             )
             .await?;
-        let items = values
+        let objects = values
             .as_array()
             .map(|items| items.iter().map(object_from_json).collect::<Vec<_>>())
             .unwrap_or_default();
-        Ok(SearchResults {
-            total: items.len(),
-            items,
-        })
+        let filtered = crate::thingd::traits::filter_objects(objects, &options.filters)?;
+        let total = filtered.len();
+        let items = filtered
+            .into_iter()
+            .skip(options.offset)
+            .take(options.limit)
+            .collect();
+        Ok(SearchResults { total, items })
     }
 
     async fn create_link(

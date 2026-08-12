@@ -1,5 +1,9 @@
 use async_trait::async_trait;
+use chrono::DateTime;
 use serde::{Deserialize, Serialize};
+use std::cmp::Ordering;
+
+use crate::core::{AppError, ErrorKind};
 
 /// An object stored in thingd.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -114,6 +118,94 @@ pub enum FilterOperator {
     Contains,
 }
 
+/// Apply one filter clause using the shared backend contract.
+pub(crate) fn matches_filter(
+    object: &ThingdObject,
+    filter: &ThingdFilter,
+) -> Result<bool, AppError> {
+    let Some(value) = object.data.get(&filter.field) else {
+        return Ok(false);
+    };
+    match filter.operator {
+        FilterOperator::Eq => Ok(*value == filter.value),
+        FilterOperator::Ne => Ok(*value != filter.value),
+        FilterOperator::Contains => match (value.as_str(), filter.value.as_str()) {
+            (Some(value), Some(needle)) => Ok(value.contains(needle)),
+            _ => Err(invalid_filter(
+                &filter.field,
+                "Contains requires string values",
+            )),
+        },
+        FilterOperator::Gt | FilterOperator::Lt | FilterOperator::Gte | FilterOperator::Lte => {
+            let ordering = compare_filter_values(value, &filter.value, &filter.field)?;
+            Ok(match filter.operator {
+                FilterOperator::Gt => ordering == Ordering::Greater,
+                FilterOperator::Lt => ordering == Ordering::Less,
+                FilterOperator::Gte => ordering != Ordering::Less,
+                FilterOperator::Lte => ordering != Ordering::Greater,
+                _ => unreachable!(),
+            })
+        }
+    }
+}
+
+/// Apply conjunctive filters without silently treating unsupported values as
+/// matching every object.
+pub(crate) fn filter_objects(
+    objects: Vec<ThingdObject>,
+    filters: &[ThingdFilter],
+) -> Result<Vec<ThingdObject>, AppError> {
+    objects
+        .into_iter()
+        .filter_map(|object| {
+            let result = filters.iter().try_fold(true, |matches, filter| {
+                if matches {
+                    matches_filter(&object, filter)
+                } else {
+                    Ok(false)
+                }
+            });
+            match result {
+                Ok(true) => Some(Ok(object)),
+                Ok(false) => None,
+                Err(error) => Some(Err(error)),
+            }
+        })
+        .collect()
+}
+
+fn compare_filter_values(
+    value: &serde_json::Value,
+    filter_value: &serde_json::Value,
+    field: &str,
+) -> Result<Ordering, AppError> {
+    if let (Some(left), Some(right)) = (value.as_f64(), filter_value.as_f64()) {
+        return left
+            .partial_cmp(&right)
+            .ok_or_else(|| invalid_filter(field, "numeric values must be finite"));
+    }
+    if let (Some(left), Some(right)) = (value.as_str(), filter_value.as_str()) {
+        if let (Ok(left), Ok(right)) = (
+            DateTime::parse_from_rfc3339(left),
+            DateTime::parse_from_rfc3339(right),
+        ) {
+            return Ok(left.cmp(&right));
+        }
+        return Ok(left.cmp(right));
+    }
+    Err(invalid_filter(
+        field,
+        "range comparisons require two numbers or two strings",
+    ))
+}
+
+fn invalid_filter(field: &str, message: &str) -> AppError {
+    AppError::new(
+        ErrorKind::Validation,
+        format!("invalid filter for field '{field}': {message}"),
+    )
+}
+
 /// Options for search and query operations.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SearchOptions {
@@ -121,7 +213,8 @@ pub struct SearchOptions {
     pub limit: usize,
     /// Number of results to skip (pagination offset).
     pub offset: usize,
-    /// Additional filters to apply.
+    /// Additional filters to apply after text matching and before pagination.
+    /// Invalid filter values return a validation error.
     pub filters: Vec<ThingdFilter>,
 }
 
@@ -205,9 +298,13 @@ pub trait ThingdBackend: Send + Sync {
 
     /// Query objects in a collection.
     ///
-    /// Filters are applied conjunctively (all must match). `limit`/`offset`
-    /// paginate at the storage layer. Pass [`QueryOptions::default()`] for all
-    /// objects in the collection.
+    /// Filters are applied conjunctively (all must match). `Eq` may be sent to
+    /// Thingd server-side; backends apply `Ne`, `Gt`, `Lt`, `Gte`, `Lte`, and
+    /// `Contains` client-side when the server contract does not support them.
+    /// Range comparisons support numbers and strings, including RFC3339
+    /// timestamps. Invalid or unsupported filter values return a validation
+    /// error rather than returning unfiltered data. `limit`/`offset` paginate
+    /// after filtering. Pass [`QueryOptions::default()`] for all objects.
     async fn query_objects(
         &self,
         collection: &str,
@@ -295,4 +392,55 @@ pub trait ThingdBackend: Send + Sync {
 
     /// Seed sample data (for testing).
     async fn seed(&self) -> Result<(), crate::core::AppError>;
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::json;
+
+    fn object(value: serde_json::Value) -> ThingdObject {
+        ThingdObject {
+            id: "one".into(),
+            collection: "items".into(),
+            data: value,
+            created_at: String::new(),
+            updated_at: String::new(),
+        }
+    }
+
+    #[test]
+    fn range_filters_compare_rfc3339_and_boundaries() {
+        let value = object(json!({"expiresAt": "2026-08-10T12:00:00Z", "price": 10}));
+        for (operator, expected) in [
+            (FilterOperator::Lt, true),
+            (FilterOperator::Lte, true),
+            (FilterOperator::Gt, false),
+            (FilterOperator::Gte, false),
+        ] {
+            let filter = ThingdFilter {
+                field: "expiresAt".into(),
+                operator,
+                value: json!("2026-08-11T12:00:00+00:00"),
+            };
+            assert_eq!(matches_filter(&value, &filter).unwrap(), expected);
+        }
+        let equal = ThingdFilter {
+            field: "price".into(),
+            operator: FilterOperator::Lte,
+            value: json!(10),
+        };
+        assert!(matches_filter(&value, &equal).unwrap());
+    }
+
+    #[test]
+    fn invalid_range_filter_fails_loudly() {
+        let filter = ThingdFilter {
+            field: "price".into(),
+            operator: FilterOperator::Lt,
+            value: json!("not-a-number"),
+        };
+        let error = matches_filter(&object(json!({"price": 10})), &filter).unwrap_err();
+        assert_eq!(error.kind, ErrorKind::Validation);
+    }
 }

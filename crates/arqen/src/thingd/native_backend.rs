@@ -7,8 +7,8 @@ use uuid::Uuid;
 use crate::core::{AppError, ErrorKind};
 use crate::thingd::NativeThingdStore;
 use crate::thingd::{
-    FilterOperator, QueryOptions, SearchOptions, SearchResults, ThingdBackend, ThingdEvent,
-    ThingdFilter, ThingdJob, ThingdLink, ThingdObject, ThingdOperation, ThingdOperationResult,
+    QueryOptions, SearchOptions, SearchResults, ThingdBackend, ThingdEvent, ThingdJob, ThingdLink,
+    ThingdObject, ThingdOperation, ThingdOperationResult,
 };
 
 use thingd::{
@@ -127,68 +127,6 @@ fn to_job(job: &QueueJob) -> ThingdJob {
     }
 }
 
-/// Evaluate a single arqen filter clause against an object's data.
-fn matches_filter(obj: &ThingdObject, filter: &ThingdFilter) -> bool {
-    let Some(value) = obj.data.get(&filter.field) else {
-        return false;
-    };
-    match filter.operator {
-        FilterOperator::Eq => *value == filter.value,
-        FilterOperator::Ne => *value != filter.value,
-        FilterOperator::Gt => {
-            if let (Some(a), Some(b)) = (value.as_f64(), filter.value.as_f64()) {
-                a > b
-            } else if let (Some(a), Some(b)) = (value.as_str(), filter.value.as_str()) {
-                a > b
-            } else {
-                false
-            }
-        }
-        FilterOperator::Lt => {
-            if let (Some(a), Some(b)) = (value.as_f64(), filter.value.as_f64()) {
-                a < b
-            } else if let (Some(a), Some(b)) = (value.as_str(), filter.value.as_str()) {
-                a < b
-            } else {
-                false
-            }
-        }
-        FilterOperator::Gte => {
-            if let (Some(a), Some(b)) = (value.as_f64(), filter.value.as_f64()) {
-                a >= b
-            } else if let (Some(a), Some(b)) = (value.as_str(), filter.value.as_str()) {
-                a >= b
-            } else {
-                false
-            }
-        }
-        FilterOperator::Lte => {
-            if let (Some(a), Some(b)) = (value.as_f64(), filter.value.as_f64()) {
-                a <= b
-            } else if let (Some(a), Some(b)) = (value.as_str(), filter.value.as_str()) {
-                a <= b
-            } else {
-                false
-            }
-        }
-        FilterOperator::Contains => {
-            if let Some(search_str) = filter.value.as_str() {
-                if let Some(value_str) = value.as_str() {
-                    value_str.contains(search_str)
-                } else {
-                    false
-                }
-            } else {
-                false
-            }
-        }
-    }
-}
-
-fn applies_filters(obj: &ThingdObject, filters: &[ThingdFilter]) -> bool {
-    filters.iter().all(|filter| matches_filter(obj, filter))
-}
-
 /// Query the real thingd engine for every object in a collection.
 fn list_collection_objects(
     store: &NativeThingdStore,
@@ -294,9 +232,20 @@ impl ThingdBackend for NativeThingdBackend {
         let matched = self
             .run_blocking(move |store| list_collection_objects(&store, &collection))
             .await?;
-        let mut matched = matched;
-        matched.retain(|obj| applies_filters(obj, &filters));
-        let items: Vec<ThingdObject> = matched
+        let mut filtered = Vec::with_capacity(matched.len());
+        for obj in matched {
+            let matches = filters.iter().try_fold(true, |matches, filter| {
+                if !matches {
+                    Ok(false)
+                } else {
+                    crate::thingd::traits::matches_filter(&obj, filter)
+                }
+            })?;
+            if matches {
+                filtered.push(obj);
+            }
+        }
+        let items: Vec<ThingdObject> = filtered
             .into_iter()
             .skip(options.offset)
             .take(options.limit.unwrap_or(usize::MAX))
@@ -581,9 +530,7 @@ impl ThingdBackend for NativeThingdBackend {
             })
             .collect();
 
-        for filter in options.filters {
-            matched.retain(|obj| matches_filter(obj, &filter));
-        }
+        matched = crate::thingd::traits::filter_objects(matched, &options.filters)?;
 
         let total = matched.len();
         let items: Vec<ThingdObject> = matched
@@ -728,6 +675,7 @@ fn list_collection_ids(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::thingd::{FilterOperator, ThingdFilter};
 
     #[tokio::test]
     async fn put_and_get_object() {
@@ -789,6 +737,20 @@ mod tests {
             .unwrap();
         assert_eq!(results.len(), 1);
         assert_eq!(results[0].data["seasonId"], "s2");
+
+        let range = backend
+            .query_objects(
+                "watchloom_seasons",
+                QueryOptions::filtered(vec![ThingdFilter {
+                    field: "titleId".to_string(),
+                    operator: FilterOperator::Gt,
+                    value: Value::String("season1".to_string()),
+                }]),
+            )
+            .await
+            .unwrap();
+        assert_eq!(range.len(), 1);
+        assert_eq!(range[0].id, "s2");
     }
 
     #[tokio::test]

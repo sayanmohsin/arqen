@@ -1,7 +1,8 @@
 #![cfg(feature = "http-client")]
 
 use arqen::thingd::{
-    HttpThingdBackend, QueryOptions, SearchOptions, ThingdBackend, ThingdOperation,
+    FilterOperator, HttpThingdBackend, QueryOptions, SearchOptions, ThingdBackend, ThingdFilter,
+    ThingdOperation,
 };
 
 /// Run against a real thingd-server with:
@@ -50,6 +51,35 @@ async fn thingd_server_public_rest_contract() {
         .await
         .unwrap();
     assert!(queried.len() >= 3);
+    backend
+        .put_object(
+            &collection,
+            "expired",
+            serde_json::json!({"expiresAt":"2026-08-10T12:00:00Z"}),
+        )
+        .await
+        .unwrap();
+    backend
+        .put_object(
+            &collection,
+            "valid",
+            serde_json::json!({"expiresAt":"2026-08-12T12:00:00Z"}),
+        )
+        .await
+        .unwrap();
+    let expired = backend
+        .query_objects(
+            &collection,
+            QueryOptions::filtered(vec![ThingdFilter {
+                field: "expiresAt".into(),
+                operator: FilterOperator::Lt,
+                value: serde_json::json!("2026-08-11T12:00:00+00:00"),
+            }]),
+        )
+        .await
+        .unwrap();
+    assert!(expired.iter().any(|object| object.id == "expired"));
+    assert!(!expired.iter().any(|object| object.id == "valid"));
     let searched = backend
         .search(
             "two",
@@ -62,6 +92,22 @@ async fn thingd_server_public_rest_contract() {
         .await
         .unwrap();
     assert!(searched.items.iter().any(|item| item.id == "two"));
+    let filtered_search = backend
+        .search(
+            "two",
+            SearchOptions {
+                limit: 10,
+                offset: 0,
+                filters: vec![ThingdFilter {
+                    field: "name".into(),
+                    operator: FilterOperator::Eq,
+                    value: serde_json::json!("not-two"),
+                }],
+            },
+        )
+        .await
+        .unwrap();
+    assert!(filtered_search.items.is_empty());
 
     let event = backend
         .append_event(

@@ -18,64 +18,6 @@ fn lock_mutex<'a, T>(
     })
 }
 
-/// Evaluate a single filter clause against an object.
-fn matches_filter(obj: &ThingdObject, filter: &ThingdFilter) -> bool {
-    let Some(value) = obj.data.get(&filter.field) else {
-        return false;
-    };
-    match filter.operator {
-        FilterOperator::Eq => *value == filter.value,
-        FilterOperator::Ne => *value != filter.value,
-        FilterOperator::Gt => {
-            if let (Some(a), Some(b)) = (value.as_f64(), filter.value.as_f64()) {
-                a > b
-            } else if let (Some(a), Some(b)) = (value.as_str(), filter.value.as_str()) {
-                a > b
-            } else {
-                false
-            }
-        }
-        FilterOperator::Lt => {
-            if let (Some(a), Some(b)) = (value.as_f64(), filter.value.as_f64()) {
-                a < b
-            } else if let (Some(a), Some(b)) = (value.as_str(), filter.value.as_str()) {
-                a < b
-            } else {
-                false
-            }
-        }
-        FilterOperator::Gte => {
-            if let (Some(a), Some(b)) = (value.as_f64(), filter.value.as_f64()) {
-                a >= b
-            } else if let (Some(a), Some(b)) = (value.as_str(), filter.value.as_str()) {
-                a >= b
-            } else {
-                false
-            }
-        }
-        FilterOperator::Lte => {
-            if let (Some(a), Some(b)) = (value.as_f64(), filter.value.as_f64()) {
-                a <= b
-            } else if let (Some(a), Some(b)) = (value.as_str(), filter.value.as_str()) {
-                a <= b
-            } else {
-                false
-            }
-        }
-        FilterOperator::Contains => {
-            if let Some(search_str) = filter.value.as_str() {
-                if let Some(value_str) = value.as_str() {
-                    value_str.contains(search_str)
-                } else {
-                    false
-                }
-            } else {
-                false
-            }
-        }
-    }
-}
-
 /// In-memory implementation of [`ThingdBackend`].
 ///
 /// Useful for development, testing, and as a reference implementation.
@@ -159,14 +101,21 @@ impl ThingdBackend for MemoryThingdBackend {
         let objects = lock_mutex(&self.objects, "objects")?;
         let collection_objects = objects.get(collection).unwrap_or(&vec![]).clone();
 
-        let matched: Vec<ThingdObject> = collection_objects
+        let mut matched = Vec::with_capacity(collection_objects.len());
+        for obj in collection_objects {
+            let matches = options.filters.iter().try_fold(true, |matches, filter| {
+                if !matches {
+                    Ok(false)
+                } else {
+                    crate::thingd::traits::matches_filter(&obj, filter)
+                }
+            })?;
+            if matches {
+                matched.push(obj);
+            }
+        }
+        let matched = matched
             .into_iter()
-            .filter(|obj| {
-                options
-                    .filters
-                    .iter()
-                    .all(|filter| matches_filter(obj, filter))
-            })
             .skip(options.offset)
             .take(options.limit.unwrap_or(usize::MAX))
             .collect();
@@ -380,32 +329,7 @@ impl ThingdBackend for MemoryThingdBackend {
             })
             .collect();
 
-        for filter in options.filters {
-            matched.retain(|obj| {
-                if let Some(value) = obj.data.get(&filter.field) {
-                    match filter.operator {
-                        FilterOperator::Eq => *value == filter.value,
-                        FilterOperator::Ne => *value != filter.value,
-                        FilterOperator::Contains => {
-                            if let Some(search_str) = filter.value.as_str() {
-                                if let Some(value_str) = value.as_str() {
-                                    value_str
-                                        .to_lowercase()
-                                        .contains(&search_str.to_lowercase())
-                                } else {
-                                    false
-                                }
-                            } else {
-                                false
-                            }
-                        }
-                        _ => true,
-                    }
-                } else {
-                    false
-                }
-            });
-        }
+        matched = crate::thingd::traits::filter_objects(matched, &options.filters)?;
 
         let total = matched.len();
 

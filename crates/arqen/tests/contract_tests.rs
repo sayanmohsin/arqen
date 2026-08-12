@@ -559,6 +559,24 @@ async fn test_filter_operators() {
         .unwrap();
     assert_eq!(results.len(), 1);
     assert_eq!(results[0].data["name"], "Apple");
+
+    let search_results = backend
+        .search(
+            "",
+            SearchOptions {
+                limit: 10,
+                offset: 0,
+                filters: vec![ThingdFilter {
+                    field: "price".into(),
+                    operator: FilterOperator::Gt,
+                    value: json!(1.0),
+                }],
+            },
+        )
+        .await
+        .unwrap();
+    assert_eq!(search_results.items.len(), 1);
+    assert_eq!(search_results.items[0].data["name"], "Cherry");
 }
 
 #[tokio::test]
