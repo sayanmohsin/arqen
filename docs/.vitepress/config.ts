@@ -99,7 +99,9 @@ export default defineConfig({
       {
         text: "Guides",
         items: [
+          { text: "Build a backend", link: "/build-a-backend" },
           { text: "Getting started", link: "/getting-started" },
+          { text: "Thingd schema", link: "/schema" },
           { text: "Commands", link: "/commands" },
           { text: "Configuration", link: "/configuration" },
           { text: "Health", link: "/health" },

@@ -10,6 +10,7 @@
     "format:check": "prettier --check ."
   },
   "dependencies": {
+    "mermaid": "^11.16.1",
     "vue": "^3.5.41"
   },
   "devDependencies": {

@@ -1,5 +1,11 @@
 # Use cases
 
+<MermaidDiagram type="use-cases" />
+
+Every use case follows the same shape: discover or receive work, apply policy,
+run ordinary application code, record the result, and expose enough health and
+observability for a caller or operator to understand what happened.
+
 ## Tool-enabled product backends
 
 Expose a small, typed capability surface to an agent while keeping domain

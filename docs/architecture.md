@@ -1,24 +1,10 @@
 # Architecture
 
-```text
-Client or agent
-      |
-      v
-Arqen HTTP API
-      |
-      +-- domain services
-      +-- typed agent tools
-      +-- auth and policy
-      +-- job workers
-      +-- observability
-      |
-      v
-Arqen thingd adapter
-      |
-      +-- MemoryThingdBackend for development
-      +-- HttpThingdBackend for durable deployment
-      +-- CloudThingdBackend (optional, future public contract)
-```
+<MermaidDiagram type="architecture" />
+
+The request boundary stays stable while the storage adapter changes underneath
+it. The hosted cloud path is shown as future because Arqen currently relies on
+public Thingd contracts rather than private cloud modules.
 
 Application code depends on domain repositories and job interfaces. It should not depend directly on HTTP clients, provider SDKs, or private cloud modules.
 

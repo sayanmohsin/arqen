@@ -55,10 +55,10 @@ hello-api/
 cargo run
 ```
 
-Expected output:
+Expected output (the version is dynamic in the real CLI):
 
 ```text
-Arqen v0.5.0
+Arqen v<current-version>
 API:    http://127.0.0.1:8888
 Health: http://127.0.0.1:8888/health
 Docs:   http://127.0.0.1:8888/docs
@@ -134,8 +134,11 @@ cargo run -p arqen --features cli --bin arqen -- new hello-api
 
 ## Next steps
 
+For the complete build path, continue with [Build an Arqen backend](./build-a-backend.md).
+
 - [Commands](./commands.md) - full CLI reference
 - [Configuration](./configuration.md) - environment variables and config files
+- [Thingd schema](./schema.md) - define, validate, and inspect your data contract
 - [Modules](./modules.md) - module composition and lifecycle
 - [Typed tools](./typed-tools.md) - structured tool definitions
 - [Logging](./logging.md) - structured logs, fields, and redaction

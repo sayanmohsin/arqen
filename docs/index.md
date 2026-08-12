@@ -62,10 +62,12 @@ not a hosted database or an AI model runtime.
 
 | You need                       | Start here                                    | What you get                                                         |
 | ------------------------------ | --------------------------------------------- | -------------------------------------------------------------------- |
+| A complete backend path        | [Build a backend](./build-a-backend.md)       | One guided route from project creation to production                 |
 | A quick local prototype        | [Getting started](./getting-started.md)       | A runnable app with memory storage                                   |
 | Durable single-process storage | [Deployment](./deployment.md)                 | Embedded native Thingd with recovery responsibilities clearly stated |
 | A separate data service        | [Thingd integration](./thingd-integration.md) | The public HTTP adapter and its compatibility boundary               |
 | To move existing data          | [Migration](./migration.md)                   | A checked, resumable native-to-HTTP JSONL workflow                   |
+| A Thingd data contract         | [Thingd schema](./schema.md)                  | Store, validate, inspect, and operate a `.thingd` schema             |
 | Agent-facing capabilities      | [Agent guide](./agent-guide.md)               | Discovery, permissions, typed inputs, and invocation                 |
 | Production readiness           | [Production runbook](./production-runbook.md) | Deployment checks, health, logs, backups, and ownership              |
 
