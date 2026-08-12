@@ -2,6 +2,49 @@
 
 Upgrade notes for Arqen releases.
 
+## Native Thingd to standalone HTTP Thingd
+
+Use the explicit migration workflow when moving an embedded native store to a
+standalone Thingd server. It uses Thingd logical snapshot `2.0.0` JSONL; it is
+not a filesystem-format conversion and never modifies the source.
+
+```bash
+arqen thingd migrate \
+  --source /data/app/thingd.db \
+  --destination https://thingd.example.com \
+  --auth-token "$THINGD_AUTH_TOKEN" \
+  --batch-size 100 \
+  --resume
+```
+
+Run `--check` to validate the source, snapshot-capable destination,
+authentication, destination emptiness, and record counts. `--dry-run` performs
+the same validation and creates a resumable JSONL spool without importing it.
+The spool is written beside the source by default; pass an application-owned
+`snapshot_path` through the library API when another location is required.
+
+The library API is `NativeToHttpMigrator::{validate,migrate}` with
+`ThingdMigrationOptions`. A migration uses bounded pages and a bounded HTTP
+stream. Retry with `--resume` after interruption; accepted object, event, and
+queue records are safe to replay because Thingd uses stable keys and event
+idempotency keys. Keep application writes paused for the export/import window
+when a consistent cutover is required; Arqen does not claim a live-write
+snapshot guarantee.
+
+The destination must be empty. Arqen does not delete or overwrite a
+non-empty destination. Destination credentials are sent only as a bearer token
+over the configured URL; use HTTPS for remote servers. Thingd-owned schema
+metadata and functional indexes are re-applied after records when the server
+exposes those APIs. Replication system records are excluded unless
+`--include-replication` is explicitly supplied.
+
+Search indexes are destination-owned and should be rebuilt or verified after
+the import. Validate the result with a fresh Thingd snapshot, object/event/job
+counts, representative object IDs and bodies, event sequence order, queue
+terminal states, and application health checks. Native mode is appropriate for
+small, single-process deployments; use standalone HTTP mode below 2 GB RAM
+when large search or enrichment workloads are expected.
+
 ## Alpha → beta startup behavior
 
 `arqen start` is now the strict production path. It validates configuration

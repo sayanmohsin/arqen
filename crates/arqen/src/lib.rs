@@ -38,6 +38,8 @@ pub mod core;
 pub mod dev;
 pub mod health;
 pub mod jobs;
+#[cfg(feature = "thingd-migration")]
+pub mod migration;
 pub mod module;
 pub mod observability;
 pub mod openapi;
@@ -70,6 +72,10 @@ pub use config::{
 pub use context::RequestContext;
 pub use core::{AppError, ErrorKind};
 pub use jobs::{JobConfig, JobHandler, JobWorker, Worker};
+#[cfg(feature = "thingd-migration")]
+pub use migration::{
+    MigrationError, MigrationReport, NativeToHttpMigrator, ThingdMigrationOptions,
+};
 pub use module::{
     Module, ModuleBuilder, ModuleContext, ModuleError, ModuleGraphError, ModuleHealth,
 };

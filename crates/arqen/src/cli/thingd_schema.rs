@@ -72,5 +72,6 @@ pub fn run(command: &ThingdCommand, output: &Output) -> i32 {
                 }
             }
         }
+        ThingdCommand::Migrate { .. } => unreachable!("migration is dispatched by cli::dispatch"),
     }
 }
