@@ -9,6 +9,33 @@ permissions:
   contents: read
 
 jobs:
+  release-version:
+    name: Release version ownership
+    if: ${{ github.event_name == 'pull_request' && !startsWith(github.head_ref, 'release-please--') }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - name: Reject manual release version changes
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          base_package_version=$(git show "${BASE_SHA}:crates/arqen/Cargo.toml" | sed -n 's/^version = "\([^"]*\)"/\1/p' | head -n 1)
+          head_package_version=$(git show "${HEAD_SHA}:crates/arqen/Cargo.toml" | sed -n 's/^version = "\([^"]*\)"/\1/p' | head -n 1)
+          base_manifest_version=$(git show "${BASE_SHA}:.release-please-manifest.json" | jq -r '."crates/arqen"')
+          head_manifest_version=$(git show "${HEAD_SHA}:.release-please-manifest.json" | jq -r '."crates/arqen"')
+
+          if [[ "$base_package_version" != "$head_package_version" || "$base_manifest_version" != "$head_manifest_version" ]]; then
+            echo "Arqen release versions are owned by Release Please."
+            echo "Do not change crates/arqen/Cargo.toml or .release-please-manifest.json in a feature, fix, or performance PR."
+            echo "Create the release PR through the Release workflow instead."
+            echo "Base: Cargo $base_package_version / manifest $base_manifest_version"
+            echo "Head: Cargo $head_package_version / manifest $head_manifest_version"
+            exit 1
+          fi
+
   markdown:
     runs-on: ubuntu-latest
     steps:

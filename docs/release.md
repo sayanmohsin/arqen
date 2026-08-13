@@ -36,6 +36,14 @@ release, and `!` or `BREAKING CHANGE:` creates a major release. The workflow
 opens a `release/vX.Y.Z` pull request that updates `Cargo.toml`, `Cargo.lock`,
 and `CHANGELOG.md`.
 
+Release Please owns the Arqen package version. Feature, fix, performance, and
+documentation pull requests must not manually change
+`crates/arqen/Cargo.toml` or `.release-please-manifest.json`; CI rejects those
+changes outside a generated release pull request. This prevents a manually
+prepared version from being incremented a second time when the release PR is
+created. The Rust workflow also runs a default-feature Clippy gate with
+warnings denied, matching the feature set used by the published crate.
+
 Publishing starts only after that release PR is merged. The workflow publishes
 the single `arqen` crate, creates the `arqen-vX.Y.Z` tag, and creates a matching
 GitHub Release. Existing crate versions and GitHub Releases are skipped.
