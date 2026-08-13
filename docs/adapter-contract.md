@@ -61,6 +61,20 @@ pub trait ThingdBackend: Send + Sync {
 - Configurable TTL and capacity
 - Invalidates objects on writes, deletes, and batch writes
 - Exposes cache hit/miss counters
+- `new_catalog` restricts reads to an explicit collection allowlist and is the
+  supported path for HTTP production deployments
+
+### Startup bootstrap
+
+`BootstrapPolicy`, `retry_bootstrap`, and `seed_with_retry` provide bounded,
+retry-aware startup operations for remote Thingd readiness. Applications own
+the seed contents and decide when to invoke them.
+
+HTTP queries have a bounded client-side scan budget for unsupported range
+filters. Configure it through `HttpClientPolicy::max_query_scan_objects` or
+`ARQEN_THINGD_MAX_QUERY_SCAN_OBJECTS`. Large result producers can use
+`jsonl_response` to stream newline-delimited JSON without materializing the
+full collection.
 
 ### HttpThingdBackend
 

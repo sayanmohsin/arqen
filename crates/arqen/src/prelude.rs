@@ -16,6 +16,8 @@ pub use crate::config::{AppConfig, StorageMode, ThingdSyncMode};
 pub use crate::context::RequestContext;
 pub use crate::core::{AppError, ErrorKind};
 pub use crate::health::ThingdSyncHealth;
+#[cfg(feature = "http-server")]
+pub use crate::http::{HttpCachePolicy, jsonl_response};
 pub use crate::jobs::JobHandler;
 pub use crate::module::{Module, ModuleContext, ModuleError, ModuleHealth};
 pub use crate::observability::{MetricsSink, NoopMetricsSink, SyncMetric};
@@ -30,8 +32,8 @@ pub use crate::thingd::{
     SyncRuntimeStatus, ThingdSyncClient, ThingdSyncWorker,
 };
 pub use crate::thingd::{
-    CachePolicy, CachingThingdBackend, ScopedThingdBackend, StorageFactory, StorageScope,
-    ThingdBackend,
+    BootstrapPolicy, CachePolicy, CachingThingdBackend, ScopedThingdBackend, StorageFactory,
+    StorageScope, ThingdBackend, retry_bootstrap, seed_with_retry,
 };
 
 pub use async_trait::async_trait;

@@ -204,6 +204,14 @@ pub enum ThingdCommand {
         #[arg(long)]
         token: Option<String>,
     },
+    /// Seed a remote Thingd instance with bounded startup retries.
+    Seed {
+        url: String,
+        #[arg(long)]
+        token: Option<String>,
+        #[arg(long, default_value_t = 12)]
+        attempts: u32,
+    },
 }
 
 #[derive(Subcommand)]

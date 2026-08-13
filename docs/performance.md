@@ -66,6 +66,25 @@ separate persistent-path benchmark before choosing disk settings. HTTP latency
 must be measured against the deployed thingd service because network distance,
 TLS, pooling, and server load dominate the result.
 
+Thingd 0.81 also improves persistent queue indexing and exposes configurable
+search-index rebuild modes. Those engine-level improvements are used by the
+native adapter without an Arqen API change; asynchronous rebuild mode remains
+owned by the standalone Thingd server lifecycle.
+
+## HTTP response performance
+
+Arqen enables Brotli/gzip compression for responses above the configured
+threshold. Use `ARQEN_COMPRESSION_ENABLED` and
+`ARQEN_COMPRESSION_THRESHOLD` to tune it after measuring CPU and network
+cost. Responses that opt into `HttpCachePolicy` can use ETags and return `304`
+without transferring the body.
+
+For large result sets, use the `jsonl_response` helper. It serializes one
+record at a time as `application/x-ndjson` instead of materializing the whole
+response. HTTP range filters are bounded by
+`ARQEN_THINGD_MAX_QUERY_SCAN_OBJECTS`; exceeding that bound is an explicit
+error rather than a partial response.
+
 ## Limitations
 
 - HTTP sidecar latency is not included in this harness; set up a service-level

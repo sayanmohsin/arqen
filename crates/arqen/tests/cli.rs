@@ -103,6 +103,16 @@ fn test_help_works() {
 }
 
 #[test]
+fn thingd_seed_help_works() {
+    let output = Command::new(arqen_bin())
+        .args(["thingd", "seed", "--help"])
+        .output()
+        .unwrap();
+    assert!(output.status.success());
+    assert!(String::from_utf8_lossy(&output.stdout).contains("bounded startup retries"));
+}
+
+#[test]
 fn build_help_works() {
     let output = Command::new(arqen_bin())
         .arg("build")

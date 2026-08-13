@@ -102,8 +102,11 @@ export default defineConfig({
         items: [
           { text: "Getting started", link: "/getting-started" },
           { text: "Thingd schema", link: "/schema" },
+          { text: "Thingd bootstrap", link: "/bootstrap" },
           { text: "Commands", link: "/commands" },
           { text: "Configuration", link: "/configuration" },
+          { text: "HTTP caching", link: "/http-caching" },
+          { text: "Streaming", link: "/streaming" },
           { text: "Health", link: "/health" },
           { text: "Examples", link: "/examples" },
           { text: "Authentication", link: "/authentication" },

@@ -30,6 +30,7 @@ pub struct HttpClientPolicy {
     pub request_timeout: Duration,
     pub max_retries: u32,
     pub initial_backoff: Duration,
+    pub max_query_scan_objects: usize,
 }
 
 impl Default for HttpClientPolicy {
@@ -39,6 +40,7 @@ impl Default for HttpClientPolicy {
             request_timeout: Duration::from_secs(30),
             max_retries: 2,
             initial_backoff: Duration::from_millis(50),
+            max_query_scan_objects: 100_000,
         }
     }
 }
@@ -415,21 +417,47 @@ impl ThingdBackend for HttpThingdBackend {
         collection: &str,
         options: QueryOptions,
     ) -> Result<Vec<ThingdObject>, crate::core::AppError> {
-        let mut path = format!("/objects?collection={}", encode(collection));
-        for filter in &options.filters {
-            if let (FilterOperator::Eq, Some(value)) = (&filter.operator, filter.value.as_str()) {
-                path.push_str(&format!(
-                    "&filter.{}={}",
-                    encode(&filter.field),
-                    encode(value)
+        const PAGE_SIZE: usize = 500;
+        let mut objects = Vec::new();
+        let mut offset = 0usize;
+        loop {
+            let mut path = format!(
+                "/objects?collection={}&limit={}&offset={}",
+                encode(collection),
+                PAGE_SIZE,
+                offset
+            );
+            for filter in &options.filters {
+                if let (FilterOperator::Eq, Some(value)) = (&filter.operator, filter.value.as_str())
+                {
+                    path.push_str(&format!(
+                        "&filter.{}={}",
+                        encode(&filter.field),
+                        encode(value)
+                    ));
+                }
+            }
+            let values: Value = self.get(&path).await?;
+            let page = values
+                .as_array()
+                .map(|items| items.iter().map(object_from_json).collect::<Vec<_>>())
+                .unwrap_or_default();
+            let page_len = page.len();
+            objects.extend(page);
+            if objects.len() > self.policy.max_query_scan_objects {
+                return Err(crate::core::AppError::new(
+                    ErrorKind::Validation,
+                    format!(
+                        "query scan exceeded the configured limit of {} objects",
+                        self.policy.max_query_scan_objects
+                    ),
                 ));
             }
+            if page_len < PAGE_SIZE {
+                break;
+            }
+            offset += PAGE_SIZE;
         }
-        let values: Value = self.get(&path).await?;
-        let objects = values
-            .as_array()
-            .map(|items| items.iter().map(object_from_json).collect::<Vec<_>>())
-            .unwrap_or_default();
         let filtered = crate::thingd::traits::filter_objects(objects, &options.filters)?;
         Ok(filtered
             .into_iter()

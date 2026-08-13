@@ -20,7 +20,7 @@ default = ["http-server", "thingd-native"]
 cli = ["http-server", "logging", "http-client", "thingd-migration", "dep:libc"]
 http-server = ["dep:axum", "dep:tower", "dep:tower-http"]
 http-client = ["dep:reqwest"]
-thingd-migration = ["thingd-native", "http-client", "dep:tokio-util", "dep:futures-util", "dep:bytes"]
+thingd-migration = ["thingd-native", "http-client", "dep:tokio-util"]
 thingd-native = ["dep:thingd"]
 logging = ["dep:tracing-appender", "dep:tracing-subscriber"]
 test-util = ["http-server", "dep:tower"]
@@ -41,12 +41,12 @@ serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 sha2 = "0.10"
 subtle = "2"
-thingd = { version = "=0.80.0", optional = true, features = ["persistent", "search"] }
+thingd = { version = "=0.81.0", optional = true, features = ["persistent", "search"] }
 thiserror = "1"
 tokio = { version = "1", features = ["full"] }
 tokio-util = { version = "0.7", features = ["io"], optional = true }
-futures-util = { version = "0.3", optional = true }
-bytes = { version = "1", optional = true }
+futures-util = "0.3"
+bytes = "1"
 toml = "0.8"
 tower = { version = "0.4", features = ["util"], optional = true }
 tower-http = { version = "0.6", features = ["cors", "limit", "timeout", "compression-gzip", "compression-br"], optional = true }

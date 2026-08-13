@@ -1,10 +1,13 @@
+pub mod cache;
 pub mod middleware_auth;
 pub mod middleware_correlation;
 pub mod middleware_identity;
 pub mod middleware_log;
 pub mod module;
 pub mod routes;
+pub mod streaming;
 
+pub use cache::{HttpCachePolicy, cache_headers};
 pub use middleware_auth::{
     AuthGuard, Authenticated, RequireAuth, auth_middleware, optional_auth_middleware,
     require_auth_middleware,
@@ -16,6 +19,7 @@ pub use middleware_identity::{
 pub use middleware_log::{RequestLogConfig, logging_middleware};
 pub use module::{HttpModule, merge_module_routes};
 pub use routes::{agent, agent_manifest, docs, health, ready};
+pub use streaming::jsonl_response;
 
 use axum::extract::FromRef;
 use axum::{
@@ -99,13 +103,13 @@ where
         state.config.server.request_timeout,
     );
     let body_limit = RequestBodyLimitLayer::new(state.config.server.max_body_size);
-    let compression = CompressionLayer::new().compress_when(SizeAbove::new(
-        state
-            .config
-            .server
-            .compression_threshold
-            .min(u16::MAX as usize) as u16,
-    ));
+    let compression = if state.config.server.compression_enabled {
+        CompressionLayer::new().compress_when(SizeAbove::new(
+            state.config.server.compression_threshold as u16,
+        ))
+    } else {
+        CompressionLayer::new().compress_when(SizeAbove::new(u16::MAX))
+    };
     let request_log_config = RequestLogConfig {
         success_sample_rate: if std::env::var("ARQEN_ENV").as_deref() == Ok("production") {
             state.config.server.request_log_sample_rate
@@ -113,6 +117,9 @@ where
             1.0
         },
         slow_request_threshold: state.config.server.slow_request_threshold,
+        service_name: std::env::var("ARQEN_SERVICE_NAME")
+            .unwrap_or_else(|_| env!("CARGO_PKG_NAME").to_string()),
+        environment: std::env::var("ARQEN_ENV").unwrap_or_else(|_| "development".to_string()),
     };
 
     Router::new()
@@ -123,6 +130,7 @@ where
         .route("/agent/tools/:name", post(routes::tool_invoke))
         .route("/docs", get(routes::docs))
         .layer(body_limit)
+        .layer(middleware::from_fn(cache::cache_headers))
         .layer(compression)
         .layer(timeout)
         .layer(cors)

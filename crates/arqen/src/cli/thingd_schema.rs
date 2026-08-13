@@ -72,6 +72,40 @@ pub fn run(command: &ThingdCommand, output: &Output) -> i32 {
                 }
             }
         }
+        ThingdCommand::Seed {
+            url,
+            token,
+            attempts,
+        } => {
+            let mut backend = crate::thingd::HttpThingdBackend::new(url);
+            if let Some(token) = token {
+                backend = backend.with_auth(token);
+            }
+            let policy = crate::thingd::BootstrapPolicy {
+                max_attempts: *attempts,
+                ..Default::default()
+            };
+            let result = tokio::runtime::Runtime::new()
+                .map_err(|error| {
+                    crate::AppError::new(crate::ErrorKind::Internal, error.to_string())
+                })
+                .and_then(|runtime| {
+                    runtime.block_on(crate::thingd::seed_with_retry(
+                        std::sync::Arc::new(backend),
+                        policy,
+                    ))
+                });
+            match result {
+                Ok(()) => {
+                    output.print("Thingd seed completed");
+                    exit::SUCCESS
+                }
+                Err(error) => {
+                    output.print_error(&error.to_string());
+                    exit::RUNTIME
+                }
+            }
+        }
         ThingdCommand::Migrate { .. } => unreachable!("migration is dispatched by cli::dispatch"),
     }
 }

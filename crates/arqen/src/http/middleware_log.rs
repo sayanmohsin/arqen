@@ -12,6 +12,8 @@ use crate::context::RequestContext;
 pub struct RequestLogConfig {
     pub success_sample_rate: f64,
     pub slow_request_threshold: Duration,
+    pub service_name: String,
+    pub environment: String,
 }
 
 impl Default for RequestLogConfig {
@@ -19,6 +21,8 @@ impl Default for RequestLogConfig {
         Self {
             success_sample_rate: 1.0,
             slow_request_threshold: Duration::from_millis(250),
+            service_name: env!("CARGO_PKG_NAME").to_string(),
+            environment: "development".to_string(),
         }
     }
 }
@@ -70,10 +74,9 @@ pub async fn logging_middleware(request: Request, next: Next) -> Response {
         || sample_success(log_config.success_sample_rate);
     if should_log {
         info!(
-        service = std::env::var("ARQEN_SERVICE_NAME")
-            .unwrap_or_else(|_| env!("CARGO_PKG_NAME").to_owned()),
+        service = %log_config.service_name,
         service_version = env!("CARGO_PKG_VERSION"),
-        environment = std::env::var("ARQEN_ENV").unwrap_or_else(|_| "development".to_owned()),
+        environment = %log_config.environment,
         method = %method,
         route = %route,
         request_id = %request_id,

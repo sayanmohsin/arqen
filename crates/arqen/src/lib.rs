@@ -92,8 +92,9 @@ pub use thingd::{
     SyncPage, SyncRuntimeStatus, ThingdSyncClient, ThingdSyncWorker,
 };
 pub use thingd::{
-    CachePolicy, CachingThingdBackend, MemoryThingdBackend, ScopeSubject, ScopedThingdBackend,
-    StorageFactory, StorageScope, ThingdBackend,
+    BootstrapPolicy, CachePolicy, CachingThingdBackend, MemoryThingdBackend, ScopeSubject,
+    ScopedThingdBackend, StorageFactory, StorageScope, ThingdBackend, retry_bootstrap,
+    seed_with_retry,
 };
 
 #[cfg(feature = "http-server")]
@@ -109,9 +110,10 @@ pub use validation::{FieldError, Validate, Validated, ValidationErrors};
 
 #[cfg(feature = "http-server")]
 pub use http::{
-    AuthGuard, Authenticated, HttpModule, RequireAuth, auth_middleware, builtin_routes,
-    create_router, create_router_with_state, create_router_with_state_and_routes,
-    merge_module_routes, nest_routes, optional_auth_middleware, require_auth_middleware,
+    AuthGuard, Authenticated, HttpCachePolicy, HttpModule, RequireAuth, auth_middleware,
+    builtin_routes, create_router, create_router_with_state, create_router_with_state_and_routes,
+    jsonl_response, merge_module_routes, nest_routes, optional_auth_middleware,
+    require_auth_middleware,
 };
 #[cfg(feature = "logging")]
 pub use logging::{init_logging, init_logging_with_config};

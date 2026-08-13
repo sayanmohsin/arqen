@@ -145,6 +145,8 @@ runtime, frontend, BaaS, or workflow system, but does not require any of them.
 - [Examples](https://github.com/sayanmohsin/arqen/blob/main/docs/examples.md) · [Health](https://github.com/sayanmohsin/arqen/blob/main/docs/health.md) · [Performance](https://github.com/sayanmohsin/arqen/blob/main/docs/performance.md)
 - [Deployment](https://sayanmohsin.github.io/arqen/deployment) · [Docker](https://sayanmohsin.github.io/arqen/docker) · [Security](https://sayanmohsin.github.io/arqen/security)
 - [Application hardening](docs/application-hardening.md) · [Logging](docs/logging.md) · [Commands](docs/commands.md)
+- [Thingd bootstrap](docs/bootstrap.md) · [Thingd adapter contract](docs/adapter-contract.md)
+- [HTTP caching](docs/http-caching.md) · [Streaming](docs/streaming.md) · [Performance](docs/performance.md)
 - [Production runbook](docs/production-runbook.md)
 - [Contributing](https://github.com/sayanmohsin/arqen/blob/main/CONTRIBUTING.md) · [Security policy](https://github.com/sayanmohsin/arqen/blob/main/SECURITY.md) · [Changelog](https://github.com/sayanmohsin/arqen/blob/main/CHANGELOG.md)
 

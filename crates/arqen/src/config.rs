@@ -20,6 +20,8 @@
 //! - `ARQEN_PERSISTENT_PATH` - Path for persistent storage
 //! - `ARQEN_THINGD_URL` - Thingd HTTP URL
 //! - `ARQEN_THINGD_AUTH_TOKEN` - Thingd HTTP bearer token (redacted)
+//! - `ARQEN_THINGD_CACHE_ENABLED` - enable the allowlisted catalog cache
+//! - `ARQEN_THINGD_CACHE_COLLECTIONS` - comma-separated cache collection allowlist
 //! - `ARQEN_CLOUD_URL` - Future public thingd.cloud URL
 //! - `ARQEN_JWT_SECRET` - JWT secret for authentication
 //! - `ARQEN_LOG_LEVEL` - Log level (default: info)
@@ -104,6 +106,8 @@ pub struct ServerConfig {
     pub slow_request_threshold: Duration,
     #[serde(default = "default_compression_threshold")]
     pub compression_threshold: usize,
+    #[serde(default = "default_compression_enabled")]
+    pub compression_enabled: bool,
 }
 
 fn default_host() -> String {
@@ -130,6 +134,9 @@ fn default_slow_request_threshold() -> Duration {
 fn default_compression_threshold() -> usize {
     1024
 }
+fn default_compression_enabled() -> bool {
+    true
+}
 
 impl Default for ServerConfig {
     fn default() -> Self {
@@ -142,6 +149,7 @@ impl Default for ServerConfig {
             request_log_sample_rate: default_request_log_sample_rate(),
             slow_request_threshold: default_slow_request_threshold(),
             compression_threshold: default_compression_threshold(),
+            compression_enabled: default_compression_enabled(),
         }
     }
 }
@@ -161,6 +169,12 @@ pub struct StorageConfig {
     pub encryption_key: Option<Secret<String>>,
     /// Optional `.thingd` schema document used for startup validation.
     pub schema_path: Option<PathBuf>,
+    /// Enable the catalog-only read cache.
+    #[serde(default)]
+    pub cache_enabled: bool,
+    /// Collections allowed to enter the catalog cache.
+    #[serde(default)]
+    pub cache_collections: Vec<String>,
 }
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq)]
@@ -246,6 +260,8 @@ impl Default for StorageConfig {
             auth_token: None,
             encryption_key: None,
             schema_path: None,
+            cache_enabled: false,
+            cache_collections: Vec::new(),
         }
     }
 }
@@ -536,6 +552,17 @@ impl AppConfig {
         if let Ok(path) = std::env::var("ARQEN_THINGD_SCHEMA_PATH") {
             self.storage.schema_path = Some(PathBuf::from(path));
         }
+        if let Ok(enabled) = std::env::var("ARQEN_THINGD_CACHE_ENABLED") {
+            self.storage.cache_enabled = enabled == "true" || enabled == "1";
+        }
+        if let Ok(collections) = std::env::var("ARQEN_THINGD_CACHE_COLLECTIONS") {
+            self.storage.cache_collections = collections
+                .split(',')
+                .map(str::trim)
+                .filter(|collection| !collection.is_empty())
+                .map(str::to_string)
+                .collect();
+        }
         if let Ok(enabled) = std::env::var("ARQEN_SYNC_ENABLED") {
             self.sync.enabled = enabled == "true" || enabled == "1";
         }
@@ -708,6 +735,9 @@ impl AppConfig {
                     expected: "a valid usize (bytes)".to_string(),
                 })?;
         }
+        if let Ok(enabled) = std::env::var("ARQEN_COMPRESSION_ENABLED") {
+            self.server.compression_enabled = enabled == "true" || enabled == "1";
+        }
         Ok(self)
     }
 
@@ -799,6 +829,13 @@ impl AppConfig {
                 expected: "a positive byte threshold".to_string(),
             });
         }
+        if self.server.compression_threshold > u16::MAX as usize {
+            return Err(ConfigError::InvalidValue {
+                field: "compression_threshold".to_string(),
+                value: self.server.compression_threshold.to_string(),
+                expected: format!("between 1 and {} bytes", u16::MAX),
+            });
+        }
         if self.storage.mode == StorageMode::Persistent && self.storage.persistent_path.is_none() {
             return Err(ConfigError::MissingField {
                 field: "persistent_path".to_string(),
@@ -821,6 +858,12 @@ impl AppConfig {
             return Err(ConfigError::MissingField {
                 field: "cloud_url".to_string(),
                 context: "required when storage mode is cloud".to_string(),
+            });
+        }
+        if self.storage.cache_enabled && self.storage.cache_collections.is_empty() {
+            return Err(ConfigError::MissingField {
+                field: "storage.cache_collections".to_string(),
+                context: "required when Thingd caching is enabled".to_string(),
             });
         }
         if self.sync.enabled {
@@ -1146,6 +1189,43 @@ concurrency = 8
             ..Default::default()
         };
         assert!(config.validate().is_err());
+    }
+
+    #[test]
+    fn http_production_does_not_require_local_schema() {
+        let config = AppConfig {
+            storage: StorageConfig {
+                mode: StorageMode::Http,
+                http_url: Some("http://thingd:8757".to_string()),
+                ..Default::default()
+            },
+            auth: AuthConfig {
+                enabled: true,
+                ..Default::default()
+            },
+            logging: LoggingConfig {
+                format: LogFormat::Json,
+                ..Default::default()
+            },
+            ..Default::default()
+        };
+        assert!(config.validate_production().is_ok());
+    }
+
+    #[test]
+    fn enabled_cache_requires_collection_allowlist() {
+        let mut config = AppConfig::default();
+        config.storage.cache_enabled = true;
+        let error = config.validate().unwrap_err();
+        assert!(error.to_string().contains("cache_collections"));
+    }
+
+    #[test]
+    fn compression_threshold_rejects_silent_truncation() {
+        let mut config = AppConfig::default();
+        config.server.compression_threshold = usize::from(u16::MAX) + 1;
+        let error = config.validate().unwrap_err();
+        assert!(error.to_string().contains("compression_threshold"));
     }
 
     #[test]

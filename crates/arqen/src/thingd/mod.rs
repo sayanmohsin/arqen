@@ -1,3 +1,4 @@
+pub mod bootstrap;
 pub mod cache;
 pub mod factory;
 pub mod memory;
@@ -14,6 +15,7 @@ pub mod native;
 #[cfg(feature = "thingd-native")]
 pub mod native_backend;
 
+pub use bootstrap::{BootstrapPolicy, retry as retry_bootstrap, seed_with_retry};
 pub use cache::{CachePolicy, CachingThingdBackend};
 pub use factory::StorageFactory;
 pub use memory::MemoryThingdBackend;

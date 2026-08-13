@@ -11,8 +11,10 @@ pub struct StorageFactory;
 impl StorageFactory {
     /// Construct the backend selected by `config.storage.mode`.
     pub fn build(config: &AppConfig) -> Result<Arc<dyn ThingdBackend>, ConfigError> {
-        match config.storage.mode {
-            StorageMode::Memory => Ok(Arc::new(crate::thingd::MemoryThingdBackend::new())),
+        let backend = match config.storage.mode {
+            StorageMode::Memory => {
+                Arc::new(crate::thingd::MemoryThingdBackend::new()) as Arc<dyn ThingdBackend>
+            }
             StorageMode::Native | StorageMode::Persistent => {
                 #[cfg(feature = "thingd-native")]
                 {
@@ -53,15 +55,15 @@ impl StorageFactory {
                                 value: path.display().to_string(),
                                 expected: error.to_string(),
                             })?;
-                    Ok(Arc::new(backend))
+                    Arc::new(backend)
                 }
                 #[cfg(not(feature = "thingd-native"))]
                 {
-                    Err(ConfigError::InvalidValue {
+                    return Err(ConfigError::InvalidValue {
                         field: "storage.mode".to_string(),
                         value: "native".to_string(),
                         expected: "Arqen built with the thingd-native feature".to_string(),
-                    })
+                    });
                 }
             }
             StorageMode::Http => {
@@ -107,27 +109,56 @@ impl StorageFactory {
                                 expected: "a valid u32".to_string(),
                             })?;
                     }
+                    if let Ok(value) = std::env::var("ARQEN_THINGD_MAX_QUERY_SCAN_OBJECTS") {
+                        policy.max_query_scan_objects =
+                            value.parse().map_err(|_| ConfigError::InvalidValue {
+                                field: "thingd.max_query_scan_objects".to_string(),
+                                value,
+                                expected: "a positive usize".to_string(),
+                            })?;
+                        if policy.max_query_scan_objects == 0 {
+                            return Err(ConfigError::InvalidValue {
+                                field: "thingd.max_query_scan_objects".to_string(),
+                                value: "0".to_string(),
+                                expected: "a positive usize".to_string(),
+                            });
+                        }
+                    }
                     let mut backend = crate::thingd::HttpThingdBackend::with_policy(url, policy)
                         .with_max_concurrency(max_concurrency);
                     if let Some(token) = &config.storage.auth_token {
                         backend = backend.with_auth(token.inner());
                     }
-                    Ok(Arc::new(backend))
+                    Arc::new(backend)
                 }
                 #[cfg(not(feature = "http-client"))]
                 {
-                    Err(ConfigError::InvalidValue {
+                    return Err(ConfigError::InvalidValue {
                         field: "storage.mode".to_string(),
                         value: "http".to_string(),
                         expected: "Arqen built with the http-client feature".to_string(),
-                    })
+                    });
                 }
             }
-            StorageMode::Cloud => Err(ConfigError::InvalidValue {
-                field: "storage.mode".to_string(),
-                value: "cloud".to_string(),
-                expected: "a future public thingd-cloud adapter".to_string(),
-            }),
+            StorageMode::Cloud => {
+                return Err(ConfigError::InvalidValue {
+                    field: "storage.mode".to_string(),
+                    value: "cloud".to_string(),
+                    expected: "a future public thingd-cloud adapter".to_string(),
+                });
+            }
+        };
+
+        if config.storage.cache_enabled {
+            let cache: Arc<dyn ThingdBackend> = Arc::new(crate::thingd::MemoryThingdBackend::new());
+            Ok(Arc::new(crate::thingd::CachingThingdBackend::new_catalog(
+                backend,
+                cache,
+                crate::thingd::CachePolicy::default(),
+                config.storage.cache_collections.clone(),
+            )))
+        } else {
+            Ok(backend)
         }
     }
 }

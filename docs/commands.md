@@ -367,6 +367,15 @@ arqen thingd schema-validate schema.thingd --url http://127.0.0.1:8770
 arqen thingd schema-remote http://127.0.0.1:8770
 ```
 
+Seed a remote Thingd instance while it becomes ready:
+
+```bash
+arqen thingd seed https://thingd.internal --token "$THINGD_AUTH_TOKEN" --attempts 12
+```
+
+The command uses bounded exponential backoff and exits non-zero if the seed
+does not succeed within the attempt budget.
+
 These commands never apply migrations. Keep credentials in environment or a
 secret manager rather than shell history where possible; Arqen redacts them
 from errors and diagnostics.

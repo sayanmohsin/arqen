@@ -1,6 +1,6 @@
 //! Optional read-through caching for any [`ThingdBackend`].
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
@@ -38,6 +38,8 @@ struct CacheState {
 
 /// A backend decorator that caches object reads while delegating all other
 /// operations to `source`. Writes invalidate the cached object first.
+///
+/// Prefer [`CachingThingdBackend::new_catalog`] for production configuration.
 pub struct CachingThingdBackend {
     source: Arc<dyn ThingdBackend>,
     cache: Arc<dyn ThingdBackend>,
@@ -46,6 +48,7 @@ pub struct CachingThingdBackend {
     hits: AtomicU64,
     misses: AtomicU64,
     metrics: SharedMetricsSink,
+    allowed_collections: Option<Arc<HashSet<String>>>,
 }
 
 impl CachingThingdBackend {
@@ -74,7 +77,24 @@ impl CachingThingdBackend {
             hits: AtomicU64::new(0),
             misses: AtomicU64::new(0),
             metrics,
+            allowed_collections: None,
         }
+    }
+
+    /// Construct a cache restricted to an explicit catalog collection allowlist.
+    ///
+    /// This is the safe variant for HTTP and multi-user deployments. A cache
+    /// must never be enabled for user-scoped collections unless the caller has
+    /// separately guaranteed that the collection contains no tenant data.
+    pub fn new_catalog(
+        source: Arc<dyn ThingdBackend>,
+        cache: Arc<dyn ThingdBackend>,
+        policy: CachePolicy,
+        collections: impl IntoIterator<Item = String>,
+    ) -> Self {
+        let mut backend = Self::new(source, cache, policy);
+        backend.allowed_collections = Some(Arc::new(collections.into_iter().collect()));
+        backend
     }
 
     pub fn cache_hits(&self) -> u64 {
@@ -86,6 +106,12 @@ impl CachingThingdBackend {
 
     fn key(collection: &str, id: &str) -> String {
         format!("{collection}\0{id}")
+    }
+
+    fn cache_collection(&self, collection: &str) -> bool {
+        self.allowed_collections
+            .as_ref()
+            .is_none_or(|collections| collections.contains(collection))
     }
 
     async fn gate(&self, key: &str) -> Arc<tokio::sync::Mutex<()>> {
@@ -171,6 +197,9 @@ impl ThingdBackend for CachingThingdBackend {
         collection: &str,
         id: &str,
     ) -> Result<Option<ThingdObject>, AppError> {
+        if !self.cache_collection(collection) {
+            return self.source.get_object(collection, id).await;
+        }
         let started = Instant::now();
         let key = Self::key(collection, id);
         if self.fresh(&key)
@@ -379,5 +408,33 @@ mod tests {
             "After"
         );
         assert_eq!(backend.cache_misses(), 2);
+    }
+
+    #[tokio::test]
+    async fn catalog_cache_bypasses_non_allowlisted_collections() {
+        let source: Arc<dyn ThingdBackend> = Arc::new(MemoryThingdBackend::new());
+        let cache: Arc<dyn ThingdBackend> = Arc::new(MemoryThingdBackend::new());
+        source
+            .put_object("catalog", "one", serde_json::json!({"title":"Catalog"}))
+            .await
+            .unwrap();
+        source
+            .put_object("users", "one", serde_json::json!({"name":"User"}))
+            .await
+            .unwrap();
+        let backend = CachingThingdBackend::new_catalog(
+            source,
+            cache,
+            CachePolicy::default(),
+            ["catalog".to_string()],
+        );
+
+        backend.get_object("catalog", "one").await.unwrap();
+        backend.get_object("catalog", "one").await.unwrap();
+        backend.get_object("users", "one").await.unwrap();
+        backend.get_object("users", "one").await.unwrap();
+
+        assert_eq!(backend.cache_hits(), 1);
+        assert_eq!(backend.cache_misses(), 1);
     }
 }
