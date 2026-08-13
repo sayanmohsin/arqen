@@ -36,9 +36,9 @@ use std::sync::{Arc, Mutex, MutexGuard};
 
 use crate::core::{AppError, ErrorKind};
 
-use thingd::{
-    MemoryEvent, MemoryObject, ReplicationConfig, ReplicationService, ThingStore, ThingdResult,
-};
+#[cfg(feature = "http-client")]
+use thingd::ThingdResult;
+use thingd::{MemoryEvent, MemoryObject, ReplicationConfig, ReplicationService, ThingStore};
 
 /// An embedded thingd engine selected by deployment mode.
 pub enum NativeThingdEngine {
@@ -56,6 +56,7 @@ impl NativeThingdEngine {
         }
     }
 
+    #[cfg(feature = "http-client")]
     pub(crate) fn with_replication_service<R>(
         &mut self,
         config: ReplicationConfig,
