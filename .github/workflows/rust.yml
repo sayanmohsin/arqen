@@ -21,6 +21,8 @@ jobs:
       - uses: Swatinem/rust-cache@v2
       - run: cargo fmt --all -- --check
       - run: cargo check --workspace --all-features
+      - name: Clippy default features without warnings
+        run: cargo clippy -p arqen --all-targets -- -D warnings
       - run: cargo clippy --workspace --all-targets --all-features -- -D warnings
       - run: cargo test --workspace --all-features
       - run: cargo doc --workspace --no-deps
