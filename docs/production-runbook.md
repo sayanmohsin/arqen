@@ -58,6 +58,21 @@ Every request and job should retain a correlation/request ID. Include route,
 status, duration, storage mode, backend latency, tenant/instance, subject,
 job ID, queue, worker ID, and attempt where applicable.
 
+Use pretty logs for local diagnosis and JSON logs to stderr in production. Set
+`ARQEN_SERVICE_NAME` to the application identity. `RUST_LOG` overrides the
+configured `ARQEN_LOG_LEVEL`; change the environment and restart the service
+to change production verbosity. A GoodOne-style filter is:
+
+```text
+goodone_watch_backend=info,arqen=info,tantivy=warn,reqwest=warn,hyper=warn
+```
+
+The logging writer is non-blocking, so do not add application log files inside
+the container. Collect stderr with Docker or journald, configure rotation and
+retention at that boundary, and preserve the `X-Request-Id` response value for
+incident searches. The metrics report keeps bounded latency samples and route
+labels and includes timeout and dependency-error counters.
+
 Never log authorization headers, bearer tokens, API keys, JWTs, passwords,
 secret configuration values, raw request bodies, or unrestricted provider
 payloads. Log stable resource identifiers and safe error categories instead.

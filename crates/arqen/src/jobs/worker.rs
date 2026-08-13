@@ -25,12 +25,21 @@ impl Worker {
         thingd: Arc<dyn crate::thingd::ThingdBackend>,
         handler: Box<dyn JobHandler>,
     ) {
-        let shutdown_rx = self.shutdown_tx.subscribe();
-        let mut worker = JobWorker::new(config, thingd, handler, shutdown_rx);
-        let handle = tokio::spawn(async move {
-            worker.run().await;
-        });
-        self.handles.push(handle);
+        let concurrency = config.max_concurrency.max(1);
+        let handler: Arc<dyn JobHandler> = Arc::from(handler);
+        for index in 0..concurrency {
+            let mut worker_config = config.clone();
+            if concurrency > 1 {
+                worker_config.worker_id = format!("{}-{index}", worker_config.worker_id);
+            }
+            let shutdown_rx = self.shutdown_tx.subscribe();
+            let mut worker =
+                JobWorker::new_shared(worker_config, thingd.clone(), handler.clone(), shutdown_rx);
+            let handle = tokio::spawn(async move {
+                worker.run().await;
+            });
+            self.handles.push(handle);
+        }
     }
 
     pub fn shutdown_signal(&self) -> watch::Sender<bool> {

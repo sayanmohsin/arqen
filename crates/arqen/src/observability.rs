@@ -2,9 +2,10 @@
 //!
 //! Provides request metrics, latency histograms, and monitoring.
 
-use std::collections::HashMap;
+use std::collections::{HashMap, VecDeque};
 use std::sync::Arc;
 use std::sync::Mutex;
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::Instant;
 
 use serde::{Deserialize, Serialize};
@@ -81,56 +82,93 @@ pub type SharedMetricsSink = Arc<dyn MetricsSink>;
 /// Request metrics for monitoring.
 pub struct RequestMetrics {
     inner: Mutex<MetricsInner>,
+    requests_total: AtomicU64,
+    requests_success: AtomicU64,
+    requests_client_error: AtomicU64,
+    requests_server_error: AtomicU64,
+    requests_timeout: AtomicU64,
+    requests_dependency_error: AtomicU64,
 }
 
 struct MetricsInner {
-    requests_total: u64,
-    requests_success: u64,
-    requests_client_error: u64,
-    requests_server_error: u64,
-    durations: Vec<u64>,
+    durations: VecDeque<u64>,
+    response_bytes: VecDeque<u64>,
     by_path: HashMap<String, u64>,
     by_method: HashMap<String, u64>,
     by_status: HashMap<u16, u64>,
     start_time: Instant,
 }
 
+const MAX_LATENCY_SAMPLES: usize = 4096;
+const MAX_ROUTE_LABELS: usize = 256;
+
 impl RequestMetrics {
     pub fn new() -> Self {
         Self {
             inner: Mutex::new(MetricsInner {
-                requests_total: 0,
-                requests_success: 0,
-                requests_client_error: 0,
-                requests_server_error: 0,
-                durations: Vec::new(),
+                durations: VecDeque::with_capacity(MAX_LATENCY_SAMPLES),
+                response_bytes: VecDeque::with_capacity(MAX_LATENCY_SAMPLES),
                 by_path: HashMap::new(),
                 by_method: HashMap::new(),
                 by_status: HashMap::new(),
                 start_time: Instant::now(),
             }),
+            requests_total: AtomicU64::new(0),
+            requests_success: AtomicU64::new(0),
+            requests_client_error: AtomicU64::new(0),
+            requests_server_error: AtomicU64::new(0),
+            requests_timeout: AtomicU64::new(0),
+            requests_dependency_error: AtomicU64::new(0),
         }
     }
 
     pub fn record(&self, method: &str, path: &str, status: u16, duration_ms: u64) {
+        self.record_with_size(method, path, status, duration_ms, 0);
+    }
+
+    pub fn record_with_size(
+        &self,
+        method: &str,
+        path: &str,
+        status: u16,
+        duration_ms: u64,
+        response_bytes: u64,
+    ) {
+        self.requests_total.fetch_add(1, Ordering::Relaxed);
+        match status {
+            200..=299 => self.requests_success.fetch_add(1, Ordering::Relaxed),
+            400..=499 => self.requests_client_error.fetch_add(1, Ordering::Relaxed),
+            500..=599 => self.requests_server_error.fetch_add(1, Ordering::Relaxed),
+            _ => 0,
+        };
+        if matches!(status, 408 | 504) {
+            self.requests_timeout.fetch_add(1, Ordering::Relaxed);
+        }
+        if status == 502 {
+            self.requests_dependency_error
+                .fetch_add(1, Ordering::Relaxed);
+        }
         let Ok(mut inner) = self.inner.lock() else {
             return;
         };
-        inner.requests_total += 1;
-        match status {
-            200..=299 => inner.requests_success += 1,
-            400..=499 => inner.requests_client_error += 1,
-            500..=599 => inner.requests_server_error += 1,
-            _ => {}
+        if inner.durations.len() == MAX_LATENCY_SAMPLES {
+            inner.durations.pop_front();
+            inner.response_bytes.pop_front();
         }
-        inner.durations.push(duration_ms);
-        *inner.by_path.entry(path.to_string()).or_insert(0) += 1;
+        inner.durations.push_back(duration_ms);
+        inner.response_bytes.push_back(response_bytes);
+        let route = if inner.by_path.contains_key(path) || inner.by_path.len() < MAX_ROUTE_LABELS {
+            path.to_string()
+        } else {
+            "__other__".to_string()
+        };
+        *inner.by_path.entry(route).or_insert(0) += 1;
         *inner.by_method.entry(method.to_string()).or_insert(0) += 1;
         *inner.by_status.entry(status).or_insert(0) += 1;
     }
 
     pub fn total_requests(&self) -> u64 {
-        self.inner.lock().map(|i| i.requests_total).unwrap_or(0)
+        self.requests_total.load(Ordering::Relaxed)
     }
 
     pub fn avg_duration_ms(&self) -> f64 {
@@ -154,27 +192,27 @@ impl RequestMetrics {
 
     /// Get error rate (5xx / total).
     pub fn error_rate(&self) -> f64 {
-        let Ok(inner) = self.inner.lock() else {
-            return 0.0;
-        };
-        if inner.requests_total == 0 {
+        let total = self.requests_total.load(Ordering::Relaxed);
+        if total == 0 {
             return 0.0;
         }
-        inner.requests_server_error as f64 / inner.requests_total as f64
+        self.requests_server_error.load(Ordering::Relaxed) as f64 / total as f64
     }
 
     pub fn to_report(&self) -> MetricsReport {
         let Ok(inner) = self.inner.lock() else {
             return MetricsReport::default();
         };
-        let mut sorted = inner.durations.clone();
+        let mut sorted: Vec<u64> = inner.durations.iter().copied().collect();
         sorted.sort_unstable();
         let len = sorted.len();
         MetricsReport {
-            requests_total: inner.requests_total,
-            requests_success: inner.requests_success,
-            requests_client_error: inner.requests_client_error,
-            requests_server_error: inner.requests_server_error,
+            requests_total: self.requests_total.load(Ordering::Relaxed),
+            requests_success: self.requests_success.load(Ordering::Relaxed),
+            requests_client_error: self.requests_client_error.load(Ordering::Relaxed),
+            requests_server_error: self.requests_server_error.load(Ordering::Relaxed),
+            requests_timeout: self.requests_timeout.load(Ordering::Relaxed),
+            requests_dependency_error: self.requests_dependency_error.load(Ordering::Relaxed),
             avg_duration_ms: if len > 0 {
                 sorted.iter().sum::<u64>() as f64 / len as f64
             } else {
@@ -187,6 +225,11 @@ impl RequestMetrics {
             by_path: inner.by_path.clone(),
             by_method: inner.by_method.clone(),
             by_status: inner.by_status.clone(),
+            avg_response_bytes: if inner.response_bytes.is_empty() {
+                0.0
+            } else {
+                inner.response_bytes.iter().sum::<u64>() as f64 / inner.response_bytes.len() as f64
+            },
             uptime_seconds: inner.start_time.elapsed().as_secs(),
         }
     }
@@ -212,6 +255,8 @@ pub struct MetricsReport {
     pub requests_success: u64,
     pub requests_client_error: u64,
     pub requests_server_error: u64,
+    pub requests_timeout: u64,
+    pub requests_dependency_error: u64,
     pub avg_duration_ms: f64,
     pub p50_duration_ms: u64,
     pub p95_duration_ms: u64,
@@ -220,6 +265,7 @@ pub struct MetricsReport {
     pub by_path: HashMap<String, u64>,
     pub by_method: HashMap<String, u64>,
     pub by_status: HashMap<u16, u64>,
+    pub avg_response_bytes: f64,
     pub uptime_seconds: u64,
 }
 
@@ -259,6 +305,38 @@ mod tests {
         let m = RequestMetrics::new();
         m.record("GET", "/health", 200, 10);
         assert_eq!(m.total_requests(), 1);
+    }
+
+    #[test]
+    fn test_response_size_is_reported() {
+        let metrics = RequestMetrics::new();
+        metrics.record_with_size("GET", "/items", 200, 4, 1024);
+        metrics.record_with_size("GET", "/items", 200, 6, 2048);
+        assert_eq!(metrics.to_report().avg_response_bytes, 1536.0);
+    }
+
+    #[test]
+    fn test_latency_samples_and_route_labels_are_bounded() {
+        let m = RequestMetrics::new();
+        for index in 0..5000 {
+            m.record("GET", &format!("/title/{index}"), 200, index);
+        }
+
+        let report = m.to_report();
+        assert_eq!(report.requests_total, 5000);
+        assert!(report.by_path.len() <= MAX_ROUTE_LABELS + 1);
+        assert!(report.max_duration_ms >= 4999 - MAX_LATENCY_SAMPLES as u64);
+    }
+
+    #[test]
+    fn test_timeout_and_dependency_counters() {
+        let m = RequestMetrics::new();
+        m.record("GET", "/timeout", 504, 10);
+        m.record("GET", "/dependency", 502, 11);
+
+        let report = m.to_report();
+        assert_eq!(report.requests_timeout, 1);
+        assert_eq!(report.requests_dependency_error, 1);
     }
 
     #[test]

@@ -36,7 +36,7 @@ features:
     details: Model retries, leases, idempotency, and dead letters in durable workers.
   - icon: ✓
     title: Operational signals
-    details: Keep tracing, health, readiness, request visibility, and redaction guidance close to the service.
+    details: Keep structured JSON logs, bounded request metrics, health, readiness, correlation IDs, and redaction guidance close to the service.
   - icon: ◈
     title: Agent tools when useful
     details: Make selected application capabilities discoverable with typed inputs, outputs, permissions, and manifests.
@@ -59,16 +59,17 @@ automation backends.
 
 ## Choose a starting path
 
-| You need                       | Start here                                    | What you get                                                         |
-| ------------------------------ | --------------------------------------------- | -------------------------------------------------------------------- |
-| A complete backend path        | [Build a backend](./build-a-backend.md)       | One guided route from project creation to production                 |
-| A quick local prototype        | [Getting started](./getting-started.md)       | A runnable app with memory storage                                   |
-| Durable single-process storage | [Deployment](./deployment.md)                 | Embedded native Thingd with recovery responsibilities clearly stated |
-| A separate data service        | [Thingd integration](./thingd-integration.md) | The public HTTP adapter and its compatibility requirements           |
-| To move existing data          | [Migration](./migration.md)                   | A checked, resumable native-to-HTTP JSONL workflow                   |
-| A Thingd data contract         | [Thingd schema](./schema.md)                  | Store, validate, inspect, and operate a `.thingd` schema             |
-| Agent-facing capabilities      | [Agent guide](./agent-guide.md)               | Discovery, permissions, typed inputs, and invocation                 |
-| Production readiness           | [Production runbook](./production-runbook.md) | Deployment checks, health, logs, backups, and ownership              |
+| You need                       | Start here                                                      | What you get                                                         |
+| ------------------------------ | --------------------------------------------------------------- | -------------------------------------------------------------------- |
+| A complete backend path        | [Build a backend](./build-a-backend.md)                         | One guided route from project creation to production                 |
+| A quick local prototype        | [Getting started](./getting-started.md)                         | A runnable app with memory storage                                   |
+| Durable single-process storage | [Deployment](./deployment.md)                                   | Embedded native Thingd with recovery responsibilities clearly stated |
+| A separate data service        | [Thingd integration](./thingd-integration.md)                   | The public HTTP adapter and its compatibility requirements           |
+| To move existing data          | [Migration](./migration.md)                                     | A checked, resumable native-to-HTTP JSONL workflow                   |
+| A Thingd data contract         | [Thingd schema](./schema.md)                                    | Store, validate, inspect, and operate a `.thingd` schema             |
+| Agent-facing capabilities      | [Agent guide](./agent-guide.md)                                 | Discovery, permissions, typed inputs, and invocation                 |
+| Production readiness           | [Production runbook](./production-runbook.md)                   | Deployment checks, health, logs, backups, and ownership              |
+| Request diagnosis              | [Logging](./logging.md) and [Observability](./observability.md) | Structured logs, correlation, bounded metrics, and collector handoff |
 
 ## Start here
 

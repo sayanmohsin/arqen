@@ -2,7 +2,7 @@
 
 Use `tracing` and `tracing-subscriber` throughout the generated application.
 
-Development logs should be readable. Production logs should be structured JSON. Every request and job should carry a request or correlation ID.
+Development logs should be readable. Production logs should be structured JSON written to stderr so container runtimes, journald, and future collectors can consume them without application changes. The logging worker is non-blocking and remains alive for the process lifetime. Every request and job should carry a request or correlation ID.
 
 Minimum fields for every request or job:
 
@@ -12,6 +12,7 @@ Minimum fields for every request or job:
 - route or job name;
 - status or outcome;
 - duration;
+- outcome (`success`, `client_error`, `server_error`, `timeout`, or `dependency_error`);
 - error category when applicable.
 - tenant/instance ID when applicable;
 - authenticated subject when applicable;
@@ -61,8 +62,26 @@ RUST_LOG=arqen=debug,my_app=info arqen dev
 ARQEN_LOG_FORMAT=json arqen start
 ```
 
-**Current status:** Request logging includes method, URI, status, duration,
-request ID, subject, tenant ID, and instance ID when a `RequestContext` is
-present. Structured JSON logging is available through the logging
-configuration. Arqen provides in-process request metrics and percentiles; it
-does not currently ship an OpenTelemetry exporter or Prometheus endpoint.
+In production, successful request logs are sampled at 1% by default to reduce
+stdout/stderr overhead. Errors, timeouts, dependency failures, and requests
+slower than 250ms are always emitted. Configure this with
+`ARQEN_REQUEST_LOG_SAMPLE_RATE` and `ARQEN_SLOW_REQUEST_THRESHOLD_MS`.
+
+For production, prefer a conservative filter such as:
+
+```text
+RUST_LOG=goodone_watch_backend=info,arqen=info,tantivy=warn,reqwest=warn,hyper=warn
+```
+
+Change the environment file and restart the service to change production
+verbosity. This keeps log-control state outside the application process and
+makes changes auditable and reversible.
+
+**Current status:** Request logging includes method, normalized route when
+available, status, outcome, duration, request/correlation ID, service identity,
+subject, tenant ID, and instance ID when a `RequestContext` is present.
+Structured JSON logging is available through the logging configuration and is
+written through a non-blocking stderr writer. Arqen provides in-process
+request metrics and percentiles; it does not currently ship an OpenTelemetry
+exporter or vendor-specific log collector. The JSON stderr contract and
+`MetricsSink` are the integration boundary for those systems.

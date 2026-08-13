@@ -24,19 +24,21 @@ Reports are written to `target/criterion/` with HTML reports and estimates.
 
 ### Workloads
 
-| Workload                      | Description                                       | Fixture                                   |
-| ----------------------------- | ------------------------------------------------- | ----------------------------------------- |
-| `routing/health_route`        | End-to-end GET /health through Arqen              | Health registry with AlwaysHealthy checks |
-| `manifest/100_tools`          | Generate manifest with 100 tools + JSON serialize | 100 ToolMetadata entries                  |
-| `validation/3_fields`         | Validate a struct with 3 fields (extensible)      | BenchPayload struct                       |
-| `thingd_memory/put_object`    | Insert object into MemoryThingdBackend            | Single object                             |
-| `thingd_memory/get_object`    | Fetch object from MemoryThingdBackend             | Pre-populated store                       |
-| `thingd_memory/query_objects` | Query all objects from a collection               | 100 objects                               |
-| `thingd_native/put_object`    | Async adapter over native thingd                  | In-memory native engine                   |
-| `thingd_native/get_object`    | Async adapter over native thingd                  | Pre-populated native engine               |
-| `thingd_cache/hit`            | Read-through cache hit                            | Memory source and cache                   |
-| `jobs/enqueue_dequeue`        | Push + claim + complete a job                     | Memory backend                            |
-| `health/10_checks`            | Run liveness check with 10 dependencies           | 10 AlwaysHealthy checks                   |
+| Workload                                    | Description                                        | Fixture                                   |
+| ------------------------------------------- | -------------------------------------------------- | ----------------------------------------- |
+| `routing/health_route`                      | End-to-end GET /health through Arqen               | Health registry with AlwaysHealthy checks |
+| `manifest/100_tools`                        | Generate manifest with 100 tools + JSON serialize  | 100 ToolMetadata entries                  |
+| `validation/3_fields`                       | Validate a struct with 3 fields (extensible)       | BenchPayload struct                       |
+| `thingd_memory/put_object`                  | Insert object into MemoryThingdBackend             | Single object                             |
+| `thingd_memory/get_object`                  | Fetch object from MemoryThingdBackend              | Pre-populated store                       |
+| `thingd_memory/query_objects`               | Query all objects from a collection                | 100 objects                               |
+| `thingd_native/put_object`                  | Async adapter over native thingd                   | In-memory native engine                   |
+| `thingd_native/get_object`                  | Async adapter over native thingd                   | Pre-populated native engine               |
+| `thingd_cache/hit`                          | Read-through cache hit                             | Memory source and cache                   |
+| `jobs/enqueue_dequeue`                      | Push + claim + complete a job                      | Memory backend                            |
+| `health/10_checks`                          | Run liveness check with 10 dependencies            | 10 AlwaysHealthy checks                   |
+| `performance/request_metrics_record`        | Hot-path request counter and bounded sample update | RequestMetrics instance                   |
+| `performance/thingd_memory_batch_write_100` | Batch write of 100 objects                         | Memory backend                            |
 
 ### Percentiles
 
@@ -52,6 +54,12 @@ Raw sample data is available in `target/criterion/<group>/<id>/new/estimates.jso
 | In-memory object CRUD         | p95 < 2ms | Single object operations   |
 | Job enqueue/dequeue           | p95 < 2ms | Memory backend             |
 
+The 0.10 release gate additionally compares representative before/after p95
+results for routing, metrics, Thingd reads/writes, batch writes, and job
+processing. The target is at least 30% lower p95 for a measured bottleneck;
+where the baseline is already below the noise floor, the requirement is no
+regression plus bounded resource usage.
+
 These are benchmark-harness targets, not production guarantees. The native
 benchmarks use the in-memory native engine to isolate adapter overhead; run a
 separate persistent-path benchmark before choosing disk settings. HTTP latency
@@ -62,6 +70,8 @@ TLS, pooling, and server load dominate the result.
 
 - HTTP sidecar latency is not included in this harness; set up a service-level
   benchmark for the target deployment.
+- Use `ARQEN_THINGD_MAX_CONCURRENCY` to bound sidecar pressure and benchmark
+  it against the Thingd server's own worker and connection limits.
 - Allocation counts are not measured in this phase (would require an instrumented
   allocator).
 - Network I/O, disk I/O, and external service latency are not represented.

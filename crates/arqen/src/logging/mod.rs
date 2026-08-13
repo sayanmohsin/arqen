@@ -1,16 +1,29 @@
 use std::io::IsTerminal;
+use std::sync::OnceLock;
 
+use tracing_appender::non_blocking::{NonBlocking, WorkerGuard};
 use tracing_subscriber::{EnvFilter, fmt};
 
 use crate::config::{LogFormat, LoggingConfig};
 
+static LOG_WRITER: OnceLock<(NonBlocking, WorkerGuard)> = OnceLock::new();
+
+fn writer() -> NonBlocking {
+    LOG_WRITER
+        .get_or_init(|| tracing_appender::non_blocking(std::io::stderr()))
+        .0
+        .clone()
+}
+
 pub fn init_logging(log_level: &str, log_format: &str) {
     let filter = EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new(log_level));
     let ansi = std::io::stderr().is_terminal();
+    let writer = writer();
 
     match log_format {
         "json" => {
             fmt()
+                .with_writer(writer)
                 .with_env_filter(filter)
                 .with_target(false)
                 .with_ansi(false)
@@ -19,6 +32,7 @@ pub fn init_logging(log_level: &str, log_format: &str) {
         }
         "pretty" => {
             fmt()
+                .with_writer(writer)
                 .with_env_filter(filter)
                 .with_target(false)
                 .with_ansi(ansi)
@@ -30,6 +44,7 @@ pub fn init_logging(log_level: &str, log_format: &str) {
         }
         _ => {
             fmt()
+                .with_writer(writer)
                 .with_env_filter(filter)
                 .with_target(false)
                 .with_ansi(ansi)
@@ -46,10 +61,12 @@ pub fn init_logging_with_config(config: &LoggingConfig) {
     let filter =
         EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new(&config.level));
     let ansi = std::io::stderr().is_terminal();
+    let writer = writer();
 
     match config.format {
         LogFormat::Json => {
             fmt()
+                .with_writer(writer)
                 .with_env_filter(filter)
                 .with_target(false)
                 .with_ansi(false)
@@ -58,6 +75,7 @@ pub fn init_logging_with_config(config: &LoggingConfig) {
         }
         LogFormat::Pretty => {
             fmt()
+                .with_writer(writer)
                 .with_env_filter(filter)
                 .with_target(false)
                 .with_ansi(ansi)
@@ -69,6 +87,7 @@ pub fn init_logging_with_config(config: &LoggingConfig) {
         }
         LogFormat::Compact => {
             fmt()
+                .with_writer(writer)
                 .with_env_filter(filter)
                 .with_target(false)
                 .with_ansi(ansi)

@@ -5,9 +5,20 @@ pretty logs for local work and JSON logs for collection systems. Attach a
 correlation identifier to requests and include context such as `job_id`,
 `worker_id`, queue, status, and duration.
 
-The request metrics report tracks totals, status counts, uptime, error rate,
-and duration percentiles including p50, p95, p99, and maximum. Job metrics
+Request logs include service/version/environment identity, a normalized route
+where Axum exposes one, request and correlation IDs, authentication context
+when available, outcome classification, and millisecond plus microsecond
+duration fields. Client-supplied request IDs are bounded and sanitized before
+entering response headers or logs.
+
+The request metrics report tracks totals, status counts, timeout and dependency
+error counts, uptime, error rate, and duration percentiles including p50, p95,
+p99, and maximum. Latency samples and route labels are bounded so metrics
+cannot grow without limit under high-cardinality URLs. Job metrics
 track processed, completed, failed, and average duration values.
+Request counters use atomics on the hot path where possible. Response-size
+samples are bounded alongside latency samples and are reported as
+`avg_response_bytes` when available.
 
 These are framework primitives, not a hosted observability product. Export
 records to your logging and metrics platform, define retention and redaction

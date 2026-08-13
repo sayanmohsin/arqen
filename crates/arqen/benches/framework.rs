@@ -1,4 +1,5 @@
 use arqen::ThingdBackend;
+use arqen::thingd::ThingdOperation;
 use criterion::{Criterion, criterion_group, criterion_main};
 use std::sync::Arc;
 
@@ -256,6 +257,32 @@ fn bench_health(c: &mut Criterion) {
     group.finish();
 }
 
+fn bench_metrics_and_batch(c: &mut Criterion) {
+    let mut group = c.benchmark_group("performance");
+    let metrics = arqen::RequestMetrics::new();
+    group.bench_function("request_metrics_record", |b| {
+        b.iter(|| metrics.record_with_size("GET", "/v1/items", 200, 3, 512));
+    });
+
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    group.bench_function("thingd_memory_batch_write_100", |b| {
+        let backend = arqen::MemoryThingdBackend::new();
+        b.iter(|| {
+            rt.block_on(async {
+                let operations = (0..100)
+                    .map(|index| ThingdOperation::Put {
+                        collection: "bench".to_string(),
+                        id: format!("item-{index}"),
+                        data: serde_json::json!({"index": index}),
+                    })
+                    .collect();
+                backend.batch_write(operations).await.unwrap();
+            });
+        });
+    });
+    group.finish();
+}
+
 criterion_group!(
     framework,
     bench_routing_health,
@@ -265,5 +292,6 @@ criterion_group!(
     bench_thingd_native_and_cache,
     bench_jobs,
     bench_health,
+    bench_metrics_and_batch,
 );
 criterion_main!(framework);

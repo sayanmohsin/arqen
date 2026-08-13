@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.10.0] - unreleased
+
+### Features
+
+* harden structured observability, correlation IDs, bounded metrics, and production logging
+* update the native Thingd integration to Thingd 0.80.0
+* add sampled request logging, response compression, atomic request counters, response-size metrics, and bounded Thingd/job concurrency
+
 ## [0.9.1](https://github.com/sayanmohsin/arqen/compare/arqen-v0.9.0...arqen-v0.9.1) (2026-08-12)
 
 
