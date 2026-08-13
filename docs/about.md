@@ -1,24 +1,41 @@
 # About Arqen
 
-Arqen is backend infrastructure for agent-ready applications: a set of
-explicit Rust-first building blocks for HTTP services, typed tools, jobs,
-observability, and thingd-backed data access.
+Arqen is a Rust toolkit for building backend services with HTTP routes,
+explicit application modules, typed tools, durable jobs, health checks, and
+Thingd-backed data access.
 
-The intended audience is developers who want an application boundary that is
-easy to inspect and operate. Arqen does not require an AI model, an agent
-framework, or a hosted control plane.
+It is useful for ordinary web and mobile backends, internal services,
+automation systems, and products that expose selected operations to agents.
+You can use the backend features without using an AI model or an agent
+framework.
 
-## Positioning
+## What you build with Arqen
 
-- **Public tagline:** Backend infrastructure for agent-ready applications.
-- **Public description:** A developer-focused backend toolkit for agent-ready applications, with typed tools, durable jobs, discoverable APIs, and thingd integration.
-- **Implementation:** Rust-first, using Arqen’s APIs over Tokio, Tower, tracing,
-  and native thingd. The HTTP integration is feature-gated and built on Axum.
+An Arqen application usually contains:
 
-Applications can use Arqen’s HTTP helpers and re-exported integration types,
-or compose the lower-level HTTP layer directly when they need more control.
+- HTTP routes and application state;
+- modules that group related routes, tools, jobs, and health checks;
+- authentication, authorization, and request validation;
+- Thingd objects, events, search, links, and queues;
+- workers for work that should continue after a request ends;
+- health, readiness, structured logs, and operational metrics.
 
-- **Compatibility direction:** Node.js through HTTP APIs, SDKs, templates, and shared manifests.
+The application owns its domain models and business rules. Arqen supplies the
+composition, runtime, and integration points around them.
 
-The separation matters: Rust describes today’s implementation, not a language
-requirement for every future Arqen application.
+## Implementation
+
+The current implementation is Rust-first and uses Tokio, Tower, tracing,
+Axum, and Thingd. The HTTP integration is feature-gated. The public data
+integration uses Thingd’s HTTP API, while native Thingd can be embedded for
+applications that need a local durable store.
+
+Start with [Build an Arqen backend](./build-a-backend.md) to create a project,
+add a module, choose storage, define a schema, and prepare a deployment.
+
+## Agent support
+
+Agent tools are one way to expose application capabilities. Arqen can describe
+tool names, inputs, outputs, scopes, effects, and idempotency in a manifest so
+people and software can discover the same operations. Read the
+[Agent guide](./agent-guide.md) when your backend needs that workflow.

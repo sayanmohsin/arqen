@@ -1,6 +1,6 @@
 # Modules and application composition
 
-Arqen uses explicit modules to make application wiring visible. A module owns
+Arqen uses explicit modules to make application wiring visible. A module groups
 its routes, tools, jobs, health checks, and lifecycle hooks. It does not use a
 hidden dependency-injection container or global service locator.
 
@@ -14,7 +14,7 @@ ModuleBuilder
   └─ shutdown()      → graceful teardown
 ```
 
-Implement `Module` for a feature boundary and add it to `ModuleBuilder`.
+Implement `Module` for an application feature and add it to `ModuleBuilder`.
 Dependencies are declared by module name and initialized in dependency order.
 `ModuleGraphError` and `ModuleError` report invalid graphs and registration
 failures without hiding the cause.
@@ -34,7 +34,7 @@ them through explicit `AppState` rather than relying on implicit resolution.
 
 ## When to use a module
 
-Create a module when a feature has more than one boundary—such as routes plus
+Create a module when a feature has more than one integration—such as routes plus
 a job worker, or tools plus a dependency health check. A small application can
 start with one module and split it later. `HttpModule` is available for route-
 focused composition.

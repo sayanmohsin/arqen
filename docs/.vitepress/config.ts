@@ -31,9 +31,9 @@ export default defineConfig({
       }),
     },
   },
-  title: "Arqen — Backend infrastructure for agent-ready applications",
+  title: "Arqen — Build and operate a backend",
   description:
-    "A developer-focused backend toolkit for agent-ready applications, with typed tools, durable jobs, discoverable APIs, and thingd integration.",
+    "A Rust backend toolkit for HTTP services, modules, jobs, health checks, and Thingd storage.",
   base: "/arqen/",
   lang: "en-US",
   cleanUrls: true,
@@ -44,14 +44,14 @@ export default defineConfig({
       "meta",
       {
         property: "og:title",
-        content: "Arqen — Backend infrastructure for agent-ready applications",
+        content: "Arqen — Build and operate a backend",
       },
     ],
     [
       "meta",
       {
         property: "og:description",
-        content: "Typed tools, durable jobs, discoverable APIs, and thingd integration.",
+        content: "HTTP services, modules, durable jobs, health checks, and Thingd storage.",
       },
     ],
   ],
@@ -60,7 +60,7 @@ export default defineConfig({
     siteTitle: "",
     search: { provider: "local" },
     nav: [
-      { text: "Start", link: "/" },
+      { text: "Start here", link: "/build-a-backend" },
       { text: "Concepts", link: "/about" },
       { text: "Guides", link: "/getting-started" },
       { text: "Operations", link: "/deployment" },
@@ -74,6 +74,7 @@ export default defineConfig({
         text: "Start",
         items: [
           { text: "Overview", link: "/" },
+          { text: "Build a backend", link: "/build-a-backend" },
           { text: "About Arqen", link: "/about" },
           { text: "Why Arqen?", link: "/why-arqen" },
           { text: "Use cases", link: "/use-cases" },
@@ -99,7 +100,6 @@ export default defineConfig({
       {
         text: "Guides",
         items: [
-          { text: "Build a backend", link: "/build-a-backend" },
           { text: "Getting started", link: "/getting-started" },
           { text: "Thingd schema", link: "/schema" },
           { text: "Commands", link: "/commands" },
@@ -158,7 +158,7 @@ export default defineConfig({
     ],
     socialLinks: [{ icon: "github", link: "https://github.com/sayanmohsin/arqen" }],
     footer: {
-      message: "Rust-first implementation · language-agnostic application positioning",
+      message: "Rust-first backend toolkit · explicit integrations for HTTP, jobs, and Thingd",
       copyright: "© 2026 Arqen contributors · MIT License",
     },
   },

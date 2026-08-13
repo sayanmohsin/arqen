@@ -1,49 +1,59 @@
 # Why Arqen?
 
-Backend systems become difficult to automate when their capabilities are
-hidden in untyped routes, implicit dependencies, or operational folklore.
-Arqen makes those boundaries explicit.
+Backend code becomes harder to operate when routes, storage, background work,
+and authorization are scattered across implicit conventions. Arqen puts those
+pieces in explicit application modules and gives them consistent runtime
+support.
 
-## The useful property
+## Common problems
 
-An agent-ready service is discoverable, typed, permission-aware, auditable, and
-automation-friendly. Those properties also improve ordinary developer and
-operator workflows.
+### “The API works, but nobody can discover what it does”
 
-Arqen combines:
+Define typed tools and manifests with names, inputs, outputs, scopes, effects,
+and idempotency behavior. A human client, script, or agent can inspect the
+same description before calling an operation.
 
-- typed tools and manifests for capability discovery;
-- explicit state and adapter contracts for predictable composition;
-- jobs with retries, leases, idempotency, and dead-letter handling;
-- health, readiness, structured logging, and deployment guidance;
-- thingd integration without coupling application code to private cloud APIs.
+See [Typed tools](./typed-tools.md), [Agent discovery](./agent-discovery.md),
+and [Manifest contract](./manifest.md).
 
-Arqen is not an AI-only runtime and does not prescribe a model provider.
+### “Background work is mixed into request handlers”
 
-## How Arqen differs
+Use Thingd-backed queues and workers for email, indexing, synchronization, and
+other work that needs retries, leases, idempotency, or dead-letter handling.
 
-Arqen is not trying to win by being another application framework, agent
-runtime, hosted database, or workflow product. Its distinct layer is the
-contract between an application and the people, programs, and agents that need
-to discover and operate it.
+See [Durable jobs](./durable-jobs.md).
 
-| If you start with…   | The usual center of gravity          | Arqen adds or changes                                                                                                     |
-| -------------------- | ------------------------------------ | ------------------------------------------------------------------------------------------------------------------------- |
-| A web framework      | Routes, handlers, and middleware     | Typed tools, manifests, permissions, jobs, health, and audit signals are part of the backend contract.                    |
-| An agent framework   | Models, prompts, and orchestration   | The application remains model-agnostic; agents consume explicit capabilities over HTTP.                                   |
-| A BaaS               | Hosted data, auth, and dashboards    | Deployment modes and adapter boundaries stay visible, with no hosted control plane required by the design.                |
-| A workflow engine    | Durable execution and retries        | Jobs sit beside the HTTP API, storage adapter, tool registry, logs, and readiness surface.                                |
-| A microservice stack | Many independently deployed services | Start with one explicit application boundary, then introduce an HTTP sidecar or cloud adapter when the boundary earns it. |
+### “Changing storage changes application code”
 
-The result is intentionally compositional: Arqen can live inside a normal web
-service, expose capabilities to an agent, delegate persistence to thingd, and
-run jobs without turning the whole system into an AI runtime or a distributed
-workflow graph.
+Use the `ThingdBackend` contract so domain services can work with memory,
+native Thingd, or an HTTP Thingd service. Start locally with memory mode and
+move to durable storage after the application shape is clear.
 
-## The honest boundary
+See [Thingd integration](./thingd-integration.md) and
+[Configuration](./configuration.md).
 
-This is an architectural distinction, not a claim that every path is mature.
-Arqen is still early-stage; native durable thingd migration, public HTTP parity,
-and broader CLI/template work remain active gates. Check the
-[feature status](feature-status.md) before treating a planned capability as
-available.
+### “Production behavior is hidden in startup scripts”
+
+Use layered configuration, strict production validation, health and readiness
+checks, structured logs, and explicit worker settings. The application still
+owns deployment policy, secrets, backups, and tenant isolation, but the checks
+and integration points are visible in the codebase.
+
+See [Deployment](./deployment.md) and the
+[Production runbook](./production-runbook.md).
+
+## When Arqen fits
+
+Arqen fits a backend that needs a clear path from a small local service to a
+durable deployment. It can sit alongside a model runtime, a frontend, a
+workflow system, or another service without requiring any one of them.
+
+It is not a model provider or a hosted database. Thingd provides the data
+engine; the application provides domain behavior; Arqen connects the HTTP,
+module, job, health, and storage pieces.
+
+## Current limits
+
+Review [Feature status](./feature-status.md) before relying on a capability in
+production. Cloud storage, workload-specific recovery, key lifecycle, tenant
+policy, and backup operations require application and deployment decisions.

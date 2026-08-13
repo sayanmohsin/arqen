@@ -1,64 +1,59 @@
 ---
 title: Feature status
-description: What Arqen provides today, what is partial, and what remains application-owned.
+description: Current Arqen features, readiness levels, and application responsibilities.
 ---
 
 # Feature status
 
-This page is the capability map. “Available” means the public API exists and
-has repository tests. “Partial” means the framework supplies the boundary but
-your application still owns important policy or production validation.
-“Experimental” means opt-in and should be tested against the exact Thingd
-service and workload you deploy.
+Use this page to decide which Arqen features are ready for your project.
+
+- **Available:** implemented and covered by repository tests.
+- **Available / partial:** the API exists, but production policy or validation
+  belongs to the application.
+- **Experimental:** opt-in and requires testing against the exact service and
+  workload you deploy.
+- **Future / blocked:** not available in the current package.
 
 <ProjectStatus />
 
 ## Application foundation
 
-| Capability                         | Status              | What is included                                                                                                                                                        |
-| ---------------------------------- | ------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| HTTP server and router composition | Available           | Axum-based routes, application route merging, request limits, timeouts, CORS, and correlation IDs.                                                                      |
-| Layered configuration              | Available / partial | CLI overrides → environment → config file → defaults, typed validation, secret redaction, and production checks. Deployment-specific secrets and policy remain yours.   |
-| Authentication and authorization   | Available / partial | JWT, API keys, session adapters, constant-time checks, hashing, and `AllOf`/`AnyOf`/role policies. JWKS rotation and key lifecycle remain application responsibilities. |
-| Request validation                 | Available / partial | Field, enum, pattern, cross-field, and nested validation through `Validate` and `Validated<T>`. No derive macro is promised.                                            |
-| Error contracts                    | Available           | Stable error kinds, redacted responses, correlation IDs, timeout/dependency mappings, and HTTP status conversion.                                                       |
-| Typed request context and scoping  | Available / early   | Subject, tenant, instance, scopes, roles, and correlation ID are available. Tenant/user ownership rules must be enforced by the application.                            |
-| Health and readiness               | Available / partial | Parallel checks, liveness/readiness probes, timeouts, startup grace configuration, and HTTP mappings. Register your real dependency checks.                             |
+| Capability                         | Status              | Included                                                                                                                                         |
+| ---------------------------------- | ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
+| HTTP server and router composition | Available           | Axum-based routes, route merging, request limits, timeouts, CORS, and correlation IDs.                                                           |
+| Layered configuration              | Available / partial | CLI → environment → config file → defaults, typed validation, secret redaction, and production checks.                                           |
+| Authentication and authorization   | Available / partial | JWT, API keys, session adapters, constant-time checks, hashing, and policy combinators. JWKS rotation and key lifecycle remain application work. |
+| Request validation                 | Available / partial | Field, enum, pattern, cross-field, and nested validation through `Validate` and `Validated<T>`.                                                  |
+| Error contracts                    | Available           | Stable error kinds, redacted responses, correlation IDs, timeout/dependency mappings, and HTTP status conversion.                                |
+| Request context and scoping        | Available / early   | Subject, tenant, instance, scopes, roles, and correlation ID. Ownership and isolation rules remain application work.                             |
+| Health and readiness               | Available / partial | Parallel checks, liveness/readiness probes, timeouts, startup grace configuration, and HTTP mappings.                                            |
 
-## Agents, jobs, and operations
+## Tools, jobs, and operations
 
-| Capability                 | Status              | What is included                                                                                                                                                                                             |
-| -------------------------- | ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Typed tools and execution  | Contract / partial  | Tool registry, typed metadata, permissions, invocation boundaries, structured inputs/outputs, and inline or queued execution. Discovery conventions are still evolving.                                      |
-| Manifests and discovery    | Contract / partial  | Runtime metadata, tools, jobs, scopes, effects, idempotency behavior, and machine-readable discovery endpoints. Applications own their public capability policy.                                             |
-| Durable jobs               | Available / partial | Thingd-backed queues, leases, retries, idempotency metadata, dead letters, worker shutdown, structured job logging, and metrics. Production failure testing and request idempotency remain application work. |
-| Module composition         | Available           | Explicit registration, lifecycle hooks, dependency validation, topological initialization, health checks, and HTTP module composition—without hidden dependency injection.                                   |
-| Observability              | Available / partial | Structured logging, request/job/storage/cache metrics, percentiles, uptime, error rates, status breakdowns, sync metrics, and redaction guidance. Prometheus/OpenTelemetry exporters are not bundled.        |
-| OpenAPI                    | Available / partial | OpenAPI 3.0.3 generation, security schemes, CRUD operation helpers, schemas, tags, and Swagger UI HTML. Applications must wire and validate their final route document.                                      |
-| Testing utilities          | Available / early   | `TestApp`, mock auth, fixtures, request builders, response readers, assertion macros, adapter contract tests, and benchmarks.                                                                                |
-| CLI and developer workflow | Available / partial | `new`, `dev`, `start`, `up`, `check`, `doctor`, `generate`, `lint`, `format`, `test`, `build`, `doc`, and `thingd` commands.                                                                                 |
+| Capability                | Status              | Included                                                                                                                                              |
+| ------------------------- | ------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Typed tools and execution | Contract / partial  | Tool registry, metadata, permissions, invocation, structured inputs/outputs, and inline or queued execution.                                          |
+| Manifests and discovery   | Contract / partial  | Runtime metadata, tools, jobs, scopes, effects, idempotency behavior, and machine-readable discovery endpoints.                                       |
+| Durable jobs              | Available / partial | Thingd-backed queues, leases, retries, idempotency metadata, dead letters, worker shutdown, logs, and metrics.                                        |
+| Module composition        | Available           | Explicit registration, lifecycle hooks, dependency validation, initialization order, health checks, and HTTP module composition.                      |
+| Observability             | Available / partial | Structured logs, request/job/storage/cache metrics, percentiles, uptime, error rates, status breakdowns, and sync metrics. Exporters are not bundled. |
+| OpenAPI                   | Available / partial | OpenAPI 3.0.3 generation, security schemes, CRUD helpers, schemas, tags, and Swagger UI HTML.                                                         |
+| Testing utilities         | Available / early   | `TestApp`, mock auth, fixtures, request builders, response readers, assertion macros, adapter contract tests, and benchmarks.                         |
+| CLI workflow              | Available / partial | `new`, `dev`, `start`, `up`, `check`, `doctor`, `generate`, `lint`, `format`, `test`, `build`, `doc`, and `thingd`.                                   |
 
 ## Data and Thingd
 
-| Capability                  | Status                | What is included                                                                                                                                                                                                                               |
-| --------------------------- | --------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Memory backend              | Available             | Objects, events, search, links, and queues for development, tests, and prototypes.                                                                                                                                                             |
-| Native durable Thingd       | Available / early     | Embedded persistent Thingd with optional encryption and schema validation. Recovery, backups, resource sizing, and workload testing remain deployment responsibilities.                                                                        |
-| HTTP Thingd adapter         | Available / partial   | Public `/v1` adapter for objects, events, search, links, queues, and batch operations. Validate compatibility, retries, timeouts, and failure policy against your service.                                                                     |
-| Shared query/search filters | Available             | Numeric and RFC3339 comparisons, `Contains`, invalid-value errors, filtering before pagination, and consistent memory/native/HTTP semantics.                                                                                                   |
-| Thingd schema inspection    | Available / partial   | Local `.thingd` loading/hashing plus remote current-schema and migration-history inspection. Applying migrations is deliberately operator-controlled.                                                                                          |
-| Thingd replication          | Experimental / opt-in | Cursor checkpoints, bounded retries, collection allowlists, idempotent replay, conflict reporting, capability metrics, and stale-cursor snapshot fallback. Thingd owns provenance, tombstones, and conflict semantics.                         |
-| Native-to-HTTP migration    | Available / early     | Checked, dry-run, resumable JSONL snapshot migration for objects, events, queues, indexes, and optional replication records. It preserves the source and refuses a non-empty destination. It does not promise a live-write-consistent cutover. |
-| Cloud adapter               | Future / blocked      | Requires a versioned public customer contract for identity, tenancy, routing, jobs, and compatibility. Arqen does not read private cloud control-plane data.                                                                                   |
+| Capability                  | Status                | Included                                                                                                                                                                       |
+| --------------------------- | --------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Memory backend              | Available             | Objects, events, search, links, and queues for development and tests.                                                                                                          |
+| Native durable Thingd       | Available / early     | Embedded persistence with optional encryption and schema validation. Recovery, backups, resource sizing, and workload testing remain deployment work.                          |
+| HTTP Thingd adapter         | Available / partial   | Public `/v1` adapter for objects, events, search, links, queues, and batch operations. Validate compatibility and failure policy against your service.                         |
+| Shared query/search filters | Available             | Numeric and RFC3339 comparisons, `Contains`, invalid-value errors, filtering before pagination, and consistent memory/native/HTTP semantics.                                   |
+| Thingd schema inspection    | Available / partial   | Local `.thingd` loading and hashing plus remote schema and migration-history inspection. Applying migrations is operator-controlled.                                           |
+| Thingd replication          | Experimental / opt-in | Cursor checkpoints, bounded retries, collection allowlists, idempotent replay, conflict reporting, metrics, and stale-cursor snapshot fallback.                                |
+| Native-to-HTTP migration    | Available / early     | Checked, dry-run, resumable JSONL migration for objects, events, queues, indexes, and optional replication records. The source is preserved and the destination must be empty. |
+| Cloud adapter               | Future / blocked      | Requires a versioned public customer contract for identity, tenancy, routing, jobs, and compatibility.                                                                         |
 
-## Boundaries to understand
-
-Arqen records and exposes the data needed by its adapters, jobs, metrics, and
-replication workflows. It does not automatically create application audit
-history, tenant policy, user ownership, backups, provider credentials, or a
-live migration cutover. Those belong in the application and its operations
-system. See [application hardening](./application-hardening.md) and the
-[production runbook](./production-runbook.md).
-
-Do not infer completion from a roadmap heading. Check the implementation,
-tests, and the exact Thingd service version used by your deployment.
+See [Build a backend](./build-a-backend.md) for the recommended sequence and
+[Application hardening](./application-hardening.md) for multi-user production
+requirements.

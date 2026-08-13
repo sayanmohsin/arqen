@@ -7,7 +7,7 @@ description: A guided path from a new Arqen project to a backend with modules, t
 
 This is the main path through the docs. Follow it in order when creating a
 backend. Each step leaves you with a working application before you add the
-next boundary.
+next capability.
 
 <MermaidDiagram type="use-cases" />
 
@@ -35,8 +35,8 @@ cd catalog-api
 cargo run
 ```
 
-The generated app starts with memory storage. Confirm the boundary before
-writing application code:
+The generated app starts with memory storage. Confirm that the service is
+running before writing application code:
 
 ```bash
 curl http://127.0.0.1:8888/health
@@ -50,7 +50,7 @@ strict production path.
 
 ## 2. Organize the backend by modules
 
-Create a module for a domain boundary such as `catalog`, `accounts`, or
+Create a module for a domain area such as `catalog`, `accounts`, or
 `billing`:
 
 ```bash
@@ -60,7 +60,7 @@ arqen generate module catalog
 A module is the explicit place to register its routes, tools, health checks,
 and jobs. Declare dependencies by module name so startup order is visible and
 validated. Keep domain services and request models in your application; Arqen
-provides the composition and lifecycle boundary.
+provides the composition and lifecycle support.
 
 Read [Modules and application composition](./modules.md) before adding a
 large module graph.

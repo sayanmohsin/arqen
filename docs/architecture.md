@@ -2,53 +2,78 @@
 
 <MermaidDiagram type="architecture" />
 
-The request boundary stays stable while the storage adapter changes underneath
-it. The hosted cloud path is shown as future because Arqen currently relies on
-public Thingd contracts rather than private cloud modules.
+Arqen separates the application code you write from the infrastructure it
+uses to serve requests, run jobs, and persist data.
 
-Application code depends on domain repositories and job interfaces. It should not depend directly on HTTP clients, provider SDKs, or private cloud modules.
+## Request flow
+
+1. A person, program, or agent calls an HTTP route or discovers a tool.
+2. Arqen applies authentication, authorization, validation, and request
+   context.
+3. The application module runs its domain service.
+4. The service reads or writes through a `ThingdBackend`, or enqueues durable
+   work.
+5. Health checks, logs, metrics, and job state make the result observable.
+
+Application code owns domain models, business rules, and route handlers. Arqen
+provides the application state, module lifecycle, HTTP helpers, storage
+contracts, worker runtime, and operational checks.
+
+## HTTP integration
 
 The HTTP integration uses Axum, Tokio, and Tower. Applications can use Arqen’s
 router, middleware, state, and lifecycle helpers, or use the re-exported HTTP
 types when they need lower-level control.
 
 The common starting point is `arqen::http::{Router, routing}` with Arqen’s
-server helpers. The HTTP types are re-exported from that module so applications
-can choose the level of control that fits their routes.
+server helpers. See [Getting started](./getting-started.md) for a runnable
+project and [OpenAPI](./openapi.md) for route documentation.
 
-## Package structure
+## Storage paths
 
-The public library is one Cargo package with composable internal modules:
+The `ThingdBackend` contract keeps application services independent of the
+selected storage mode:
+
+- `MemoryThingdBackend` is for tests and disposable development;
+- native Thingd is embedded in the application process;
+- `HttpThingdBackend` connects to a separate Thingd service;
+- a cloud adapter is future work and requires a public customer contract.
+
+See [Configuration](./configuration.md) and
+[Thingd integration](./thingd-integration.md).
+
+## Modules and package structure
+
+Modules group application features and register their routes, tools, jobs, and
+health checks. Dependencies and lifecycle order are explicit.
 
 ```text
-arqen/
-  crates/
-    arqen/            # Single Cargo package, library and CLI
-      src/bin/arqen.rs# Feature-gated CLI binary
-      src/core/       # Core types, traits, and errors
-      src/http/       # Arqen HTTP server, middleware, and routes
-      src/agent/      # Agent tool definitions and manifest generation
-      src/auth/       # Authentication adapters and policies
-      src/thingd/     # thingd adapters (memory, native, HTTP)
-      src/jobs/       # Durable job types and worker runtime
-      src/logging/    # Tracing setup and redaction
-      src/config.rs   # Layered typed configuration
-      src/health.rs   # Health and readiness checks
-      src/module.rs   # Explicit module composition
-      src/openapi.rs  # OpenAPI generation helpers
-      src/state.rs    # Explicit application state
-      src/testutil.rs # Test application and request helpers
-  # CLI-generated project scaffolding is defined in src/bin/arqen.rs
-  examples/           # Example applications
-  docs/               # Documentation
-  specs/              # Phase specifications
+crates/arqen/src/
+  core/             # Core types and errors
+  http/             # HTTP server, middleware, and routes
+  agent/            # Tool definitions and manifests
+  auth/             # Authentication adapters and policies
+  thingd/           # Memory, native, HTTP, scoped, and cache adapters
+  jobs/             # Durable job handlers and workers
+  logging/          # Tracing and redaction
+  config.rs         # Layered configuration
+  health.rs         # Health and readiness
+  module.rs         # Module composition
+  observability.rs  # Metrics and percentiles
+  openapi.rs        # OpenAPI generation helpers
+  state.rs          # Explicit application state
+  testutil.rs       # Test helpers
 ```
 
-## Dependency rules
+The public library and feature-gated CLI are published as one Cargo package.
+Generated application code is replaceable; your domain services do not need to
+depend on generated implementation details.
 
-- `arqen::core` must not depend on Axum, thingd, or model providers.
-- `arqen::thingd` owns storage and queue adapters.
-- `arqen::jobs` depends on core and thingd contracts.
-- `arqen::http` depends on core and agent modules.
-- The CLI is optional and feature-gated; `arqen new` and `arqen generate`
-  create replaceable application scaffolding without changing domain code.
+## Ownership rules
+
+- The application owns domain behavior, authorization policy, tenant/user
+  ownership, secrets, backups, and deployment decisions.
+- Arqen owns reusable composition, validation, workers, health, metrics, and
+  adapter behavior.
+- Thingd owns durable data primitives, replication semantics, tombstones, and
+  conflict handling.

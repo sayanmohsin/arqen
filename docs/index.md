@@ -1,62 +1,61 @@
 ---
 layout: home
-title: Arqen — Backend infrastructure for agent-ready applications
-description: A developer-focused backend toolkit with typed tools, durable jobs, discoverable APIs, and thingd integration.
+title: Arqen — Build and operate a backend
+description: Build a readable backend with HTTP routes, modules, jobs, health checks, and Thingd storage.
 
 hero:
   name: Arqen
-  text: Backend infrastructure for agent-ready applications.
-  tagline: Typed tools, durable jobs, discoverable APIs, and thingd integration for services that people, programs, and agents can operate.
+  text: Build and operate a backend.
+  tagline: A Rust toolkit for HTTP services with explicit modules, durable jobs, health checks, and Thingd storage.
   actions:
     - theme: brand
-      text: Get started →
-      link: /getting-started
+      text: Build a backend →
+      link: /build-a-backend
     - theme: alt
       text: GitHub
       link: https://github.com/sayanmohsin/arqen
     - theme: alt
-      text: Feature status
+      text: What is included
       link: /feature-status
     - theme: alt
       text: thingd.cloud
       link: https://thingd.cloud
 
 features:
-  - icon: ◈
-    title: Typed tools
-    details: Make application capabilities discoverable with structured inputs, outputs, permissions, and audit metadata.
+  - icon: →
+    title: HTTP services
+    details: Compose application routes with health, readiness, authentication, errors, and OpenAPI support.
+  - icon: ◫
+    title: Application modules
+    details: Group related routes, jobs, configuration, and health checks into explicit modules with lifecycle hooks.
+  - icon: ≋
+    title: Storage adapters
+    details: Start in memory, embed native Thingd, or connect to a separate Thingd service as your application grows.
   - icon: ↻
     title: Durable jobs
-    details: Model retries, leases, idempotency, and dead letters at a clear application boundary.
-  - icon: ◫
-    title: Shared manifests
-    details: Publish endpoints, tools, jobs, and runtime metadata for clients and agents to inspect.
-  - icon: ≋
-    title: Useful logging
-    details: Start with tracing, request visibility, redaction guidance, health, and readiness signals.
+    details: Model retries, leases, idempotency, and dead letters in durable workers.
   - icon: ✓
-    title: Health by default
-    details: Keep liveness and readiness visible to local development, CI, and deployment systems.
-  - icon: →
-    title: Deployment paths
-    details: Move from memory mode toward native durable thingd, an HTTP sidecar, or a future cloud contract.
+    title: Operational signals
+    details: Keep tracing, health, readiness, request visibility, and redaction guidance close to the service.
+  - icon: ◈
+    title: Agent tools when useful
+    details: Make selected application capabilities discoverable with typed inputs, outputs, permissions, and manifests.
 ---
 
 ::: warning Early-stage project
-Arqen is Rust-first and actively maturing. The core framework and CLI are
-implemented in one package, but production adoption still requires validating
-durability, public thingd compatibility, security, and operational behavior for
-the application being built. Check the [feature status](./feature-status.md)
-before adopting a capability.
+Arqen is Rust-first and actively maturing. Before production use, validate
+durability, Thingd compatibility, security, and operational behavior for your
+application. See [Feature status](./feature-status.md) for current readiness.
 :::
 
 <ProjectStatus />
 
 <ArqenConsole />
 
-The short version: Arqen gives your application one place for HTTP routes,
-authentication, typed tools, durable jobs, health, and storage adapters. It is
-not a hosted database or an AI model runtime.
+Arqen gives your application one place for HTTP routes, authentication, typed
+tools, durable jobs, health, and storage adapters. Agent tools are optional;
+the same foundation works for conventional web, mobile, internal, and
+automation backends.
 
 ## Choose a starting path
 
@@ -65,18 +64,17 @@ not a hosted database or an AI model runtime.
 | A complete backend path        | [Build a backend](./build-a-backend.md)       | One guided route from project creation to production                 |
 | A quick local prototype        | [Getting started](./getting-started.md)       | A runnable app with memory storage                                   |
 | Durable single-process storage | [Deployment](./deployment.md)                 | Embedded native Thingd with recovery responsibilities clearly stated |
-| A separate data service        | [Thingd integration](./thingd-integration.md) | The public HTTP adapter and its compatibility boundary               |
+| A separate data service        | [Thingd integration](./thingd-integration.md) | The public HTTP adapter and its compatibility requirements           |
 | To move existing data          | [Migration](./migration.md)                   | A checked, resumable native-to-HTTP JSONL workflow                   |
 | A Thingd data contract         | [Thingd schema](./schema.md)                  | Store, validate, inspect, and operate a `.thingd` schema             |
 | Agent-facing capabilities      | [Agent guide](./agent-guide.md)               | Discovery, permissions, typed inputs, and invocation                 |
 | Production readiness           | [Production runbook](./production-runbook.md) | Deployment checks, health, logs, backups, and ownership              |
 
-## Rust-first implementation, language-agnostic direction
+## Start here
 
-The current implementation uses Rust, Tokio, Tower, tracing, and native thingd
-adapters, with Axum as an internal HTTP transport. The application positioning stays language-agnostic: future
-Node.js support can use the public HTTP API, SDKs, templates, and shared
-manifests.
+Follow [Build a backend](./build-a-backend.md) for the complete path:
+create a project, add a module, add routes/tools/jobs, choose storage, define
+a Thingd schema, validate it, and prepare a deployment.
 
 ## Start locally
 
@@ -93,7 +91,7 @@ cargo run -p arqen --features cli --bin arqen -- dev --storage memory
 curl http://127.0.0.1:8888/health
 ```
 
-## Architecture
+## How it fits together
 
 ```text
 client or agent → Arqen API → typed tools / policies / jobs / logs
@@ -101,9 +99,9 @@ client or agent → Arqen API → typed tools / policies / jobs / logs
               memory · native durable thingd · HTTP sidecar · future cloud
 ```
 
-Application code should depend on domain interfaces and the public thingd
-contract, not private cloud modules. See [architecture](./architecture.md) and
-[thingd integration](./thingd-integration.md).
+Application code owns domain behavior. Arqen provides HTTP, module, job,
+health, and adapter integrations. Thingd provides durable data primitives. See
+[Architecture](./architecture.md) and [Thingd integration](./thingd-integration.md).
 
 ## thingd integration
 
@@ -115,24 +113,16 @@ Learn more about the thingd ecosystem at
 [thingd.cloud](https://thingd.cloud), the home for thingd’s hosted data engine
 and related services.
 
-## A different layer
+## Add agent capabilities when you need them
 
-Arqen is not another model runtime or hosted backend. It is the contract layer
-between an application and the software that operates it:
-
-- web frameworks get typed tools, manifests, permissions, jobs, and health;
-- agent frameworks get a model-agnostic application boundary;
-- BaaS products get an explicit adapter and deployment model;
-- workflow systems get an HTTP, storage, and observability home;
-- microservice stacks get a clear starting boundary before sidecars multiply.
-
-Read [Why Arqen?](./why-arqen.md) for the tradeoffs and the honest maturity
-boundary.
+Typed tools and manifests are optional. Add them when people, programs, or
+agents need to discover and invoke selected application operations. Read
+[Typed tools](./typed-tools.md) and [Agent guide](./agent-guide.md).
 
 ## Roadmap
 
-Read the [roadmap](./roadmap.md) and the [Phase 17 specification on GitHub](https://github.com/sayanmohsin/arqen/tree/main/specs/phase-17-developer-experience-and-performance)
-for implementation evidence and open work.
+Read the [roadmap](./roadmap.md) for planned work and the
+[Feature status](./feature-status.md) page for what is currently available.
 
 ## Performance
 

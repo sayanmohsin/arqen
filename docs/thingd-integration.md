@@ -4,9 +4,10 @@
 search, links, durable queues, encryption-aware persistence, and a public
 replication contract.
 
-The first stable boundary is thingd's public HTTP API. Arqen should not import private thingd-cloud internals or require a Node.js SDK.
+The first stable integration is Thingd’s public HTTP API. Arqen should not
+import private thingd-cloud internals or require a Node.js SDK.
 
-The adapter boundary should support:
+The adapter contract supports:
 
 - typed object repositories;
 - batch writes;
@@ -27,7 +28,7 @@ ThingdBackend
 
 Switching implementations must not change application domain services.
 
-## Hardening boundary
+## Production considerations
 
 Applications that need local durable thingd during development and hosted
 thingd in production should use the same domain repository interfaces across
@@ -110,4 +111,4 @@ The adapter and migration workflow cover these Thingd-owned record families:
 Arqen also records operational metadata such as checkpoints, sync results,
 latency, retries, conflicts, and snapshot fallbacks through its metrics hooks.
 Application audit history, user/tenant ownership, backups, and provider
-credentials are intentionally outside this framework boundary.
+credentials are intentionally outside Arqen’s storage integration.

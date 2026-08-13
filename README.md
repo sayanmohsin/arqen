@@ -10,17 +10,15 @@
 
 ## Backend infrastructure for agent-ready applications
 
-Arqen is a developer-focused backend toolkit for services that people,
-programs, and agents can operate. It brings typed tools, durable jobs,
-discoverable APIs, explicit modules, health checks, and thingd integration to
-one application boundary.
+Arqen is a developer-focused backend toolkit for HTTP services. It brings
+typed tools, durable jobs, discoverable APIs, explicit modules, health checks,
+and Thingd integration to one readable project structure.
 
 “Agent-ready” does not mean AI-only. It means capabilities are discoverable,
 typed, permission-aware, auditable, and automation-friendly.
 
-Arqen is Rust-first internally, built on Tokio, Tower, tracing, and thingd,
-with Axum as its current HTTP transport. Its application positioning is language-agnostic: future Node.js
-support can use the public HTTP API, SDKs, templates, and shared manifests.
+Arqen is Rust-first, built on Tokio, Tower, tracing, Axum, and Thingd. Clients
+in other languages can use the HTTP API and machine-readable manifests.
 
 ## Project status
 
@@ -73,11 +71,11 @@ arqen --help
 ```text
 Application, client, or agent
               |
-       Arqen HTTP boundary
+       Arqen HTTP integration
               |
  tools · policies · jobs · health · logs
               |
-       Arqen adapter contract
+       Thingd adapter contract
         /         |          \
    memory     native durable   HTTP Thingd
   local/test  embedded engine  Thingd service
@@ -87,12 +85,12 @@ Application, client, or agent
 
 The same application-facing contracts are designed for four deployment modes:
 
-| Mode           | Best for                    | Status                                         |
-| -------------- | --------------------------- | ---------------------------------------------- |
-| Memory         | Local development and tests | Available                                      |
+| Mode           | Best for                                       | Status                                         |
+| -------------- | ---------------------------------------------- | ---------------------------------------------- |
+| Memory         | Local development and tests                    | Available                                      |
 | Native durable | An embedded Thingd engine in the Arqen process | Available; validate recovery for your workload |
-| HTTP Thingd    | A separate Thingd HTTP service                | Available; validate the public contract        |
-| Cloud          | Hosted thingd services      | Future integration path                        |
+| HTTP Thingd    | A separate Thingd HTTP service                 | Available; validate the public contract        |
+| Cloud          | Hosted thingd services                         | Future integration path                        |
 
 Thingd supplies the durable records and replication primitives. Arqen owns
 configuration, lifecycle, typed adapters, health, metrics, and the explicit
@@ -119,15 +117,9 @@ Do not rely on `AGENTS.md`, `.opencode/`, or other local AI instruction files. T
 
 ## Why Arqen?
 
-Arqen is a contract layer between an application and the software that
-operates it. It is not a model runtime, BaaS, or workflow engine.
-
-- Traditional web frameworks get typed tools, manifests, policies, jobs, and
-  readiness signals.
-- Agent frameworks get a model-agnostic application boundary.
-- BaaS deployments keep their adapter and operational boundaries visible.
-- Workflow systems get a home for HTTP, storage, observability, and durable
-  work.
+Arqen gives a backend a clear place for HTTP routes, application modules,
+storage, durable work, health, and observability. It can be used with a model
+runtime, frontend, BaaS, or workflow system, but does not require any of them.
 
 ## Explore the documentation
 

@@ -2,33 +2,47 @@
 
 <MermaidDiagram type="use-cases" />
 
-Every use case follows the same shape: discover or receive work, apply policy,
-run ordinary application code, record the result, and expose enough health and
-observability for a caller or operator to understand what happened.
+Arqen is useful whenever a backend needs explicit operations, durable data,
+background work, or clear runtime checks.
 
-## Tool-enabled product backends
+## Product backends
 
-Expose a small, typed capability surface to an agent while keeping domain
-logic in ordinary application services. Manifests describe names, inputs,
-permissions, and audit expectations.
+Build APIs for web or mobile products with authentication, validation, domain
+modules, storage adapters, health endpoints, and OpenAPI helpers.
+
+**Start with:** [Build a backend](./build-a-backend.md) and
+[Getting started](./getting-started.md).
+
+## Agent-enabled operations
+
+Expose selected application operations as typed tools. Describe inputs,
+outputs, required scopes, read/write effects, and retry behavior in the agent
+manifest. The same backend can continue serving normal HTTP clients.
+
+**Start with:** [Typed tools](./typed-tools.md) and
+[Agent guide](./agent-guide.md).
 
 ## Long-running automation
 
-Move email, indexing, synchronization, and other work out of request paths.
-Use durable job semantics where retries and idempotency matter.
+Move email, indexing, imports, synchronization, and enrichment out of request
+handlers. Thingd queues provide leases, retries, idempotency metadata, and
+dead-letter states for workers.
 
-## Local-first service development
+**Start with:** [Durable jobs](./durable-jobs.md).
 
-Start with memory mode, health endpoints, structured logs, and an explicit
-application state. Move toward durable thingd without rewriting domain code.
+## Local-first development
+
+Use memory mode for fast tests and prototypes, then switch to native Thingd or
+an HTTP Thingd service without changing domain repository interfaces.
+
+**Start with:** [Configuration](./configuration.md) and
+[Thingd integration](./thingd-integration.md).
 
 ## Human and machine operations
 
-Use the same discoverable HTTP surface for dashboards, scripts, CI, and agents.
-Readiness and logs make deployment behavior visible to operators.
+Use one HTTP service from dashboards, scripts, CI, applications, and agents.
+Health, readiness, structured logs, and metrics make it easier to understand
+whether the service and its dependencies are working.
 
-## Language-diverse clients
-
-Keep the server contracts language-agnostic. Rust is the first implementation;
-Node.js clients and templates can consume the HTTP API and shared manifests as
-those deliverables mature.
+**Start with:** [Health](./health.md), [Observability](./observability.md),
+and [Production runbook](./production-runbook.md).
