@@ -13,7 +13,7 @@ pub use middleware_correlation::{X_REQUEST_ID, correlation_id_middleware};
 pub use middleware_identity::{
     ARQEN_IDENTITY, POWERED_BY_HEADER, SERVER_HEADER, identity_middleware,
 };
-pub use middleware_log::logging_middleware;
+pub use middleware_log::{RequestLogConfig, logging_middleware};
 pub use module::{HttpModule, merge_module_routes};
 pub use routes::{agent, agent_manifest, docs, health, ready};
 
@@ -24,6 +24,7 @@ use axum::{
 };
 use std::net::SocketAddr;
 use tokio::net::TcpListener;
+use tower_http::compression::{CompressionLayer, predicate::SizeAbove};
 use tower_http::cors::{Any, CorsLayer};
 use tower_http::limit::RequestBodyLimitLayer;
 use tower_http::timeout::TimeoutLayer;
@@ -98,6 +99,21 @@ where
         state.config.server.request_timeout,
     );
     let body_limit = RequestBodyLimitLayer::new(state.config.server.max_body_size);
+    let compression = CompressionLayer::new().compress_when(SizeAbove::new(
+        state
+            .config
+            .server
+            .compression_threshold
+            .min(u16::MAX as usize) as u16,
+    ));
+    let request_log_config = RequestLogConfig {
+        success_sample_rate: if std::env::var("ARQEN_ENV").as_deref() == Ok("production") {
+            state.config.server.request_log_sample_rate
+        } else {
+            1.0
+        },
+        slow_request_threshold: state.config.server.slow_request_threshold,
+    };
 
     Router::new()
         .route("/health", get(routes::health))
@@ -107,8 +123,10 @@ where
         .route("/agent/tools/:name", post(routes::tool_invoke))
         .route("/docs", get(routes::docs))
         .layer(body_limit)
+        .layer(compression)
         .layer(timeout)
         .layer(cors)
+        .layer(axum::Extension(request_log_config))
         .layer(middleware::from_fn(
             middleware_identity::identity_middleware,
         ))
@@ -335,6 +353,26 @@ mod tests {
                 .contains_key("access-control-allow-origin"),
             "CORS headers should be present"
         );
+    }
+
+    #[tokio::test]
+    async fn test_response_compression_respects_threshold_and_negotiation() {
+        let mut config = crate::AppConfig::default();
+        config.server.compression_threshold = 1;
+        let state = AppState::builder().with_config(config).build().unwrap();
+        let router = create_router_with_state(state);
+        let response = router
+            .oneshot(
+                Request::builder()
+                    .uri("/docs")
+                    .header("accept-encoding", "gzip")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(response.status(), StatusCode::OK);
+        assert_eq!(response.headers().get("content-encoding").unwrap(), "gzip");
     }
 
     #[tokio::test]

@@ -4,6 +4,7 @@ use crate::core::error::{CorrelationId, REQUEST_CORRELATION_ID};
 
 /// Header name for correlation ID.
 pub const X_REQUEST_ID: &str = "X-Request-Id";
+const MAX_CORRELATION_ID_LENGTH: usize = 128;
 
 /// Middleware that generates or extracts correlation ID from request header.
 ///
@@ -40,7 +41,11 @@ fn extract_or_generate_correlation_id(request: &Request) -> CorrelationId {
         .headers()
         .get(X_REQUEST_ID)
         .and_then(|value| value.to_str().ok())
-        .filter(|s| !s.is_empty())
+        .filter(|s| !s.is_empty() && s.len() <= MAX_CORRELATION_ID_LENGTH)
+        .filter(|s| {
+            s.bytes()
+                .all(|byte| byte.is_ascii_graphic() && byte != b'"')
+        })
         .map(|s| CorrelationId(s.to_string()))
         .unwrap_or_else(CorrelationId::new)
 }
@@ -107,6 +112,29 @@ mod tests {
         let id2 = extract_or_generate_correlation_id(&request);
         assert_eq!(id1.0, "my-id");
         assert_eq!(id2.0, "my-id");
+    }
+
+    #[test]
+    fn test_extract_or_generate_rejects_unsafe_or_oversized_ids() {
+        let unsafe_request = Request::builder()
+            .header(X_REQUEST_ID, "bad\"id")
+            .body(Body::empty())
+            .unwrap();
+        let oversized_request = Request::builder()
+            .header(X_REQUEST_ID, "x".repeat(129))
+            .body(Body::empty())
+            .unwrap();
+
+        assert_ne!(
+            extract_or_generate_correlation_id(&unsafe_request).0,
+            "bad\"id"
+        );
+        assert_eq!(
+            extract_or_generate_correlation_id(&oversized_request)
+                .0
+                .len(),
+            36
+        );
     }
 
     async fn failing_handler() -> Result<&'static str, AppError> {

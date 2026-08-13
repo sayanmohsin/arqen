@@ -100,6 +100,18 @@ include memory, embedded native Thingd, HTTP Thingd, and opt-in native-to-HTTP
 replication. See [migration](https://sayanmohsin.github.io/arqen/migration) for
 the safe native-to-HTTP data movement workflow.
 
+### Observability by default
+
+Arqen emits readable pretty logs locally and structured JSON logs to stderr in
+production. Requests carry bounded, sanitized correlation IDs and structured
+fields for route, outcome, status, duration, service identity, and applicable
+authentication or tenant context. Request metrics use bounded latency samples
+and route labels, with timeout and dependency-error counters. See the
+[Logging](https://sayanmohsin.github.io/arqen/logging) and
+[Observability](https://sayanmohsin.github.io/arqen/observability) guides for
+redaction rules, `RUST_LOG` precedence, Docker/journald collection, and future
+external collector integration.
+
 ## For coding agents
 
 Arqen is designed to be understood from tracked public files alone. To implement a scoped change:
@@ -127,7 +139,7 @@ runtime, frontend, BaaS, or workflow system, but does not require any of them.
 - [Getting started](https://sayanmohsin.github.io/arqen/getting-started) · [Configuration](https://sayanmohsin.github.io/arqen/configuration) · [Commands](https://sayanmohsin.github.io/arqen/commands)
 - [Architecture](https://sayanmohsin.github.io/arqen/architecture) · [Modules](https://github.com/sayanmohsin/arqen/blob/main/docs/modules.md) · [Feature status](https://sayanmohsin.github.io/arqen/feature-status)
 - [Authentication](https://github.com/sayanmohsin/arqen/blob/main/docs/authentication.md) · [Validation](https://github.com/sayanmohsin/arqen/blob/main/docs/validation.md) · [OpenAPI](https://github.com/sayanmohsin/arqen/blob/main/docs/openapi.md)
-- [Jobs](https://sayanmohsin.github.io/arqen/durable-jobs) · [Observability](https://github.com/sayanmohsin/arqen/blob/main/docs/observability.md) · [Testing](https://github.com/sayanmohsin/arqen/blob/main/docs/testing.md)
+- [Jobs](https://sayanmohsin.github.io/arqen/durable-jobs) · [Logging](https://sayanmohsin.github.io/arqen/logging) · [Observability](https://sayanmohsin.github.io/arqen/observability) · [Testing](https://sayanmohsin.github.io/arqen/testing)
 - [Agent guide](https://sayanmohsin.github.io/arqen/agent-guide) · [Manifest contract](https://sayanmohsin.github.io/arqen/manifest) · [thingd integration](https://sayanmohsin.github.io/arqen/thingd-integration) · [Thingd sync](https://sayanmohsin.github.io/arqen/thingd-integration)
 - [Troubleshooting](https://github.com/sayanmohsin/arqen/blob/main/docs/troubleshooting.md) · [Migration](https://github.com/sayanmohsin/arqen/blob/main/docs/migration.md) · [Standards](https://github.com/sayanmohsin/arqen/blob/main/docs/standards.md)
 - [Examples](https://github.com/sayanmohsin/arqen/blob/main/docs/examples.md) · [Health](https://github.com/sayanmohsin/arqen/blob/main/docs/health.md) · [Performance](https://github.com/sayanmohsin/arqen/blob/main/docs/performance.md)

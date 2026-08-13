@@ -109,6 +109,14 @@ docker run -p 8888:8888 \
 
 ## Environment variables for production
 
+For high-throughput services, use JSON logs with the default 1% successful
+request sample, keep the 250ms slow-request threshold, and leave response
+compression enabled for responses above 1KiB. Tune
+`ARQEN_REQUEST_LOG_SAMPLE_RATE`, `ARQEN_SLOW_REQUEST_THRESHOLD_MS`, and
+`ARQEN_COMPRESSION_THRESHOLD` only after reviewing benchmark and collector
+capacity. HTTP Thingd clients default to 16 concurrent requests and workers
+are bounded by `ARQEN_WORKER_CONCURRENCY`.
+
 | Variable                  | Recommended value        |
 | ------------------------- | ------------------------ |
 | `ARQEN_HOST`              | `0.0.0.0`                |

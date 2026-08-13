@@ -73,7 +73,42 @@ impl StorageFactory {
                             context: "required for HTTP storage".to_string(),
                         }
                     })?;
-                    let mut backend = crate::thingd::HttpThingdBackend::new(url);
+                    let mut policy = crate::thingd::HttpClientPolicy::default();
+                    let mut max_concurrency = 16usize;
+                    if let Ok(value) = std::env::var("ARQEN_THINGD_MAX_CONCURRENCY") {
+                        max_concurrency = value.parse().map_err(|_| ConfigError::InvalidValue {
+                            field: "thingd.max_concurrency".to_string(),
+                            value,
+                            expected: "a positive usize".to_string(),
+                        })?;
+                        if max_concurrency == 0 {
+                            return Err(ConfigError::InvalidValue {
+                                field: "thingd.max_concurrency".to_string(),
+                                value: "0".to_string(),
+                                expected: "a positive usize".to_string(),
+                            });
+                        }
+                    }
+                    if let Ok(value) = std::env::var("ARQEN_THINGD_REQUEST_TIMEOUT") {
+                        policy.request_timeout =
+                            std::time::Duration::from_secs(value.parse().map_err(|_| {
+                                ConfigError::InvalidValue {
+                                    field: "thingd.request_timeout".to_string(),
+                                    value,
+                                    expected: "a valid u64 (seconds)".to_string(),
+                                }
+                            })?);
+                    }
+                    if let Ok(value) = std::env::var("ARQEN_THINGD_MAX_RETRIES") {
+                        policy.max_retries =
+                            value.parse().map_err(|_| ConfigError::InvalidValue {
+                                field: "thingd.max_retries".to_string(),
+                                value,
+                                expected: "a valid u32".to_string(),
+                            })?;
+                    }
+                    let mut backend = crate::thingd::HttpThingdBackend::with_policy(url, policy)
+                        .with_max_concurrency(max_concurrency);
                     if let Some(token) = &config.storage.auth_token {
                         backend = backend.with_auth(token.inner());
                     }

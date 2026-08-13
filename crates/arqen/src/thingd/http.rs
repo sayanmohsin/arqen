@@ -2,7 +2,9 @@ use async_trait::async_trait;
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
+use std::sync::Arc;
 use std::time::Duration;
+use tokio::sync::Semaphore;
 use tokio::time::sleep;
 
 use crate::core::{AppError, ErrorKind};
@@ -17,7 +19,10 @@ pub struct HttpThingdBackend {
     client: Client,
     auth_token: Option<String>,
     policy: HttpClientPolicy,
+    concurrency: Arc<Semaphore>,
 }
+
+const DEFAULT_MAX_CONCURRENCY: usize = 16;
 
 #[derive(Debug, Clone)]
 pub struct HttpClientPolicy {
@@ -61,11 +66,18 @@ impl HttpThingdBackend {
                 .expect("valid reqwest client configuration"),
             auth_token: None,
             policy,
+            concurrency: Arc::new(Semaphore::new(DEFAULT_MAX_CONCURRENCY)),
         }
     }
 
     pub fn with_auth(mut self, token: &str) -> Self {
         self.auth_token = Some(token.to_string());
+        self
+    }
+
+    /// Bound the number of active requests sent to the remote Thingd server.
+    pub fn with_max_concurrency(mut self, max_concurrency: usize) -> Self {
+        self.concurrency = Arc::new(Semaphore::new(max_concurrency.max(1)));
         self
     }
 
@@ -108,6 +120,10 @@ impl HttpThingdBackend {
         &self,
         request: reqwest::RequestBuilder,
     ) -> Result<R, AppError> {
+        let _permit =
+            self.concurrency.acquire().await.map_err(|_| {
+                AppError::new(ErrorKind::Unavailable, "thingd client is shutting down")
+            })?;
         let response = self.authenticated(request).send().await.map_err(|error| {
             let kind = if error.is_timeout() {
                 ErrorKind::Timeout
@@ -135,6 +151,10 @@ impl HttpThingdBackend {
         &self,
         path: &str,
     ) -> Result<R, crate::core::AppError> {
+        let _permit =
+            self.concurrency.acquire().await.map_err(|_| {
+                AppError::new(ErrorKind::Unavailable, "thingd client is shutting down")
+            })?;
         let url = format!("{}{}", self.base_url, path);
         for attempt in 0..=self.policy.max_retries {
             let request = self.authenticated(self.client.get(&url));

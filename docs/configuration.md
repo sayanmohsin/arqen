@@ -4,46 +4,58 @@ Arqen applications are configured through environment variables and optional con
 
 ## Environment variables
 
-| Variable                       | Description                                                        | Default                              |
-| ------------------------------ | ------------------------------------------------------------------ | ------------------------------------ |
-| `ARQEN_HOST`                   | Bind address for the HTTP server                                   | `127.0.0.1`                          |
-| `ARQEN_PORT`                   | Port for the HTTP server                                           | `8888`                               |
-| `ARQEN_STORAGE_MODE`           | Storage mode: `memory`, `native`, `persistent`, `http`, or `cloud` | `memory`                             |
-| `ARQEN_PERSISTENT_PATH`        | Native durable thingd storage path                                 | unset; required for `persistent`     |
-| `ARQEN_THINGD_URL`             | thingd HTTP service URL                                            | unset; required for `http`           |
-| `ARQEN_CLOUD_URL`              | Future public thingd.cloud endpoint                                | unset; cloud mode is not implemented |
-| `ARQEN_THINGD_AUTH_TOKEN`      | Server-side thingd/cloud bearer token                              | unset; never log or commit           |
-| `ARQEN_THINGD_ENCRYPTION_KEY`  | 64-hex-character native Thingd encryption key                      | unset; server-side only              |
-| `ARQEN_THINGD_SCHEMA_PATH`     | Versioned `.thingd` schema path                                    | unset                                |
-| `ARQEN_SYNC_ENABLED`           | Enable opt-in Thingd source-to-replica sync                        | `false`                              |
-| `ARQEN_SYNC_MODE`              | Sync capability: `disabled`, `http`, or `native`                   | `disabled`                           |
-| `ARQEN_SYNC_SOURCE_ID`         | Stable source instance identifier                                  | unset                                |
-| `ARQEN_SYNC_TARGET_URL`        | Thingd replication target URL                                      | unset; required when enabled         |
-| `ARQEN_SYNC_TARGET_AUTH_TOKEN` | Target bearer credential                                           | unset; required by target policy     |
-| `ARQEN_SYNC_COLLECTIONS`       | Comma-separated replication allowlist                              | empty                                |
-| `ARQEN_SYNC_REPLICATE_ALL`     | Explicitly replicate all supported application collections         | `false`                              |
-| `ARQEN_SYNC_POLL_INTERVAL`     | Sync polling interval in seconds                                   | `5`                                  |
-| `ARQEN_SYNC_BATCH_SIZE`        | Maximum changes per replication page                               | `500`                                |
-| `ARQEN_SYNC_SNAPSHOT_FALLBACK` | Bootstrap stale replicas from a snapshot                           | `true`                               |
-| `ARQEN_JWT_SECRET`             | JWT secret, kept redacted in configuration output                  | unset                                |
-| `ARQEN_API_KEY_HEADER`         | API-key request header                                             | `X-API-Key`                          |
-| `ARQEN_LOG_LEVEL`              | Log level                                                          | `info`                               |
-| `ARQEN_LOG_FORMAT`             | Log format (`pretty`, `json`, `compact`)                           | `pretty`                             |
-| `ARQEN_WORKER_ENABLED`         | Enable workers                                                     | implementation default               |
-| `ARQEN_WORKER_QUEUES`          | Comma-separated worker queues                                      | implementation default               |
-| `ARQEN_WORKER_POLL_INTERVAL`   | Worker polling interval                                            | implementation default               |
-| `ARQEN_WORKER_LEASE_SECONDS`   | Job lease duration                                                 | implementation default               |
-| `ARQEN_WORKER_MAX_RETRIES`     | Maximum job retries                                                | implementation default               |
-| `ARQEN_WORKER_CONCURRENCY`     | Worker concurrency                                                 | implementation default               |
-| `ARQEN_HEALTH_CHECK_TIMEOUT`   | Dependency health-check timeout                                    | implementation default               |
-| `ARQEN_HEALTH_STARTUP_DELAY`   | Startup delay before health checks                                 | implementation default               |
-| `ARQEN_REQUEST_TIMEOUT`        | HTTP request timeout                                               | `30s`                                |
-| `ARQEN_MAX_BODY_SIZE`          | Maximum request body size                                          | `1048576`                            |
-| `ARQEN_SHUTDOWN_TIMEOUT`       | Graceful shutdown timeout                                          | `10s`                                |
+| Variable                          | Description                                                        | Default                              |
+| --------------------------------- | ------------------------------------------------------------------ | ------------------------------------ |
+| `ARQEN_HOST`                      | Bind address for the HTTP server                                   | `127.0.0.1`                          |
+| `ARQEN_PORT`                      | Port for the HTTP server                                           | `8888`                               |
+| `ARQEN_STORAGE_MODE`              | Storage mode: `memory`, `native`, `persistent`, `http`, or `cloud` | `memory`                             |
+| `ARQEN_PERSISTENT_PATH`           | Native durable thingd storage path                                 | unset; required for `persistent`     |
+| `ARQEN_THINGD_URL`                | thingd HTTP service URL                                            | unset; required for `http`           |
+| `ARQEN_THINGD_MAX_CONCURRENCY`    | Maximum active HTTP Thingd requests                                | `16`                                 |
+| `ARQEN_THINGD_REQUEST_TIMEOUT`    | HTTP Thingd request timeout in seconds                             | `30`                                 |
+| `ARQEN_THINGD_MAX_RETRIES`        | Maximum retries for safe/transient Thingd requests                 | `2`                                  |
+| `ARQEN_CLOUD_URL`                 | Future public thingd.cloud endpoint                                | unset; cloud mode is not implemented |
+| `ARQEN_THINGD_AUTH_TOKEN`         | Server-side thingd/cloud bearer token                              | unset; never log or commit           |
+| `ARQEN_THINGD_ENCRYPTION_KEY`     | 64-hex-character native Thingd encryption key                      | unset; server-side only              |
+| `ARQEN_THINGD_SCHEMA_PATH`        | Versioned `.thingd` schema path                                    | unset                                |
+| `ARQEN_SYNC_ENABLED`              | Enable opt-in Thingd source-to-replica sync                        | `false`                              |
+| `ARQEN_SYNC_MODE`                 | Sync capability: `disabled`, `http`, or `native`                   | `disabled`                           |
+| `ARQEN_SYNC_SOURCE_ID`            | Stable source instance identifier                                  | unset                                |
+| `ARQEN_SYNC_TARGET_URL`           | Thingd replication target URL                                      | unset; required when enabled         |
+| `ARQEN_SYNC_TARGET_AUTH_TOKEN`    | Target bearer credential                                           | unset; required by target policy     |
+| `ARQEN_SYNC_COLLECTIONS`          | Comma-separated replication allowlist                              | empty                                |
+| `ARQEN_SYNC_REPLICATE_ALL`        | Explicitly replicate all supported application collections         | `false`                              |
+| `ARQEN_SYNC_POLL_INTERVAL`        | Sync polling interval in seconds                                   | `5`                                  |
+| `ARQEN_SYNC_BATCH_SIZE`           | Maximum changes per replication page                               | `500`                                |
+| `ARQEN_SYNC_SNAPSHOT_FALLBACK`    | Bootstrap stale replicas from a snapshot                           | `true`                               |
+| `ARQEN_JWT_SECRET`                | JWT secret, kept redacted in configuration output                  | unset                                |
+| `ARQEN_API_KEY_HEADER`            | API-key request header                                             | `X-API-Key`                          |
+| `ARQEN_LOG_LEVEL`                 | Log level                                                          | `info`                               |
+| `ARQEN_LOG_FORMAT`                | Log format (`pretty`, `json`, `compact`)                           | `pretty`                             |
+| `ARQEN_SERVICE_NAME`              | Stable service name included in structured request logs            | package name                         |
+| `ARQEN_WORKER_ENABLED`            | Enable workers                                                     | implementation default               |
+| `ARQEN_WORKER_QUEUES`             | Comma-separated worker queues                                      | implementation default               |
+| `ARQEN_WORKER_POLL_INTERVAL`      | Worker polling interval                                            | implementation default               |
+| `ARQEN_WORKER_LEASE_SECONDS`      | Job lease duration                                                 | implementation default               |
+| `ARQEN_WORKER_MAX_RETRIES`        | Maximum job retries                                                | implementation default               |
+| `ARQEN_WORKER_CONCURRENCY`        | Worker concurrency                                                 | implementation default               |
+| `ARQEN_HEALTH_CHECK_TIMEOUT`      | Dependency health-check timeout                                    | implementation default               |
+| `ARQEN_HEALTH_STARTUP_DELAY`      | Startup delay before health checks                                 | implementation default               |
+| `ARQEN_REQUEST_TIMEOUT`           | HTTP request timeout                                               | `30s`                                |
+| `ARQEN_REQUEST_LOG_SAMPLE_RATE`   | Successful request log sample rate                                 | `0.01`                               |
+| `ARQEN_SLOW_REQUEST_THRESHOLD_MS` | Always-log request duration threshold                              | `250`                                |
+| `ARQEN_COMPRESSION_THRESHOLD`     | Minimum response size for gzip/Brotli compression (bytes)          | `1024`                               |
+| `ARQEN_MAX_BODY_SIZE`             | Maximum request body size                                          | `1048576`                            |
+| `ARQEN_SHUTDOWN_TIMEOUT`          | Graceful shutdown timeout                                          | `10s`                                |
 
 `ARQEN_CONFIG_FILE` is also recognized by `arqen check` and selects the file
 used for configuration validation. It is a CLI diagnostic variable rather
 than a runtime configuration field.
+
+`RUST_LOG` overrides `ARQEN_LOG_LEVEL` when present. Local development should
+normally use pretty logs. Production should use JSON logs and a conservative
+filter such as `service=info,arqen=info,tantivy=warn`; change the environment
+and restart the service to apply a new filter.
 
 ## Configuration file
 

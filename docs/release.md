@@ -12,6 +12,7 @@ cargo fmt --all -- --check
 cargo check -p arqen --all-features
 cargo test -p arqen --all-features
 cargo clippy -p arqen --all-targets --all-features -- -D warnings
+cargo bench --bench framework -- --noplot
 cargo doc -p arqen --all-features --no-deps
 cargo package -p arqen --allow-dirty
 cd docs && pnpm install --frozen-lockfile && pnpm build

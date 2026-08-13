@@ -98,6 +98,12 @@ pub struct ServerConfig {
     pub max_body_size: usize,
     #[serde(default = "default_shutdown_timeout")]
     pub shutdown_timeout: Duration,
+    #[serde(default = "default_request_log_sample_rate")]
+    pub request_log_sample_rate: f64,
+    #[serde(default = "default_slow_request_threshold")]
+    pub slow_request_threshold: Duration,
+    #[serde(default = "default_compression_threshold")]
+    pub compression_threshold: usize,
 }
 
 fn default_host() -> String {
@@ -115,6 +121,15 @@ fn default_max_body_size() -> usize {
 fn default_shutdown_timeout() -> Duration {
     Duration::from_secs(10)
 }
+fn default_request_log_sample_rate() -> f64 {
+    0.01
+}
+fn default_slow_request_threshold() -> Duration {
+    Duration::from_millis(250)
+}
+fn default_compression_threshold() -> usize {
+    1024
+}
 
 impl Default for ServerConfig {
     fn default() -> Self {
@@ -124,6 +139,9 @@ impl Default for ServerConfig {
             request_timeout: default_request_timeout(),
             max_body_size: default_max_body_size(),
             shutdown_timeout: default_shutdown_timeout(),
+            request_log_sample_rate: default_request_log_sample_rate(),
+            slow_request_threshold: default_slow_request_threshold(),
+            compression_threshold: default_compression_threshold(),
         }
     }
 }
@@ -664,6 +682,32 @@ impl AppConfig {
                     expected: "a valid u64 (seconds)".to_string(),
                 })?);
         }
+        if let Ok(rate) = std::env::var("ARQEN_REQUEST_LOG_SAMPLE_RATE") {
+            self.server.request_log_sample_rate =
+                rate.parse().map_err(|_| ConfigError::InvalidValue {
+                    field: "request_log_sample_rate".to_string(),
+                    value: rate,
+                    expected: "a number between 0 and 1".to_string(),
+                })?;
+        }
+        if let Ok(threshold) = std::env::var("ARQEN_SLOW_REQUEST_THRESHOLD_MS") {
+            self.server.slow_request_threshold =
+                Duration::from_millis(threshold.parse().map_err(|_| {
+                    ConfigError::InvalidValue {
+                        field: "slow_request_threshold_ms".to_string(),
+                        value: threshold,
+                        expected: "a valid u64 (milliseconds)".to_string(),
+                    }
+                })?);
+        }
+        if let Ok(threshold) = std::env::var("ARQEN_COMPRESSION_THRESHOLD") {
+            self.server.compression_threshold =
+                threshold.parse().map_err(|_| ConfigError::InvalidValue {
+                    field: "compression_threshold".to_string(),
+                    value: threshold,
+                    expected: "a valid usize (bytes)".to_string(),
+                })?;
+        }
         Ok(self)
     }
 
@@ -737,6 +781,22 @@ impl AppConfig {
                 field: "port".to_string(),
                 value: "0".to_string(),
                 expected: "a non-zero port number".to_string(),
+            });
+        }
+        if !self.server.request_log_sample_rate.is_finite()
+            || !(0.0..=1.0).contains(&self.server.request_log_sample_rate)
+        {
+            return Err(ConfigError::InvalidValue {
+                field: "request_log_sample_rate".to_string(),
+                value: self.server.request_log_sample_rate.to_string(),
+                expected: "between 0 and 1".to_string(),
+            });
+        }
+        if self.server.compression_threshold == 0 {
+            return Err(ConfigError::InvalidValue {
+                field: "compression_threshold".to_string(),
+                value: "0".to_string(),
+                expected: "a positive byte threshold".to_string(),
             });
         }
         if self.storage.mode == StorageMode::Persistent && self.storage.persistent_path.is_none() {

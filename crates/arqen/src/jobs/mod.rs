@@ -66,7 +66,7 @@ impl JobMetrics {
 pub struct JobWorker {
     config: JobConfig,
     thingd: Arc<dyn crate::thingd::ThingdBackend>,
-    handler: Box<dyn JobHandler>,
+    handler: Arc<dyn JobHandler>,
     shutdown_rx: watch::Receiver<bool>,
     metrics: JobMetrics,
 }
@@ -86,6 +86,15 @@ impl JobWorker {
         config: JobConfig,
         thingd: Arc<dyn crate::thingd::ThingdBackend>,
         handler: Box<dyn JobHandler>,
+        shutdown_rx: watch::Receiver<bool>,
+    ) -> Self {
+        Self::new_shared(config, thingd, Arc::from(handler), shutdown_rx)
+    }
+
+    pub(crate) fn new_shared(
+        config: JobConfig,
+        thingd: Arc<dyn crate::thingd::ThingdBackend>,
+        handler: Arc<dyn JobHandler>,
         shutdown_rx: watch::Receiver<bool>,
     ) -> Self {
         Self {

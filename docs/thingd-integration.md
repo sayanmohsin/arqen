@@ -84,6 +84,11 @@ provenance, tombstones, conflict quarantine, and replication semantics. Sync is
 opt-in and must be configured with explicit source/target credentials; Arqen
 never transmits encryption keys or provider credentials.
 
+`HttpThingdBackend` reuses pooled connections, applies explicit connect and
+request timeouts, retries only safe read/transient failures, and bounds active
+requests with `HttpClientPolicy::max_concurrency` (default `16`). Batch writes
+group puts and deletes by collection to avoid one remote request per object.
+
 ### Supported deployment modes
 
 ```text
