@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.11.1](https://github.com/sayanmohsin/arqen/compare/arqen-v0.11.0...arqen-v0.11.1) (2026-08-13)
+
+
+### Bug Fixes
+
+* gate native replication helper ([726b168](https://github.com/sayanmohsin/arqen/commit/726b16876794e9d5c2e2d939d607c9e2f82961fb))
+
 ## [0.11.0](https://github.com/sayanmohsin/arqen/compare/arqen-v0.10.0...arqen-v0.11.0) (2026-08-13)
 
 
