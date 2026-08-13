@@ -15,7 +15,7 @@ const meta = __ARQEN_DOCS_META__;
       <span>Current release</span><strong>Arqen {{ meta.arqenVersion }}</strong>
     </div>
     <div>
-      <span>Thingd boundary</span><strong>Thingd {{ meta.thingdVersion }}</strong>
+      <span>Thingd integration</span><strong>Thingd {{ meta.thingdVersion }}</strong>
     </div>
     <div>
       <span>Released</span><strong>{{ meta.releaseDate }}</strong>

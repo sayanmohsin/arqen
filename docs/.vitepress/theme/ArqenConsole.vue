@@ -7,14 +7,14 @@ const layers = [
 </script>
 
 <template>
-  <section class="arqen-console" aria-label="Arqen application boundary">
+  <section class="arqen-console" aria-label="Arqen application surface">
     <div class="arqen-console__topline">
-      <span class="eyebrow">ARQEN / APPLICATION BOUNDARY</span>
+      <span class="eyebrow">ARQEN / APPLICATION SURFACE</span>
       <span class="pulse"><i /> LIVE CONTRACT</span>
     </div>
     <div class="arqen-console__body">
       <div class="arqen-console__copy">
-        <p class="arqen-console__kicker">one boundary, many operators</p>
+        <p class="arqen-console__kicker">one service, many workflows</p>
         <h2>Make your backend legible.</h2>
         <p>
           Arqen gives people, programs, and agents the same dependable surface: discoverable
@@ -33,7 +33,7 @@ const layers = [
           <span class="arqen-console__arrow">↗</span>
         </div>
         <div class="arqen-console__base">
-          <span /> thingd adapter boundary <em>memory · native · HTTP</em>
+          <span /> thingd adapter <em>memory · native · HTTP</em>
         </div>
       </div>
     </div>

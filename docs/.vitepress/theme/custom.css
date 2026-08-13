@@ -145,13 +145,25 @@
 }
 .arqen-console__body {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
   gap: 3rem;
   padding: 2.5rem;
 }
 .arqen-console__copy {
+  position: relative;
+  isolation: isolate;
   align-self: center;
   max-width: 30rem;
+  padding: 1rem 1.5rem 1rem 0;
+}
+.arqen-console__copy::before {
+  position: absolute;
+  z-index: -1;
+  inset: -1.5rem -3rem -1.5rem -2rem;
+  border-radius: 2rem;
+  background: radial-gradient(circle at 30% 45%, rgba(124, 58, 237, 0.24), transparent 68%);
+  content: "";
+  pointer-events: none;
 }
 .arqen-console__kicker {
   color: var(--arqen-cyan);
@@ -167,7 +179,9 @@
   margin: 0.85rem 0;
   color: #f5f3ff;
   font-size: clamp(2rem, 4vw, 3.3rem);
+  line-height: 1.02;
   letter-spacing: -0.06em;
+  text-wrap: balance;
 }
 .arqen-console__copy > p:not(.arqen-console__kicker) {
   color: rgba(237, 233, 254, 0.72);
@@ -196,7 +210,7 @@
 }
 .arqen-console__layer {
   display: grid;
-  grid-template-columns: 2.3rem 1fr auto 1.4rem;
+  grid-template-columns: 2.3rem minmax(0, 1fr) auto 1.4rem;
   align-items: center;
   gap: 0.75rem;
   padding: 0.85rem 1rem;
@@ -315,6 +329,9 @@
     gap: 1.5rem;
     padding: 1.4rem;
   }
+  .arqen-console__copy {
+    padding: 0;
+  }
   .arqen-console__layer {
     grid-template-columns: 2rem 1fr 1.2rem;
   }
@@ -336,6 +353,13 @@
   .mermaid-diagram svg {
     min-width: 620px;
     padding: 0.75rem;
+  }
+}
+
+@media (min-width: 641px) and (max-width: 900px) {
+  .arqen-console__body {
+    grid-template-columns: 1fr;
+    gap: 2rem;
   }
 }
 
