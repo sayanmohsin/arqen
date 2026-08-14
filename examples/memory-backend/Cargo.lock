@@ -124,7 +124,7 @@ dependencies = [
 
 [[package]]
 name = "arqen"
-version = "0.11.3"
+version = "0.11.4"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -702,7 +702,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "39cab71617ae0d63f51a36d69f866391735b51691dbda63cf6f96d042b63efeb"
 dependencies = [
  "libc",
- "windows-sys 0.61.2",
+ "windows-sys 0.52.0",
 ]
 
 [[package]]
@@ -1605,7 +1605,7 @@ dependencies = [
  "errno",
  "libc",
  "linux-raw-sys",
- "windows-sys 0.61.2",
+ "windows-sys 0.52.0",
 ]
 
 [[package]]
@@ -1987,14 +1987,14 @@ dependencies = [
  "getrandom 0.4.3",
  "once_cell",
  "rustix",
- "windows-sys 0.61.2",
+ "windows-sys 0.52.0",
 ]
 
 [[package]]
 name = "thingd"
-version = "0.83.0"
+version = "0.83.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4323d08300ebe481279debd8520022a9a4f484a16bd276de5a83385cf378a251"
+checksum = "3b38bfb6e1671760f0feb670f4577bfaf83ea95c0e890b48fc63fbbed8058539"
 dependencies = [
  "chacha20poly1305",
  "chrono",

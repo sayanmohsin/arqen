@@ -3,9 +3,10 @@ use reqwest::Client;
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 use std::sync::Arc;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 use tokio::sync::Semaphore;
 use tokio::time::sleep;
+use uuid::Uuid;
 
 use crate::core::{AppError, ErrorKind};
 
@@ -30,6 +31,8 @@ pub struct HttpClientPolicy {
     pub request_timeout: Duration,
     pub max_retries: u32,
     pub initial_backoff: Duration,
+    /// Maximum wall-clock time spent retrying one HTTP operation.
+    pub max_retry_duration: Duration,
     pub max_query_scan_objects: usize,
 }
 
@@ -40,6 +43,7 @@ impl Default for HttpClientPolicy {
             request_timeout: Duration::from_secs(30),
             max_retries: 2,
             initial_backoff: Duration::from_millis(50),
+            max_retry_duration: Duration::from_secs(30),
             max_query_scan_objects: 100_000,
         }
     }
@@ -118,85 +122,43 @@ impl HttpThingdBackend {
         )
     }
 
-    async fn finish<R: for<'de> Deserialize<'de>>(
-        &self,
-        request: reqwest::RequestBuilder,
-    ) -> Result<R, AppError> {
-        let _permit =
-            self.concurrency.acquire().await.map_err(|_| {
-                AppError::new(ErrorKind::Unavailable, "thingd client is shutting down")
-            })?;
-        let response = self.authenticated(request).send().await.map_err(|error| {
-            let kind = if error.is_timeout() {
-                ErrorKind::Timeout
-            } else {
-                ErrorKind::Unavailable
-            };
-            AppError::new(kind, format!("HTTP request failed: {error}"))
-        })?;
-        if !response.status().is_success() {
-            return Err(Self::response_error(response).await);
-        }
+    fn retry_after(response: &reqwest::Response) -> Option<Duration> {
         response
-            .json::<Envelope<R>>()
-            .await
-            .map(|envelope| envelope.data)
-            .map_err(|error| {
-                AppError::new(
-                    ErrorKind::Dependency,
-                    format!("failed to parse thingd response: {error}"),
-                )
-            })
+            .headers()
+            .get(reqwest::header::RETRY_AFTER)
+            .and_then(|value| value.to_str().ok())
+            .and_then(|value| value.trim().parse::<u64>().ok())
+            .map(Duration::from_secs)
     }
 
-    async fn get<R: for<'de> Deserialize<'de>>(
-        &self,
-        path: &str,
-    ) -> Result<R, crate::core::AppError> {
+    fn retryable_status(status: reqwest::StatusCode) -> bool {
+        status.is_server_error() || status == reqwest::StatusCode::TOO_MANY_REQUESTS
+    }
+
+    async fn finish_with<R, F>(&self, mut build: F) -> Result<R, AppError>
+    where
+        R: for<'de> Deserialize<'de>,
+        F: FnMut() -> reqwest::RequestBuilder,
+    {
         let _permit =
             self.concurrency.acquire().await.map_err(|_| {
                 AppError::new(ErrorKind::Unavailable, "thingd client is shutting down")
             })?;
-        let url = format!("{}{}", self.base_url, path);
+        let deadline = Instant::now() + self.policy.max_retry_duration;
         for attempt in 0..=self.policy.max_retries {
-            let request = self.authenticated(self.client.get(&url));
-            match request.send().await {
-                Ok(response) if response.status().is_success() => {
-                    return response
-                        .json::<Envelope<R>>()
-                        .await
-                        .map(|envelope| envelope.data)
-                        .map_err(|error| {
-                            AppError::new(
-                                ErrorKind::Dependency,
-                                format!("failed to parse thingd response: {error}"),
-                            )
-                        });
-                }
-                Ok(response)
-                    if (response.status().is_server_error()
-                        || response.status().as_u16() == 429)
-                        && attempt < self.policy.max_retries =>
-                {
-                    let _ = response.bytes().await;
-                    sleep(
-                        self.policy
-                            .initial_backoff
-                            .saturating_mul(2u32.saturating_pow(attempt)),
-                    )
-                    .await;
-                }
-                Ok(response) => return Err(Self::response_error(response).await),
+            let response = match self.authenticated(build()).send().await {
+                Ok(response) => response,
                 Err(error)
                     if (error.is_timeout() || error.is_connect())
-                        && attempt < self.policy.max_retries =>
+                        && attempt < self.policy.max_retries
+                        && Instant::now() < deadline =>
                 {
-                    sleep(
-                        self.policy
-                            .initial_backoff
-                            .saturating_mul(2u32.saturating_pow(attempt)),
-                    )
-                    .await;
+                    let delay = self
+                        .policy
+                        .initial_backoff
+                        .saturating_mul(2u32.saturating_pow(attempt));
+                    sleep(delay.min(deadline.saturating_duration_since(Instant::now()))).await;
+                    continue;
                 }
                 Err(error) => {
                     let kind = if error.is_timeout() {
@@ -206,12 +168,50 @@ impl HttpThingdBackend {
                     };
                     return Err(AppError::new(kind, format!("HTTP request failed: {error}")));
                 }
+            };
+            if response.status().is_success() {
+                return response
+                    .json::<Envelope<R>>()
+                    .await
+                    .map(|envelope| envelope.data)
+                    .map_err(|error| {
+                        AppError::new(
+                            ErrorKind::Dependency,
+                            format!("failed to parse thingd response: {error}"),
+                        )
+                    });
             }
+            if Self::retryable_status(response.status())
+                && attempt < self.policy.max_retries
+                && Instant::now() < deadline
+            {
+                let delay = Self::retry_after(&response).unwrap_or_else(|| {
+                    self.policy
+                        .initial_backoff
+                        .saturating_mul(2u32.saturating_pow(attempt))
+                });
+                let _ = response.bytes().await;
+                let remaining = deadline.saturating_duration_since(Instant::now());
+                if remaining.is_zero() {
+                    break;
+                }
+                sleep(delay.min(remaining)).await;
+                continue;
+            }
+            return Err(Self::response_error(response).await);
         }
         Err(AppError::new(
             ErrorKind::Unavailable,
             "HTTP retry policy exhausted",
         ))
+    }
+
+    async fn get<R: for<'de> Deserialize<'de>>(
+        &self,
+        path: &str,
+    ) -> Result<R, crate::core::AppError> {
+        let url = format!("{}{}", self.base_url, path);
+        self.finish_with(|| self.client.get(&url)).await
     }
 
     fn is_not_found(err: &crate::core::AppError) -> bool {
@@ -224,7 +224,16 @@ impl HttpThingdBackend {
         body: T,
     ) -> Result<R, crate::core::AppError> {
         let url = format!("{}{}", self.base_url, path);
-        self.finish(self.client.post(&url).json(&body)).await
+        let body = serde_json::to_value(body)
+            .map_err(|error| AppError::new(ErrorKind::Validation, error.to_string()))?;
+        let key = Uuid::new_v4().to_string();
+        self.finish_with(|| {
+            self.client
+                .post(&url)
+                .header("Idempotency-Key", &key)
+                .json(&body)
+        })
+        .await
     }
 
     async fn put<T: Serialize, R: for<'de> Deserialize<'de>>(
@@ -233,7 +242,16 @@ impl HttpThingdBackend {
         body: T,
     ) -> Result<R, crate::core::AppError> {
         let url = format!("{}{}", self.base_url, path);
-        self.finish(self.client.put(&url).json(&body)).await
+        let body = serde_json::to_value(body)
+            .map_err(|error| AppError::new(ErrorKind::Validation, error.to_string()))?;
+        let key = Uuid::new_v4().to_string();
+        self.finish_with(|| {
+            self.client
+                .put(&url)
+                .header("Idempotency-Key", &key)
+                .json(&body)
+        })
+        .await
     }
 
     async fn delete<R: for<'de> Deserialize<'de>>(
@@ -241,7 +259,7 @@ impl HttpThingdBackend {
         path: &str,
     ) -> Result<R, crate::core::AppError> {
         let url = format!("{}{}", self.base_url, path);
-        self.finish(self.client.delete(&url)).await
+        self.finish_with(|| self.client.delete(&url)).await
     }
 
     async fn delete_with_body<R: for<'de> Deserialize<'de>, T: Serialize>(
@@ -250,14 +268,28 @@ impl HttpThingdBackend {
         body: T,
     ) -> Result<R, crate::core::AppError> {
         let url = format!("{}{}", self.base_url, path);
-        self.finish(self.client.delete(&url).json(&body)).await
+        let body = serde_json::to_value(body)
+            .map_err(|error| AppError::new(ErrorKind::Validation, error.to_string()))?;
+        let key = Uuid::new_v4().to_string();
+        self.finish_with(|| {
+            self.client
+                .delete(&url)
+                .header("Idempotency-Key", &key)
+                .json(&body)
+        })
+        .await
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use axum::{Json, Router, extract::Query, routing::get};
+    use axum::{
+        Json, Router,
+        extract::Query,
+        http::{HeaderMap, HeaderValue, StatusCode},
+        routing::{any, get},
+    };
     use serde_json::json;
     use std::collections::HashMap;
     use std::sync::{Arc, Mutex};
@@ -370,6 +402,77 @@ mod tests {
 
         assert_eq!(results.len(), 1_200);
         assert_eq!(&*requested_limits.lock().unwrap(), &[500, 500, 500]);
+        server.abort();
+    }
+
+    #[tokio::test]
+    async fn retries_503_mutation_with_retry_after_and_stable_idempotency_key() {
+        let attempts = Arc::new(std::sync::atomic::AtomicUsize::new(0));
+        let keys = Arc::new(Mutex::new(Vec::new()));
+        let attempts_for_route = Arc::clone(&attempts);
+        let keys_for_route = Arc::clone(&keys);
+        let app = Router::new().route(
+            "/v1/objects/titles/title-1",
+            any(move |headers: HeaderMap| {
+                let attempts = Arc::clone(&attempts_for_route);
+                let keys = Arc::clone(&keys_for_route);
+                async move {
+                    keys.lock().unwrap().push(
+                        headers
+                            .get("Idempotency-Key")
+                            .and_then(|value| value.to_str().ok())
+                            .unwrap_or_default()
+                            .to_string(),
+                    );
+                    if attempts.fetch_add(1, std::sync::atomic::Ordering::Relaxed) == 0 {
+                        let mut response_headers = HeaderMap::new();
+                        response_headers.insert("Retry-After", HeaderValue::from_static("0"));
+                        (
+                            StatusCode::SERVICE_UNAVAILABLE,
+                            response_headers,
+                            Json(json!({ "error": { "message": "indexing" } })),
+                        )
+                    } else {
+                        (
+                            StatusCode::OK,
+                            HeaderMap::new(),
+                            Json(json!({
+                                "data": {
+                                    "id": "title-1",
+                                    "collection": "titles",
+                                    "createdAt": "2026-01-01T00:00:00Z",
+                                    "updatedAt": "2026-01-01T00:00:00Z"
+                                }
+                            })),
+                        )
+                    }
+                }
+            }),
+        );
+        let listener = TcpListener::bind((std::net::Ipv4Addr::LOCALHOST, 0))
+            .await
+            .unwrap();
+        let address = listener.local_addr().unwrap();
+        let server = tokio::spawn(async move {
+            axum::serve(listener, app).await.unwrap();
+        });
+        let policy = HttpClientPolicy {
+            initial_backoff: Duration::ZERO,
+            max_retry_duration: Duration::from_secs(1),
+            ..Default::default()
+        };
+        let backend = HttpThingdBackend::with_policy(&format!("http://{address}"), policy);
+
+        backend
+            .put_object("titles", "title-1", json!({ "name": "Example" }))
+            .await
+            .unwrap();
+
+        assert_eq!(attempts.load(std::sync::atomic::Ordering::Relaxed), 2);
+        let keys = keys.lock().unwrap();
+        assert_eq!(keys.len(), 2);
+        assert!(!keys[0].is_empty());
+        assert_eq!(keys[0], keys[1]);
         server.abort();
     }
 }

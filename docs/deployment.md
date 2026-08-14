@@ -25,7 +25,7 @@ and Linux OOM kills commonly appear only as exit code 137. For e2-micro and
 other small VMs, use HTTP mode and run thingd separately. See the thingd memory
 and native-store compatibility documentation for the store-specific
 requirements. Existing Fjall directories must be migrated with
-`thingd-migrate` before they can be opened by Thingd 0.83.0.
+`thingd-migrate` before they can be opened by Thingd 0.83.1.
 
 Use the `native` storage mode for local durable storage without a
 separate thingd service.
@@ -57,6 +57,19 @@ http_url = "http://thingd:8080"
 ```bash
 ARQEN_STORAGE_MODE=http ARQEN_THINGD_URL=http://thingd:8080 arqen start
 ```
+
+Configure the Thingd HTTP service for asynchronous search indexing:
+
+```env
+THINGD_SEARCH_MODE=persistent-async
+THINGD_SEARCH_COMMIT_INTERVAL_MS=250
+THINGD_SEARCH_COMMIT_BATCH_SIZE=32
+THINGD_SEARCH_QUEUE_MAX_KEYS=10000
+```
+
+Writes are durable before asynchronous search indexing catches up. Keep
+`/ready` in the deployment probe and treat Thingd `503 Retry-After: 1` as
+transient during recovery; Arqen retries bounded mutation and bootstrap work.
 
 For a native deployment, stop Arqen before making a backup so the lock and all
 store files are consistent:

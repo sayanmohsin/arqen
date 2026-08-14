@@ -1,9 +1,9 @@
 # thingd integration
 
 <CurrentVersion kind="thingd" /> is the currently resolved Arqen dependency, pinned to released
-Thingd version `0.83.0`. It supplies objects, events,
+Thingd version `0.83.1`. It supplies objects, events,
 search, links, durable queues, encryption-aware persistence, and a public
-replication contract. Thingd `0.83.0` replaced the legacy Fjall backend with
+replication contract. Thingd `0.83.1` replaced the legacy Fjall backend with
 embedded RocksDB for production durable storage; the public REST/MCP/native
 contracts are unchanged, but existing Fjall directories must be migrated
 explicitly with `thingd-migrate` before they can be opened.
@@ -78,24 +78,34 @@ bounded by `HttpClientPolicy::max_query_scan_objects`, and an exceeded bound
 returns an explicit error. Revisit this fallback only when the deployed
 Thingd server contract provides a tested range-filter representation.
 
-### Thingd 0.83 persistent search
+### Thingd 0.83.1 persistent asynchronous search
 
-Thingd 0.83 provides `PersistentSearchMode` options for synchronous rebuilds,
-asynchronous rebuilds, no-rebuild operation, and disabled search. Arqen’s
-native adapter deliberately keeps Thingd’s default persistent mode because
-Arqen does not own a background search-maintenance loop. Applications running
-the standalone Thingd server can configure its search mode there and should
-use Thingd’s `/ready` response when deciding whether search is fully rebuilt.
-Do not pass `PersistentAsync` through Arqen unless the application also owns
-the required maintenance and readiness lifecycle.
+Thingd 0.83.1 provides coalesced asynchronous Tantivy indexing while RocksDB
+remains the durable source of truth. For an HTTP Thingd deployment, configure
+the Thingd service (not Arqen) with:
 
-Thingd 0.83 also adds bounded large-journal recovery for low-memory hosts:
+```env
+THINGD_SEARCH_MODE=persistent-async
+THINGD_SEARCH_COMMIT_INTERVAL_MS=250
+THINGD_SEARCH_COMMIT_BATCH_SIZE=32
+THINGD_SEARCH_QUEUE_MAX_KEYS=10000
+```
+
+Search is eventually consistent after a successful write. Applications should
+retry search-after-write reads with bounded backoff or use the primary object
+read until the indexed result appears. Arqen does not run a separate Tantivy
+maintenance loop.
+
+Thingd 0.83.1 also adds bounded large-journal recovery for low-memory hosts:
 recovery runs in two phases (primary RocksDB recovery/compaction, then Tantivy
 search rebuild in bounded batches). During recovery `/ready` and mutation
 endpoints return `503 Retry-After: 1`, reads remain available, and compatible
 search indexes are reused without a rebuild on normal restarts. Arqen's HTTP
-client retries safe reads and treats retryable dependency failures with bounded
-backoff; write retries remain the caller's responsibility.
+client retries bounded mutations and reads with `ARQEN_THINGD_MAX_RETRIES` and
+`ARQEN_THINGD_MAX_RETRY_DURATION`. A `503` with `Retry-After: 1` is retried
+for object, batch, event, and queue mutations, catalog bootstrap, and
+synchronization. Mutation requests carry a stable per-operation idempotency
+key across attempts.
 
 ## <CurrentVersion kind="thingd" /> encryption, schemas, sync, and migration
 
@@ -147,9 +157,9 @@ Native storage means one embedded Thingd engine and one durable data directory
 inside the Arqen application process. It does not mean that Arqen starts a
 second Thingd server against the same directory.
 
-### Migrating from Fjall to RocksDB (Thingd 0.83.0)
+### Migrating from Fjall to RocksDB (Thingd 0.83.1)
 
-Thingd 0.83.0 cannot open an existing Fjall directory. Opening one fails closed
+Thingd 0.83.1 cannot open an existing Fjall directory. Opening one fails closed
 with `UnsupportedStorageFormat`. The migration is a logical copy into a new
 RocksDB directory and is performed offline, before Arqen starts against the
 new path:

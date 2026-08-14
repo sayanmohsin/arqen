@@ -109,6 +109,16 @@ impl StorageFactory {
                                 expected: "a valid u32".to_string(),
                             })?;
                     }
+                    if let Ok(value) = std::env::var("ARQEN_THINGD_MAX_RETRY_DURATION") {
+                        policy.max_retry_duration =
+                            std::time::Duration::from_secs(value.parse().map_err(|_| {
+                                ConfigError::InvalidValue {
+                                    field: "thingd.max_retry_duration".to_string(),
+                                    value,
+                                    expected: "a valid u64 (seconds)".to_string(),
+                                }
+                            })?);
+                    }
                     if let Ok(value) = std::env::var("ARQEN_THINGD_MAX_QUERY_SCAN_OBJECTS") {
                         policy.max_query_scan_objects =
                             value.parse().map_err(|_| ConfigError::InvalidValue {

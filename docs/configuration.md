@@ -14,6 +14,7 @@ Arqen applications are configured through environment variables and optional con
 | `ARQEN_THINGD_MAX_CONCURRENCY`        | Maximum active HTTP Thingd requests                                | `16`                                 |
 | `ARQEN_THINGD_REQUEST_TIMEOUT`        | HTTP Thingd request timeout in seconds                             | `30`                                 |
 | `ARQEN_THINGD_MAX_RETRIES`            | Maximum retries for safe/transient Thingd requests                 | `2`                                  |
+| `ARQEN_THINGD_MAX_RETRY_DURATION`     | Maximum total retry duration in seconds                            | `30`                                 |
 | `ARQEN_THINGD_MAX_QUERY_SCAN_OBJECTS` | Maximum objects an HTTP range query may scan                       | `100000`                             |
 | `ARQEN_CLOUD_URL`                     | Future public thingd.cloud endpoint                                | unset; cloud mode is not implemented |
 | `ARQEN_THINGD_AUTH_TOKEN`             | Server-side thingd/cloud bearer token                              | unset; never log or commit           |

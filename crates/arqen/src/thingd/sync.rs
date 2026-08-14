@@ -17,6 +17,7 @@ use std::time::Duration;
 use std::time::Instant;
 use tokio::sync::watch;
 use tokio::time::sleep;
+use uuid::Uuid;
 
 use crate::core::{AppError, ErrorKind};
 use crate::observability::{SharedMetricsSink, SyncMetric};
@@ -65,6 +66,7 @@ pub struct SyncClientPolicy {
     pub request_timeout: Duration,
     pub max_retries: u32,
     pub initial_backoff: Duration,
+    pub max_retry_duration: Duration,
 }
 
 impl Default for SyncClientPolicy {
@@ -74,6 +76,7 @@ impl Default for SyncClientPolicy {
             request_timeout: Duration::from_secs(30),
             max_retries: 2,
             initial_backoff: Duration::from_millis(100),
+            max_retry_duration: Duration::from_secs(30),
         }
     }
 }
@@ -562,12 +565,15 @@ impl ThingdSyncClient {
     ) -> Result<R, AppError> {
         let url = format!("{}{}", self.base_url, path);
         let started = Instant::now();
+        let deadline = started + self.policy.max_retry_duration;
+        let idempotency_key = Uuid::new_v4().to_string();
         let mut retries = 0;
         for attempt in 0..=self.policy.max_retries {
             let mut request = self.client.request(method.clone(), &url);
             if let Some(token) = &self.auth_token {
                 request = request.bearer_auth(token);
             }
+            request = request.header("Idempotency-Key", &idempotency_key);
             if let Some(body) = body {
                 request = request.json(body);
             }
@@ -593,19 +599,27 @@ impl ThingdSyncClient {
                     return result;
                 }
                 Ok(response)
-                    if safety.retryable()
+                    if (safety.retryable()
                         && (response.status() == StatusCode::TOO_MANY_REQUESTS
                             || response.status().is_server_error())
-                        && attempt < self.policy.max_retries =>
+                        || response.status() == StatusCode::SERVICE_UNAVAILABLE)
+                        && attempt < self.policy.max_retries
+                        && Instant::now() < deadline =>
                 {
+                    let delay = response
+                        .headers()
+                        .get(reqwest::header::RETRY_AFTER)
+                        .and_then(|value| value.to_str().ok())
+                        .and_then(|value| value.parse::<u64>().ok())
+                        .map(Duration::from_secs)
+                        .unwrap_or_else(|| {
+                            self.policy
+                                .initial_backoff
+                                .saturating_mul(2_u32.saturating_pow(attempt))
+                        });
                     let _ = response.bytes().await;
                     retries += 1;
-                    sleep(
-                        self.policy
-                            .initial_backoff
-                            .saturating_mul(2_u32.saturating_pow(attempt)),
-                    )
-                    .await;
+                    sleep(delay.min(deadline.saturating_duration_since(Instant::now()))).await;
                 }
                 Ok(response) => {
                     let error = Self::status_error(response).await;
@@ -626,15 +640,15 @@ impl ThingdSyncClient {
                 Err(error)
                     if safety.retryable()
                         && attempt < self.policy.max_retries
+                        && Instant::now() < deadline
                         && (error.is_timeout() || error.is_connect()) =>
                 {
                     retries += 1;
-                    sleep(
-                        self.policy
-                            .initial_backoff
-                            .saturating_mul(2_u32.saturating_pow(attempt)),
-                    )
-                    .await;
+                    let delay = self
+                        .policy
+                        .initial_backoff
+                        .saturating_mul(2_u32.saturating_pow(attempt));
+                    sleep(delay.min(deadline.saturating_duration_since(Instant::now()))).await;
                 }
                 Err(error) => {
                     if let Some(metrics) = &self.metrics {
