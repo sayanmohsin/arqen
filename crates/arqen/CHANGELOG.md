@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.11.3](https://github.com/sayanmohsin/arqen/compare/arqen-v0.11.2...arqen-v0.11.3) (2026-08-14)
+
+
+### Bug Fixes
+
+* track latest Thingd release ([2370feb](https://github.com/sayanmohsin/arqen/commit/2370feb5460b9ce3fa427652a712a34feff84ab0))
+
 ## [0.11.2](https://github.com/sayanmohsin/arqen/compare/arqen-v0.11.1...arqen-v0.11.2) (2026-08-14)
 
 
