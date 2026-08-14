@@ -1,7 +1,7 @@
 # thingd integration
 
 <CurrentVersion kind="thingd" /> is the currently resolved Arqen dependency, pinned to released
-Thingd version `0.81.0`. It supplies objects, events,
+Thingd version `0.82.0`. It supplies objects, events,
 search, links, durable queues, encryption-aware persistence, and a public
 replication contract.
 
@@ -75,9 +75,9 @@ bounded by `HttpClientPolicy::max_query_scan_objects`, and an exceeded bound
 returns an explicit error. Revisit this fallback only when the deployed
 Thingd server contract provides a tested range-filter representation.
 
-### Thingd 0.81 persistent search
+### Thingd 0.82 persistent search
 
-Thingd 0.81 adds `PersistentSearchMode` options for synchronous rebuilds,
+Thingd 0.82 provides `PersistentSearchMode` options for synchronous rebuilds,
 asynchronous rebuilds, no-rebuild operation, and disabled search. Arqen’s
 native adapter deliberately keeps Thingd’s default persistent mode because
 Arqen does not own a background search-maintenance loop. Applications running
