@@ -257,6 +257,55 @@ impl HttpThingdBackend {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use axum::{Json, Router, extract::Query, routing::get};
+    use serde_json::json;
+    use std::collections::HashMap;
+    use std::sync::{Arc, Mutex};
+    use tokio::net::TcpListener;
+
+    async fn mock_objects_server(
+        total: usize,
+    ) -> (String, Arc<Mutex<Vec<usize>>>, tokio::task::JoinHandle<()>) {
+        let requested_limits = Arc::new(Mutex::new(Vec::new()));
+        let request_log = Arc::clone(&requested_limits);
+        let app = Router::new().route(
+            "/v1/objects",
+            get(move |Query(query): Query<HashMap<String, String>>| {
+                let request_log = Arc::clone(&request_log);
+                async move {
+                    let limit = query
+                        .get("limit")
+                        .and_then(|value| value.parse::<usize>().ok())
+                        .unwrap_or_default();
+                    let offset = query
+                        .get("offset")
+                        .and_then(|value| value.parse::<usize>().ok())
+                        .unwrap_or_default();
+                    request_log.lock().unwrap().push(limit);
+                    let page = (offset..offset.saturating_add(limit).min(total))
+                        .map(|index| {
+                            json!({
+                                "id": format!("title-{index}"),
+                                "collection": "titles",
+                                "body": { "index": index },
+                                "createdAt": "2026-01-01T00:00:00Z",
+                                "updatedAt": "2026-01-01T00:00:00Z"
+                            })
+                        })
+                        .collect::<Vec<_>>();
+                    Json(json!({ "data": page }))
+                }
+            }),
+        );
+        let listener = TcpListener::bind((std::net::Ipv4Addr::LOCALHOST, 0))
+            .await
+            .unwrap();
+        let address = listener.local_addr().unwrap();
+        let server = tokio::spawn(async move {
+            axum::serve(listener, app).await.unwrap();
+        });
+        (format!("http://{address}"), requested_limits, server)
+    }
 
     #[test]
     fn maps_public_http_statuses_to_stable_error_kinds() {
@@ -285,6 +334,43 @@ mod tests {
         assert_eq!(policy.max_retries, 2);
         assert!(policy.connect_timeout <= policy.request_timeout);
         assert!(policy.initial_backoff > Duration::ZERO);
+    }
+
+    #[tokio::test]
+    async fn bounded_query_requests_only_the_requested_window() {
+        let (base_url, requested_limits, server) = mock_objects_server(1_200).await;
+        let backend = HttpThingdBackend::new(&base_url);
+
+        let results = backend
+            .query_objects(
+                "titles",
+                QueryOptions {
+                    limit: Some(100),
+                    offset: 40,
+                    ..Default::default()
+                },
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(results.len(), 100);
+        assert_eq!(&*requested_limits.lock().unwrap(), &[140]);
+        server.abort();
+    }
+
+    #[tokio::test]
+    async fn unbounded_query_continues_paging_until_collection_end() {
+        let (base_url, requested_limits, server) = mock_objects_server(1_200).await;
+        let backend = HttpThingdBackend::new(&base_url);
+
+        let results = backend
+            .query_objects("titles", QueryOptions::default())
+            .await
+            .unwrap();
+
+        assert_eq!(results.len(), 1_200);
+        assert_eq!(&*requested_limits.lock().unwrap(), &[500, 500, 500]);
+        server.abort();
     }
 }
 
@@ -418,13 +504,29 @@ impl ThingdBackend for HttpThingdBackend {
         options: QueryOptions,
     ) -> Result<Vec<ThingdObject>, crate::core::AppError> {
         const PAGE_SIZE: usize = 500;
+        let fetch_budget = options
+            .limit
+            .map(|limit| limit.saturating_add(options.offset));
+
+        // A zero-sized result never needs a remote scan. For bounded queries,
+        // fetch only the window needed to apply the client-side pagination.
+        if options.limit == Some(0) {
+            return Ok(Vec::new());
+        }
+
         let mut objects = Vec::new();
         let mut offset = 0usize;
         loop {
+            let request_limit = fetch_budget
+                .map(|budget| budget.saturating_sub(objects.len()).min(PAGE_SIZE))
+                .unwrap_or(PAGE_SIZE);
+            if request_limit == 0 {
+                break;
+            }
             let mut path = format!(
                 "/objects?collection={}&limit={}&offset={}",
                 encode(collection),
-                PAGE_SIZE,
+                request_limit,
                 offset
             );
             for filter in &options.filters {
@@ -453,10 +555,13 @@ impl ThingdBackend for HttpThingdBackend {
                     ),
                 ));
             }
-            if page_len < PAGE_SIZE {
+            if fetch_budget.is_some_and(|budget| objects.len() >= budget) {
                 break;
             }
-            offset += PAGE_SIZE;
+            if page_len < request_limit {
+                break;
+            }
+            offset += request_limit;
         }
         let filtered = crate::thingd::traits::filter_objects(objects, &options.filters)?;
         Ok(filtered
