@@ -2,6 +2,13 @@ FROM rust:1.96 AS builder
 
 WORKDIR /build
 
+# Thingd 0.83 uses RocksDB and Bindgen to build its native backend.
+RUN apt-get update && apt-get install -y \
+    clang \
+    libclang-dev \
+    llvm \
+    && rm -rf /var/lib/apt/lists/*
+
 # Cache dependencies by copying manifests before the full source tree.
 COPY Cargo.toml Cargo.lock ./
 COPY crates/ ./crates/

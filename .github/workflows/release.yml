@@ -94,6 +94,12 @@ jobs:
           fetch-tags: true
           ref: arqen-v${{ needs.release-please.outputs.version }}
       - uses: dtolnay/rust-toolchain@stable
+      - name: Install LLVM and Clang
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y clang libclang-dev llvm
+          echo "LLVM_CONFIG_PATH=$(command -v llvm-config)" >> "$GITHUB_ENV"
+          echo "LIBCLANG_PATH=$(dirname "$(find /usr/lib/llvm-* -name libclang.so -print -quit)")" >> "$GITHUB_ENV"
       - name: Publish crate if missing
         env:
           CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
