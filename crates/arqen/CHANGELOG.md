@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.11.2](https://github.com/sayanmohsin/arqen/compare/arqen-v0.11.1...arqen-v0.11.2) (2026-08-14)
+
+
+### Bug Fixes
+
+* upgrade Arqen Thingd dependency ([3cc3c99](https://github.com/sayanmohsin/arqen/commit/3cc3c999a08cf43c20304a9d8f87d5087ef34124))
+
 ## [0.11.1](https://github.com/sayanmohsin/arqen/compare/arqen-v0.11.0...arqen-v0.11.1) (2026-08-13)
 
 
