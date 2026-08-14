@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.11.5](https://github.com/sayanmohsin/arqen/compare/arqen-v0.11.4...arqen-v0.11.5) (2026-08-14)
+
+
+### Bug Fixes
+
+* **arqen:** publish Thingd 0.83.1 integration ([f2b36d8](https://github.com/sayanmohsin/arqen/commit/f2b36d8f8d33a8fbc73308667664c344ee605905))
+
 ## [0.11.4](https://github.com/sayanmohsin/arqen/compare/arqen-v0.11.3...arqen-v0.11.4) (2026-08-14)
 
 
