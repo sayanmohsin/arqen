@@ -106,6 +106,36 @@ impl JobHandler for SendEmailHandler {
 
 See: [`durable-jobs.md`](./durable-jobs.md)
 
+### Weekly OTT release refresh
+
+Register a schedule during application startup and register the
+`ott_release_refresh` worker separately. The scheduler only enqueues the
+durable job; the worker performs the importer work.
+
+```rust,ignore
+let scheduler = arqen::Scheduler::new(state.storage.clone());
+scheduler
+    .schedule(
+        "ott-release-refresh",
+        arqen::ScheduleOptions {
+            expression: Some("0 0 * * 0".into()),
+            queue: "imports".into(),
+            job_type: "ott_release_refresh".into(),
+            payload: serde_json::json!({
+                "countries": ["CA", "US"],
+                "release_window": "weekly",
+                "requested_horizon": 7,
+            }),
+            ..arqen::ScheduleOptions::new("ott_release_refresh")
+        },
+    )
+    .await?;
+scheduler.start().await?;
+```
+
+The worker receives `schedule_id`, `scheduled_run_at`, `run_timestamp`, and a
+deterministic `idempotency_key` alongside the application payload.
+
 ### Auth middleware
 
 ```rust

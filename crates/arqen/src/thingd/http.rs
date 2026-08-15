@@ -538,6 +538,7 @@ fn job_from_json(value: &Value) -> ThingdJob {
         lease_expires_at: value["leaseExpiresAtMs"].as_i64().map(|ms| ms.to_string()),
         created_at: created_at.clone(),
         updated_at: created_at,
+        available_at_ms: value["availableAtMs"].as_i64(),
     }
 }
 
@@ -807,6 +808,23 @@ impl ThingdBackend for HttpThingdBackend {
         payload: serde_json::Value,
         max_retries: u32,
     ) -> Result<ThingdJob, crate::core::AppError> {
+        self.push_job_with_options(queue, payload, max_retries, Default::default())
+            .await
+    }
+
+    async fn push_job_with_options(
+        &self,
+        queue: &str,
+        payload: serde_json::Value,
+        max_retries: u32,
+        options: crate::thingd::PushJobOptions,
+    ) -> Result<ThingdJob, crate::core::AppError> {
+        if options.idempotency_key.is_some() || options.delay_ms.is_some() {
+            return Err(crate::core::AppError::new(
+                crate::core::ErrorKind::NotImpl,
+                "HTTP Thingd queue contract does not support deterministic or delayed enqueue",
+            ));
+        }
         let path = format!("/queues/{}/push", encode(queue));
         let value: Value = self
             .post(

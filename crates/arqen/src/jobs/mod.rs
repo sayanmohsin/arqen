@@ -80,6 +80,54 @@ pub trait JobHandler: Send + Sync {
     async fn handle(&self, payload: serde_json::Value) -> Result<(), crate::core::AppError>;
 }
 
+pub(crate) async fn reconcile_scheduled_job(
+    thingd: &dyn crate::thingd::ThingdBackend,
+    payload: &serde_json::Value,
+    status: crate::scheduler::ScheduleStatus,
+    error: Option<String>,
+    duration_ms: u64,
+) -> Result<(), crate::core::AppError> {
+    let Some(schedule_id) = payload.get("schedule_id").and_then(|value| value.as_str()) else {
+        return Ok(());
+    };
+    let Some(object) = thingd.get_object("_arqen_schedules", schedule_id).await? else {
+        return Ok(());
+    };
+    let mut schedule: crate::scheduler::Schedule =
+        serde_json::from_value(object.data).map_err(|error| {
+            crate::core::AppError::new(crate::core::ErrorKind::Internal, error.to_string())
+        })?;
+    schedule.last_status = Some(status.clone());
+    schedule.last_duration_ms = Some(duration_ms);
+    schedule.updated_at = chrono::Utc::now().to_rfc3339();
+    match status {
+        crate::scheduler::ScheduleStatus::Completed => {
+            schedule.consecutive_fails = 0;
+            schedule.last_error = None;
+        }
+        crate::scheduler::ScheduleStatus::Failed => {
+            schedule.fail_count += 1;
+            schedule.consecutive_fails += 1;
+            schedule.last_error = error;
+            if schedule.consecutive_fails >= schedule.max_consecutive_fails {
+                schedule.enabled = false;
+                schedule.last_status = Some(crate::scheduler::ScheduleStatus::Disabled);
+            }
+        }
+        _ => {}
+    }
+    thingd
+        .put_object(
+            "_arqen_schedules",
+            schedule_id,
+            serde_json::to_value(schedule).map_err(|error| {
+                crate::core::AppError::new(crate::core::ErrorKind::Internal, error.to_string())
+            })?,
+        )
+        .await?;
+    Ok(())
+}
+
 impl JobWorker {
     /// Create a new job worker.
     pub fn new(
@@ -155,13 +203,25 @@ impl JobWorker {
                         );
                     }
 
-                    let result = self.handler.handle(job.payload).await;
+                    let payload = job.payload.clone();
+                    let result = self.handler.handle(payload.clone()).await;
                     let duration_ms = start.elapsed().as_millis() as u64;
                     self.metrics.processed += 1;
                     self.metrics.total_duration_ms += duration_ms;
 
                     match result {
                         Ok(()) => {
+                            if let Err(error) = crate::jobs::reconcile_scheduled_job(
+                                self.thingd.as_ref(),
+                                &payload,
+                                crate::scheduler::ScheduleStatus::Completed,
+                                None,
+                                duration_ms,
+                            )
+                            .await
+                            {
+                                warn!(job_id = %job.id, %error, "Failed to reconcile scheduled success");
+                            }
                             if let Err(e) =
                                 self.thingd.complete_job(&self.config.queue, &job.id).await
                             {
@@ -181,6 +241,17 @@ impl JobWorker {
                         }
                         Err(e) => {
                             self.metrics.failed += 1;
+                            if let Err(error) = crate::jobs::reconcile_scheduled_job(
+                                self.thingd.as_ref(),
+                                &payload,
+                                crate::scheduler::ScheduleStatus::Failed,
+                                Some(e.to_string()),
+                                duration_ms,
+                            )
+                            .await
+                            {
+                                warn!(job_id = %job.id, %error, "Failed to reconcile scheduled failure");
+                            }
                             error!(
                                 job_id = %job.id,
                                 error = %e,

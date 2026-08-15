@@ -124,6 +124,7 @@ fn to_job(job: &QueueJob) -> ThingdJob {
             }),
         created_at: job.created_at.clone(),
         updated_at: String::new(),
+        available_at_ms: Some(job.available_at_ms),
     }
 }
 
@@ -384,15 +385,32 @@ impl ThingdBackend for NativeThingdBackend {
         payload: Value,
         max_retries: u32,
     ) -> Result<ThingdJob, AppError> {
+        self.push_job_with_options(queue, payload, max_retries, Default::default())
+            .await
+    }
+
+    async fn push_job_with_options(
+        &self,
+        queue: &str,
+        payload: Value,
+        max_retries: u32,
+        options: crate::thingd::PushJobOptions,
+    ) -> Result<ThingdJob, AppError> {
         let queue = queue.to_string();
         self.run_blocking(move |store| {
             store.with_engine(|engine| {
                 let job = QueueJob::new(
                     &queue,
-                    Uuid::new_v4().to_string(),
+                    options
+                        .idempotency_key
+                        .unwrap_or_else(|| Uuid::new_v4().to_string()),
                     payload.to_string(),
                     max_retries,
                 );
+                let job = options
+                    .delay_ms
+                    .filter(|delay| *delay > 0)
+                    .map_or(job.clone(), |delay| job.delay_by_ms(delay));
                 let pushed = match engine {
                     crate::thingd::NativeThingdEngine::Memory(e) => e.push_job(job),
                     crate::thingd::NativeThingdEngine::Persistent(e) => e.push_job(job),

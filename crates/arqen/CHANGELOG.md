@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased
+
+- Add a durable Thingd-backed scheduler with interval, cron, one-time,
+  lifecycle, pause/resume, deterministic enqueue, and worker reconciliation
+  APIs.
+- Upgrade the Thingd dependency to `0.83.2`.
+
 ## [0.11.5](https://github.com/sayanmohsin/arqen/compare/arqen-v0.11.4...arqen-v0.11.5) (2026-08-14)
 
 

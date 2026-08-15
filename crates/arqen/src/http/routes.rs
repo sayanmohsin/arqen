@@ -16,18 +16,21 @@ pub async fn health(
     State(state): State<AppState>,
     Extension(correlation_id): Extension<CorrelationId>,
 ) -> impl IntoResponse {
+    let scheduler = scheduler_health(&state).await;
     if let Some(registry) = &state.health_registry {
         let report = registry.check_liveness().await;
         let status = StatusCode::from_u16(report.status.to_http_status()).unwrap_or(StatusCode::OK);
         let body = Json(json!({
             "status": format_health_status(&report),
             "checks": format_checks(&report),
+            "scheduler": scheduler,
             "correlation_id": correlation_id.to_string()
         }));
         (status, body)
     } else {
         let body = Json(json!({
             "status": "ok",
+            "scheduler": scheduler,
             "correlation_id": correlation_id.to_string()
         }));
         (StatusCode::OK, body)
@@ -38,6 +41,7 @@ pub async fn ready(
     State(state): State<AppState>,
     Extension(correlation_id): Extension<CorrelationId>,
 ) -> impl IntoResponse {
+    let scheduler = scheduler_health(&state).await;
     if let Some(registry) = &state.health_registry {
         let report = registry.check_readiness().await;
         let status = StatusCode::from_u16(report.status.to_http_status()).unwrap_or(StatusCode::OK);
@@ -45,6 +49,7 @@ pub async fn ready(
             "status": format_health_status(&report),
             "storage_mode": state.storage_mode,
             "checks": format_checks(&report),
+            "scheduler": scheduler,
             "correlation_id": correlation_id.to_string()
         }));
         (status, body)
@@ -58,9 +63,22 @@ pub async fn ready(
             "status": if state.thingd_ready { "ready" } else { "not_ready" },
             "storage_mode": state.storage_mode,
             "checks": { "thingd": if state.thingd_ready { "ok" } else { "unavailable" } },
+            "scheduler": scheduler,
             "correlation_id": correlation_id.to_string()
         }));
         (status, body)
+    }
+}
+
+async fn scheduler_health(state: &AppState) -> Value {
+    match state.scheduler.stats().await {
+        Ok(stats) => json!({
+            "running": state.scheduler.is_started().await,
+            "enabled": stats.enabled,
+            "disabled": stats.disabled,
+            "next_run": stats.next_run,
+        }),
+        Err(error) => json!({ "running": false, "error": error.to_string() }),
     }
 }
 

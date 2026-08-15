@@ -25,7 +25,7 @@ and Linux OOM kills commonly appear only as exit code 137. For e2-micro and
 other small VMs, use HTTP mode and run thingd separately. See the thingd memory
 and native-store compatibility documentation for the store-specific
 requirements. Existing Fjall directories must be migrated with
-`thingd-migrate` before they can be opened by Thingd 0.83.1.
+`thingd-migrate` before they can be opened by Thingd 0.83.2.
 
 Use the `native` storage mode for local durable storage without a
 separate thingd service.

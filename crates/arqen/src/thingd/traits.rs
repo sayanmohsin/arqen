@@ -56,6 +56,17 @@ pub struct ThingdJob {
     pub created_at: String,
     /// ISO 8601 last-update timestamp.
     pub updated_at: String,
+    /// Unix timestamp in milliseconds when this job becomes claimable.
+    pub available_at_ms: Option<i64>,
+}
+
+/// Options for deterministic and delayed queue insertion.
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct PushJobOptions {
+    /// Stable job ID used as the idempotency key when supported by Thingd.
+    pub idempotency_key: Option<String>,
+    /// Delay before the job becomes claimable.
+    pub delay_ms: Option<u64>,
 }
 
 /// State machine for a queue job.
@@ -343,6 +354,18 @@ pub trait ThingdBackend: Send + Sync {
         payload: serde_json::Value,
         max_retries: u32,
     ) -> Result<ThingdJob, crate::core::AppError>;
+
+    /// Push a job with deterministic identity and optional delayed visibility.
+    async fn push_job_with_options(
+        &self,
+        queue: &str,
+        payload: serde_json::Value,
+        max_retries: u32,
+        options: PushJobOptions,
+    ) -> Result<ThingdJob, crate::core::AppError> {
+        let _ = options;
+        self.push_job(queue, payload, max_retries).await
+    }
 
     /// Claim a job from a queue for processing.
     async fn claim_job(

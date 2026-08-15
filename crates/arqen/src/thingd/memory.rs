@@ -219,9 +219,22 @@ impl ThingdBackend for MemoryThingdBackend {
         payload: serde_json::Value,
         max_retries: u32,
     ) -> Result<ThingdJob, AppError> {
+        self.push_job_with_options(queue, payload, max_retries, Default::default())
+            .await
+    }
+
+    async fn push_job_with_options(
+        &self,
+        queue: &str,
+        payload: serde_json::Value,
+        max_retries: u32,
+        options: crate::thingd::PushJobOptions,
+    ) -> Result<ThingdJob, AppError> {
         let now = Utc::now().to_rfc3339();
         let job = ThingdJob {
-            id: Uuid::new_v4().to_string(),
+            id: options
+                .idempotency_key
+                .unwrap_or_else(|| Uuid::new_v4().to_string()),
             queue: queue.to_string(),
             payload,
             state: JobState::Queued,
@@ -230,9 +243,18 @@ impl ThingdBackend for MemoryThingdBackend {
             lease_expires_at: None,
             created_at: now.clone(),
             updated_at: now,
+            available_at_ms: options
+                .delay_ms
+                .map(|delay| Utc::now().timestamp_millis().saturating_add(delay as i64)),
         };
 
         let mut jobs = lock_mutex(&self.jobs, "jobs")?;
+        if let Some(existing) = jobs
+            .get(queue)
+            .and_then(|queue_jobs| queue_jobs.iter().find(|existing| existing.id == job.id))
+        {
+            return Ok(existing.clone());
+        }
         jobs.entry(queue.to_string()).or_default().push(job.clone());
 
         Ok(job)
@@ -247,10 +269,11 @@ impl ThingdBackend for MemoryThingdBackend {
         let mut jobs = lock_mutex(&self.jobs, "jobs")?;
         let queue_jobs = jobs.entry(queue.to_string()).or_default();
 
-        if let Some(job) = queue_jobs
-            .iter_mut()
-            .find(|j| j.state == JobState::Queued || j.state == JobState::Retrying)
-        {
+        if let Some(job) = queue_jobs.iter_mut().find(|j| {
+            (j.state == JobState::Queued || j.state == JobState::Retrying)
+                && j.available_at_ms
+                    .is_none_or(|available| available <= Utc::now().timestamp_millis())
+        }) {
             job.state = JobState::Leased;
             job.attempts += 1;
             job.lease_expires_at =

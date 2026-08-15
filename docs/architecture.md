@@ -55,6 +55,7 @@ crates/arqen/src/
   auth/             # Authentication adapters and policies
   thingd/           # Memory, native, HTTP, scoped, and cache adapters
   jobs/             # Durable job handlers and workers
+  scheduler.rs      # Durable Thingd-backed schedule heartbeat
   logging/          # Tracing and redaction
   config.rs         # Layered configuration
   health.rs         # Health and readiness
@@ -77,3 +78,4 @@ depend on generated implementation details.
   adapter behavior.
 - Thingd owns durable data primitives, replication semantics, tombstones, and
   conflict handling.
+- The scheduler owns timing and schedule state; workers own application work.
