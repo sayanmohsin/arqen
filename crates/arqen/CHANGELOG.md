@@ -7,6 +7,13 @@
   APIs.
 - Upgrade the Thingd dependency to `0.83.2`.
 
+## [0.12.0](https://github.com/sayanmohsin/arqen/compare/arqen-v0.11.5...arqen-v0.12.0) (2026-08-15)
+
+
+### Features
+
+* **arqen:** add durable Thingd scheduler ([#47](https://github.com/sayanmohsin/arqen/issues/47)) ([59f7a5a](https://github.com/sayanmohsin/arqen/commit/59f7a5a8622c0d422bc83502534cef3479107e12))
+
 ## [0.11.5](https://github.com/sayanmohsin/arqen/compare/arqen-v0.11.4...arqen-v0.11.5) (2026-08-14)
 
 
