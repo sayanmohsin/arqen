@@ -1,9 +1,9 @@
 # thingd integration
 
 <CurrentVersion kind="thingd" /> is the currently resolved Arqen dependency, pinned to released
-Thingd version `0.83.1`. It supplies objects, events,
+Thingd version `0.83.2`. It supplies objects, events,
 search, links, durable queues, encryption-aware persistence, and a public
-replication contract. Thingd `0.83.1` replaced the legacy Fjall backend with
+replication contract. Thingd `0.83.2` replaced the legacy Fjall backend with
 embedded RocksDB for production durable storage; the public REST/MCP/native
 contracts are unchanged, but existing Fjall directories must be migrated
 explicitly with `thingd-migrate` before they can be opened.
@@ -19,6 +19,12 @@ The adapter contract supports:
 - queue push, claim, ack, nack, and dead-letter operations;
 - full-text and vector search when enabled;
 - links for relationships.
+
+The Arqen scheduler persists its records through the object contract and hands
+off runs through the queue contract. Native Thingd `0.83.2` supports
+deterministic queue IDs and delayed availability. The current public HTTP
+queue endpoint exposes neither option, so HTTP scheduling returns an explicit
+unsupported error for those operations; it never starts an in-memory timer.
 
 Implemented and planned adapter paths:
 
@@ -78,9 +84,9 @@ bounded by `HttpClientPolicy::max_query_scan_objects`, and an exceeded bound
 returns an explicit error. Revisit this fallback only when the deployed
 Thingd server contract provides a tested range-filter representation.
 
-### Thingd 0.83.1 persistent asynchronous search
+### Thingd 0.83.2 persistent asynchronous search
 
-Thingd 0.83.1 provides coalesced asynchronous Tantivy indexing while RocksDB
+Thingd 0.83.2 provides coalesced asynchronous Tantivy indexing while RocksDB
 remains the durable source of truth. For an HTTP Thingd deployment, configure
 the Thingd service (not Arqen) with:
 
@@ -96,7 +102,7 @@ retry search-after-write reads with bounded backoff or use the primary object
 read until the indexed result appears. Arqen does not run a separate Tantivy
 maintenance loop.
 
-Thingd 0.83.1 also adds bounded large-journal recovery for low-memory hosts:
+Thingd 0.83.2 also adds bounded large-journal recovery for low-memory hosts:
 recovery runs in two phases (primary RocksDB recovery/compaction, then Tantivy
 search rebuild in bounded batches). During recovery `/ready` and mutation
 endpoints return `503 Retry-After: 1`, reads remain available, and compatible
@@ -157,9 +163,9 @@ Native storage means one embedded Thingd engine and one durable data directory
 inside the Arqen application process. It does not mean that Arqen starts a
 second Thingd server against the same directory.
 
-### Migrating from Fjall to RocksDB (Thingd 0.83.1)
+### Migrating from Fjall to RocksDB (Thingd 0.83.2)
 
-Thingd 0.83.1 cannot open an existing Fjall directory. Opening one fails closed
+Thingd 0.83.2 cannot open an existing Fjall directory. Opening one fails closed
 with `UnsupportedStorageFormat`. The migration is a logical copy into a new
 RocksDB directory and is performed offline, before Arqen starts against the
 new path:

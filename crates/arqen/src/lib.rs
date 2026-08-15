@@ -44,6 +44,7 @@ pub mod module;
 pub mod observability;
 pub mod openapi;
 pub mod prelude;
+pub mod scheduler;
 pub mod schema;
 pub mod state;
 pub mod thingd;
@@ -83,6 +84,10 @@ pub use module::{
 pub use observability::{
     CacheMetric, JobMetric, MetricsSink, NoopMetricsSink, RequestMetric, SharedMetricsSink,
     StorageMetric, SyncMetric,
+};
+pub use scheduler::{
+    Schedule, ScheduleEvent, ScheduleIntervalOptions, ScheduleOnceOptions, ScheduleOptions,
+    ScheduleStatus, Scheduler, SchedulerError, SchedulerStats,
 };
 pub use state::{AppState, AppStateBuilder};
 #[cfg(feature = "http-client")]

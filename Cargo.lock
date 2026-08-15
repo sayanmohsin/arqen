@@ -2628,9 +2628,9 @@ dependencies = [
 
 [[package]]
 name = "thingd"
-version = "0.83.1"
+version = "0.83.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3b38bfb6e1671760f0feb670f4577bfaf83ea95c0e890b48fc63fbbed8058539"
+checksum = "154cc2d71c49644ba85dbe1e9560510a004d39c10e95f73da7b30f3001874214"
 dependencies = [
  "chacha20poly1305",
  "chrono",

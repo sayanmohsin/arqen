@@ -30,16 +30,17 @@ Use this page to decide which Arqen features are ready for your project.
 
 ## Tools, jobs, and operations
 
-| Capability                | Status              | Included                                                                                                                                                                                |
-| ------------------------- | ------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Typed tools and execution | Contract / partial  | Tool registry, metadata, permissions, invocation, structured inputs/outputs, and inline or queued execution.                                                                            |
-| Manifests and discovery   | Contract / partial  | Runtime metadata, tools, jobs, scopes, effects, idempotency behavior, and machine-readable discovery endpoints.                                                                         |
-| Durable jobs              | Available / partial | Thingd-backed queues, leases, retries, idempotency metadata, dead letters, worker shutdown, logs, and metrics.                                                                          |
-| Module composition        | Available           | Explicit registration, lifecycle hooks, dependency validation, initialization order, health checks, and HTTP module composition.                                                        |
-| Observability             | Available / partial | Structured JSON/pretty logs, bounded request/job/storage/cache metrics, correlation IDs, percentiles, uptime, timeout/dependency counters, and sync metrics. Exporters are not bundled. |
-| OpenAPI                   | Available / partial | OpenAPI 3.0.3 generation, security schemes, CRUD helpers, schemas, tags, and Swagger UI HTML.                                                                                           |
-| Testing utilities         | Available / early   | `TestApp`, mock auth, fixtures, request builders, response readers, assertion macros, adapter contract tests, and benchmarks.                                                           |
-| CLI workflow              | Available / partial | `new`, `dev`, `start`, `up`, `check`, `doctor`, `generate`, `lint`, `format`, `test`, `build`, `doc`, and `thingd`.                                                                     |
+| Capability                | Status              | Included                                                                                                                                                                                      |
+| ------------------------- | ------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Typed tools and execution | Contract / partial  | Tool registry, metadata, permissions, invocation, structured inputs/outputs, and inline or queued execution.                                                                                  |
+| Manifests and discovery   | Contract / partial  | Runtime metadata, tools, jobs, scopes, effects, idempotency behavior, and machine-readable discovery endpoints.                                                                               |
+| Durable jobs              | Available / partial | Thingd-backed queues, leases, retries, idempotency metadata, dead letters, worker shutdown, logs, and metrics.                                                                                |
+| Durable scheduler         | Available / partial | Persistent interval, cron, and one-time schedules that enqueue deterministic Thingd jobs; native mode is durable, HTTP mode is limited by the public queue contract, and memory is test-only. |
+| Module composition        | Available           | Explicit registration, lifecycle hooks, dependency validation, initialization order, health checks, and HTTP module composition.                                                              |
+| Observability             | Available / partial | Structured JSON/pretty logs, bounded request/job/storage/cache metrics, correlation IDs, percentiles, uptime, timeout/dependency counters, and sync metrics. Exporters are not bundled.       |
+| OpenAPI                   | Available / partial | OpenAPI 3.0.3 generation, security schemes, CRUD helpers, schemas, tags, and Swagger UI HTML.                                                                                                 |
+| Testing utilities         | Available / early   | `TestApp`, mock auth, fixtures, request builders, response readers, assertion macros, adapter contract tests, and benchmarks.                                                                 |
+| CLI workflow              | Available / partial | `new`, `dev`, `start`, `up`, `check`, `doctor`, `generate`, `lint`, `format`, `test`, `build`, `doc`, and `thingd`.                                                                           |
 
 ## Data and Thingd
 

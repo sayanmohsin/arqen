@@ -8,6 +8,7 @@ use crate::agent::ToolRegistry;
 use crate::config::{AppConfig, ConfigError};
 use crate::health::HealthRegistry;
 use crate::module::{Module, ModuleBuilder, ModuleError};
+use crate::scheduler::Scheduler;
 use crate::thingd::{StorageFactory, ThingdBackend};
 
 /// Application state shared across all handlers.
@@ -25,12 +26,24 @@ pub struct AppState {
     pub thingd_ready: bool,
     /// Health registry for dependency checks (optional).
     pub health_registry: Option<Arc<HealthRegistry>>,
+    /// Durable scheduler backed by the configured Thingd storage.
+    pub scheduler: Arc<Scheduler>,
 }
 
 impl AppState {
     /// Create a builder for `AppState`.
     pub fn builder() -> AppStateBuilder {
         AppStateBuilder::new()
+    }
+
+    /// Start the durable scheduler after application schedules are registered.
+    pub async fn start_scheduler(&self) -> Result<(), crate::scheduler::SchedulerError> {
+        self.scheduler.start().await
+    }
+
+    /// Stop the durable scheduler during graceful application shutdown.
+    pub async fn stop_scheduler(&self) -> Result<(), crate::scheduler::SchedulerError> {
+        self.scheduler.stop().await
     }
 }
 
@@ -42,6 +55,7 @@ pub struct AppStateBuilder {
     storage_mode: Option<String>,
     thingd_ready: Option<bool>,
     health_registry: Option<Arc<HealthRegistry>>,
+    scheduler: Option<Arc<Scheduler>>,
 }
 
 impl AppStateBuilder {
@@ -54,6 +68,7 @@ impl AppStateBuilder {
             storage_mode: None,
             thingd_ready: None,
             health_registry: None,
+            scheduler: None,
         }
     }
 
@@ -96,6 +111,12 @@ impl AppStateBuilder {
     /// Set the health registry (pre-wrapped in Arc).
     pub fn with_health_registry_arc(mut self, registry: Arc<HealthRegistry>) -> Self {
         self.health_registry = Some(registry);
+        self
+    }
+
+    /// Set an explicitly configured scheduler.
+    pub fn with_scheduler(mut self, scheduler: Arc<Scheduler>) -> Self {
+        self.scheduler = Some(scheduler);
         self
     }
 
@@ -170,6 +191,10 @@ impl AppStateBuilder {
             registry
         });
 
+        let scheduler = self
+            .scheduler
+            .unwrap_or_else(|| Scheduler::new(storage.clone()));
+
         Ok(AppState {
             config,
             storage,
@@ -177,6 +202,7 @@ impl AppStateBuilder {
             storage_mode,
             thingd_ready,
             health_registry,
+            scheduler,
         })
     }
 }
