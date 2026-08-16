@@ -11,6 +11,13 @@
   APIs.
 - Upgrade the Thingd dependency to `0.83.2`.
 
+## [0.13.0](https://github.com/sayanmohsin/arqen/compare/arqen-v0.12.0...arqen-v0.13.0) (2026-08-16)
+
+
+### Features
+
+* **arqen:** publish Thingd compatibility boundary release ([e206cb6](https://github.com/sayanmohsin/arqen/commit/e206cb67d8b947ed5935699a86fdb375eb03908c))
+
 ## [0.12.0](https://github.com/sayanmohsin/arqen/compare/arqen-v0.11.5...arqen-v0.12.0) (2026-08-15)
 
 
