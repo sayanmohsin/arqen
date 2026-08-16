@@ -12,6 +12,7 @@ use std::sync::Arc;
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
+#[cfg(any(feature = "http-server", test))]
 use subtle::ConstantTimeEq;
 
 use crate::core::{AppError, ErrorKind};

@@ -6,6 +6,7 @@ pub mod exit;
 pub mod format;
 pub mod generate;
 pub mod lint;
+#[cfg(feature = "thingd-migration")]
 pub mod migration;
 pub mod output;
 pub mod serve;
@@ -169,6 +170,7 @@ pub enum StoreCommand {
 #[derive(Subcommand)]
 pub enum ThingdCommand {
     /// Migrate an embedded native Thingd store to a standalone HTTP server.
+    #[cfg(feature = "thingd-migration")]
     Migrate {
         #[arg(long)]
         source: std::path::PathBuf,
@@ -178,8 +180,6 @@ pub enum ThingdCommand {
         auth_token: Option<String>,
         #[arg(long, default_value_t = 100)]
         batch_size: usize,
-        #[arg(long)]
-        resume: bool,
         #[arg(long)]
         dry_run: bool,
         #[arg(long)]
@@ -338,12 +338,12 @@ fn dispatch(cli: &Cli, output: &Output) -> anyhow::Result<()> {
             }
         }
         Commands::Thingd { command } => {
+            #[cfg(feature = "thingd-migration")]
             if let ThingdCommand::Migrate {
                 source,
                 destination,
                 auth_token,
                 batch_size,
-                resume,
                 dry_run,
                 check,
                 include_replication,
@@ -355,18 +355,17 @@ fn dispatch(cli: &Cli, output: &Output) -> anyhow::Result<()> {
                     destination_url: destination.clone(),
                     destination_auth_token: auth_token.clone(),
                     dry_run: *dry_run,
-                    resume: *resume,
                     include_replication: *include_replication,
                     batch_size: *batch_size,
                     source_encryption_key: encryption_key.clone(),
                     ..Default::default()
                 };
                 migration::run(options, *check, output)?;
-            } else {
-                let code = thingd_schema::run(command, output);
-                if code != exit::SUCCESS {
-                    std::process::exit(code);
-                }
+                return Ok(());
+            }
+            let code = thingd_schema::run(command, output);
+            if code != exit::SUCCESS {
+                std::process::exit(code);
             }
         }
         Commands::Store { command } => {

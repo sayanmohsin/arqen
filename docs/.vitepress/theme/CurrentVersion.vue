@@ -9,7 +9,8 @@ withDefaults(
 
 declare const __ARQEN_DOCS_META__: {
   arqenVersion: string;
-  thingdVersion: string;
+  nativeThingdVersion: string;
+  httpApiVersion: string;
 };
 
 const meta = __ARQEN_DOCS_META__;

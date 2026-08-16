@@ -2,6 +2,8 @@ use super::{ThingdCommand, exit, output::Output};
 
 pub fn run(command: &ThingdCommand, output: &Output) -> i32 {
     match command {
+        #[cfg(feature = "thingd-migration")]
+        ThingdCommand::Migrate { .. } => unreachable!("migration is dispatched by cli::dispatch"),
         ThingdCommand::SchemaValidate { path, url, token } => {
             match crate::schema::validate_file(path) {
                 Ok(report) => {
@@ -106,6 +108,5 @@ pub fn run(command: &ThingdCommand, output: &Output) -> i32 {
                 }
             }
         }
-        ThingdCommand::Migrate { .. } => unreachable!("migration is dispatched by cli::dispatch"),
     }
 }

@@ -18,10 +18,10 @@ and Thingd integration to one readable project structure.
 typed, permission-aware, auditable, and automation-friendly.
 
 Arqen is Rust-first, built on Tokio, Tower, tracing, and Axum. Thingd storage
-is reached through an Arqen-owned adapter contract; the optional native feature
-embeds a pinned Thingd Rust engine, while the HTTP feature connects to a
-separate Thingd service. Clients in other languages can use the HTTP API and
-machine-readable manifests.
+is reached through an Arqen-owned adapter contract. Memory and HTTP support are
+available in the core package; native Thingd is included only when the optional
+`thingd-native` feature is enabled. Clients in other languages can use the HTTP
+API and machine-readable manifests.
 
 ## Project status
 
@@ -39,11 +39,11 @@ the documentation site and on [crates.io](https://crates.io/crates/arqen).
 
 ## Quickstart
 
-Add the one public Cargo package:
+Add the core package for production HTTP deployments:
 
 ```toml
 [dependencies]
-arqen = "0.9"
+arqen = "0.13"
 ```
 
 Create a starter application from a checkout:
@@ -80,7 +80,7 @@ Application, client, or agent
        /         |          \
    memory      HTTP       native adapter
                   |             |
-            Thingd v1 API   pinned Thingd crate
+            Thingd server   Thingd Rust crate
 ```
 
 The same application-facing contract is designed for these deployment modes:
@@ -88,16 +88,15 @@ The same application-facing contract is designed for these deployment modes:
 | Mode           | Best for                                       | Status                                         |
 | -------------- | ---------------------------------------------- | ---------------------------------------------- |
 | Memory         | Local development and tests                    | Available                                      |
-| Native durable | Optional embedded Thingd engine in the Arqen process | Available with `thingd-native`; validate the pinned version and recovery |
+| Native durable | Local development and migration | Available with `thingd-native`; validate the compatible Thingd range and recovery |
 | HTTP Thingd    | A separate Thingd HTTP service                         | Available with `http-client`; validate the public `v1` contract |
 | Cloud          | Hosted thingd services                         | Future integration path                        |
 
 Thingd supplies the durable records and replication primitives. Arqen owns
 configuration, lifecycle, the stable `ThingdBackend` contract, health,
-metrics, and operator workflows. The default Arqen build does not compile the
-native Thingd crate. Enable `thingd-native` when one process should embed the
-pinned native engine; use `http-client` when the Thingd service should be
-upgraded independently. See [migration](https://sayanmohsin.github.io/arqen/migration)
+metrics, and operator workflows. Production applications should use the HTTP
+adapter. Enable `thingd-native` only for local tooling that must embed the
+engine, and `thingd-migration` for native-to-HTTP migration. See [migration](https://sayanmohsin.github.io/arqen/migration)
 for the safe native-to-HTTP data movement workflow.
 
 ### Compatibility policy
@@ -105,10 +104,11 @@ for the safe native-to-HTTP data movement workflow.
 | Boundary | Compatibility source | Failure mode |
 | --- | --- | --- |
 | Arqen core | Arqen SemVer and `ThingdBackend` contract | Cargo/API compatibility |
-| Native adapter | Exact Thingd crate version pinned by `thingd-native` | Compile-time failure or adapter test failure |
+| Native adapter | Optional Arqen feature and compatible Thingd Cargo range | Compile-time failure or native contract test failure |
 | HTTP adapter | Public Thingd REST API `v1` and required endpoint behavior | `check_compatibility()` returns a dependency error |
 
-The current native adapter is tested with Thingd `0.83.2`. The public Thingd
+The native adapter currently supports Thingd `>=0.83.2, <0.84.0`. Cargo can
+update compatible `0.83.x` releases without an Arqen release. The public Thingd
 health endpoint does not expose a stable engine version, so HTTP compatibility
 is checked at the API/capability boundary rather than inferred from an
 arbitrary server version string.

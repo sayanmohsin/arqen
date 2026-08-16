@@ -8,7 +8,7 @@ const crateManifest = readFileSync(resolve(repoRoot, "crates/arqen/Cargo.toml"),
 const changelog = readFileSync(resolve(repoRoot, "crates/arqen/CHANGELOG.md"), "utf8");
 const arqenVersion = crateManifest.match(/^version\s*=\s*"([^"]+)"/m)?.[1] ?? "unknown";
 const nativeThingdVersion =
-  crateManifest.match(/thingd\s*=.*?version\s*=\s*"=([^\"]+)"/)?.[1] ?? "unknown";
+  crateManifest.match(/thingd\s*=.*?version\s*=\s*"([^\"]+)"/)?.[1] ?? "unknown";
 const httpApiVersion = "v1";
 const releaseDate = changelog.match(/## \[[^\]]+\][^\n]*\((\d{4}-\d{2}-\d{2})\)/)?.[1] ?? "unknown";
 let docsRevision = "local";

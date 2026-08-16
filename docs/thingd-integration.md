@@ -1,7 +1,7 @@
 # thingd integration
 
-The optional native adapter is currently pinned to released Thingd version
-`0.83.2`. It supplies objects, events,
+The optional `thingd-native` adapter is currently compatible with Thingd
+`>=0.83.2, <0.84.0`. It supplies objects, events,
 search, links, durable queues, encryption-aware persistence, and a public
 replication contract. Thingd `0.83.2` replaced the legacy Fjall backend with
 embedded RocksDB for production durable storage; the public REST/MCP/native
@@ -33,7 +33,7 @@ Implemented and planned adapter paths:
 ThingdBackend
   +-- MemoryThingdBackend (implemented in core)
   +-- HttpThingdBackend (implemented; v1 compatibility probe)
-  +-- NativeThingdBackend (optional pinned adapter)
+  +-- NativeThingdBackend (`thingd-native` feature)
   +-- CloudThingdBackend (optional, future)
 ```
 
@@ -60,8 +60,8 @@ Thingd target.
 See [adapter-contract.md](adapter-contract.md) for the full trait definition, data types, and implementation details.
 
 Native durable and HTTP modes are different compatibility contracts. Native
-mode is compile-time compatible with the exact Thingd crate version pinned by
-the optional feature. HTTP mode validates the public `/v1/health` contract with
+mode is compile-time compatible with the supported Thingd Cargo range.
+Compatible patch updates do not require an Arqen release. HTTP mode validates the public `/v1/health` contract with
 `HttpThingdBackend::check_compatibility()` and should be tested against the
 deployed service. Cloud hosting is not implemented by this package.
 
@@ -116,7 +116,7 @@ for object, batch, event, and queue mutations, catalog bootstrap, and
 synchronization. Mutation requests carry a stable per-operation idempotency
 key across attempts.
 
-## Native adapter encryption, schemas, sync, and migration
+## Native adapter encryption, schemas, and migration
 
 Native storage accepts a 32-byte encryption key as 64 hexadecimal characters
 through `ARQEN_THINGD_ENCRYPTION_KEY`. Arqen passes this to Thingd's
@@ -124,7 +124,7 @@ through `ARQEN_THINGD_ENCRYPTION_KEY`. Arqen passes this to Thingd's
 error and never falls back to memory. Keys are wrapped in `Secret<T>` and are
 not serialized or logged.
 
-Arqen can load a versioned `.thingd` file with `ARQEN_THINGD_SCHEMA_PATH` and
+The native adapter can open a versioned `.thingd` file with `ARQEN_THINGD_SCHEMA_PATH` and
 reports a stable source hash. The authoritative parser remains Thingd's
 `/v1/schema/validate` endpoint because the standalone `thingd-schema` crate is
 not yet a published dependency. Use:
@@ -138,7 +138,7 @@ Schema migration application is deliberately not automatic. Operators should
 inspect the remote migration history and use Thingd's supported migration
 workflow; Arqen will not delete or rewrite data to make a schema fit.
 
-The `arqen::thingd::sync` module is a typed HTTP client/worker over the current Thingd release's
+The `arqen::thingd::sync` module is a typed HTTP client/worker over the public Thingd
 `/v1/replication/events`, `/apply`, `/status`, `/conflicts`, and `/snapshot`
 endpoints. It provides cursor checkpoints, bounded retries, collection
 allowlists, idempotent replay, stale-cursor snapshot fallback, and graceful
