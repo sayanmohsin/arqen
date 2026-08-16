@@ -1,14 +1,15 @@
 # thingd integration
 
-<CurrentVersion kind="thingd" /> is the currently resolved Arqen dependency, pinned to released
-Thingd version `0.83.2`. It supplies objects, events,
+The optional native adapter is currently pinned to released Thingd version
+`0.83.2`. It supplies objects, events,
 search, links, durable queues, encryption-aware persistence, and a public
 replication contract. Thingd `0.83.2` replaced the legacy Fjall backend with
 embedded RocksDB for production durable storage; the public REST/MCP/native
 contracts are unchanged, but existing Fjall directories must be migrated
 explicitly with `thingd-migrate` before they can be opened.
 
-The first stable integration is Thingd’s public HTTP API. Arqen should not
+The stable cross-version integration is Thingd’s public HTTP API, currently
+`v1`. Arqen should not
 import private thingd-cloud internals or require a Node.js SDK.
 
 The adapter contract supports:
@@ -30,9 +31,9 @@ Implemented and planned adapter paths:
 
 ```text
 ThingdBackend
-  +-- MemoryThingdBackend (implemented)
-  +-- NativeThingdStore (embedded, implemented)
-  +-- HttpThingdBackend (implemented; public-contract validation required)
+  +-- MemoryThingdBackend (implemented in core)
+  +-- HttpThingdBackend (implemented; v1 compatibility probe)
+  +-- NativeThingdBackend (optional pinned adapter)
   +-- CloudThingdBackend (optional, future)
 ```
 
@@ -58,9 +59,11 @@ Thingd target.
 
 See [adapter-contract.md](adapter-contract.md) for the full trait definition, data types, and implementation details.
 
-Native durable and HTTP modes should be treated as deployment-specific paths
-until recovery, timeout, retry, and compatibility tests have been run against
-the target thingd version. Cloud hosting is not implemented by this package.
+Native durable and HTTP modes are different compatibility contracts. Native
+mode is compile-time compatible with the exact Thingd crate version pinned by
+the optional feature. HTTP mode validates the public `/v1/health` contract with
+`HttpThingdBackend::check_compatibility()` and should be tested against the
+deployed service. Cloud hosting is not implemented by this package.
 
 ### Catalog cache and startup bootstrap
 
@@ -84,7 +87,7 @@ bounded by `HttpClientPolicy::max_query_scan_objects`, and an exceeded bound
 returns an explicit error. Revisit this fallback only when the deployed
 Thingd server contract provides a tested range-filter representation.
 
-### Thingd 0.83.2 persistent asynchronous search
+### Native adapter Thingd 0.83.2 persistent asynchronous search
 
 Thingd 0.83.2 provides coalesced asynchronous Tantivy indexing while RocksDB
 remains the durable source of truth. For an HTTP Thingd deployment, configure
@@ -113,7 +116,7 @@ for object, batch, event, and queue mutations, catalog bootstrap, and
 synchronization. Mutation requests carry a stable per-operation idempotency
 key across attempts.
 
-## <CurrentVersion kind="thingd" /> encryption, schemas, sync, and migration
+## Native adapter encryption, schemas, sync, and migration
 
 Native storage accepts a 32-byte encryption key as 64 hexadecimal characters
 through `ARQEN_THINGD_ENCRYPTION_KEY`. Arqen passes this to Thingd's

@@ -7,7 +7,9 @@
 use async_trait::async_trait;
 use reqwest::{Client, StatusCode};
 use serde::{Deserialize, Serialize};
-use serde_json::{Value, json};
+use serde_json::Value;
+#[cfg(feature = "thingd-native")]
+use serde_json::json;
 use std::path::{Path, PathBuf};
 use std::sync::{
     Arc,

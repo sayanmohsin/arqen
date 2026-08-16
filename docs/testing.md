@@ -13,8 +13,9 @@ Keep tests layered:
 
 1. Unit-test domain services and validation without HTTP.
 2. Use `TestApp` for routes, auth, JSON errors, health, and readiness.
-3. Use adapter contract tests for memory, native durable, and HTTP thingd
-   implementations.
+3. Use adapter contract tests for memory, optional native durable, and HTTP
+   Thingd implementations; include the HTTP compatibility probe in the
+   service smoke test.
 4. Run a small real-process smoke test for deployment, signals, and external
    dependencies.
 

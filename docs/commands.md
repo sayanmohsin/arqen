@@ -356,7 +356,7 @@ ARQEN_PERSISTENT_PATH="$PWD/.arqen/data" \
 arqen dev
 ```
 
-For the currently resolved <CurrentVersion kind="thingd" /> schema inspection:
+For schema inspection against the deployed Thingd HTTP API:
 
 ```bash
 # Loads the local file and computes its stable hash. Add --url for Thingd's

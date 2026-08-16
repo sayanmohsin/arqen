@@ -283,6 +283,9 @@ fn bench_metrics_and_batch(c: &mut Criterion) {
     group.finish();
 }
 
+#[cfg(not(feature = "thingd-native"))]
+fn bench_thingd_native_and_cache(_: &mut Criterion) {}
+
 criterion_group!(
     framework,
     bench_routing_health,

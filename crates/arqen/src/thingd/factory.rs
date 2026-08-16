@@ -173,7 +173,7 @@ impl StorageFactory {
     }
 }
 
-#[cfg(target_os = "linux")]
+#[cfg(all(target_os = "linux", feature = "thingd-native"))]
 fn warn_if_low_native_memory() {
     let total_kb = std::fs::read_to_string("/proc/meminfo")
         .ok()
@@ -195,7 +195,7 @@ fn warn_if_low_native_memory() {
     }
 }
 
-#[cfg(not(target_os = "linux"))]
+#[cfg(all(not(target_os = "linux"), feature = "thingd-native"))]
 fn warn_if_low_native_memory() {}
 
 #[cfg(test)]

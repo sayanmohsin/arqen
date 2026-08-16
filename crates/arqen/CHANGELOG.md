@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Make native Thingd an explicit opt-in feature instead of a default Arqen
+  dependency, and document native versus HTTP compatibility boundaries.
+- Add `HttpThingdBackend::check_compatibility()` for the public Thingd `v1`
+  health contract.
 - Add a durable Thingd-backed scheduler with interval, cron, one-time,
   lifecycle, pause/resume, deterministic enqueue, and worker reconciliation
   APIs.

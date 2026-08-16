@@ -4,7 +4,8 @@
 //!
 //! Arqen provides a complete backend toolkit including:
 //! - HTTP server with Axum (feature: `http-server`)
-//! - thingd integration for storage, events, search, and queues (feature: `thingd-native`)
+//! - Thingd-owned storage contracts and adapters (`http-client` and optional
+//!   `thingd-native` features)
 //! - Typed agent tools and manifest generation
 //! - Durable job workers with graceful shutdown
 //! - Structured logging with tracing (feature: `logging`)
@@ -101,6 +102,8 @@ pub use thingd::{
     ScopedThingdBackend, StorageFactory, StorageScope, ThingdBackend, retry_bootstrap,
     seed_with_retry,
 };
+#[cfg(feature = "http-client")]
+pub use thingd::{THINGD_HTTP_API_VERSION, ThingdCompatibilityReport};
 
 #[cfg(feature = "http-server")]
 pub use auth::{AuthContext, AuthError, Authentication};

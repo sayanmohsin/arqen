@@ -16,7 +16,7 @@ path = "src/bin/arqen.rs"
 required-features = ["cli"]
 
 [features]
-default = ["http-server", "thingd-native"]
+default = ["http-server"]
 cli = ["http-server", "logging", "http-client", "thingd-migration", "dep:libc"]
 http-server = ["dep:axum", "dep:tower", "dep:tower-http"]
 http-client = ["dep:reqwest"]

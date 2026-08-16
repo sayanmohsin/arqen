@@ -25,6 +25,9 @@ pub struct HttpThingdBackend {
 
 const DEFAULT_MAX_CONCURRENCY: usize = 16;
 
+/// Public Thingd REST API major version used by this adapter.
+pub const THINGD_HTTP_API_VERSION: &str = "v1";
+
 #[derive(Debug, Clone)]
 pub struct HttpClientPolicy {
     pub connect_timeout: Duration,
@@ -79,6 +82,29 @@ impl HttpThingdBackend {
     pub fn with_auth(mut self, token: &str) -> Self {
         self.auth_token = Some(token.to_string());
         self
+    }
+
+    /// Validate that the remote service exposes the supported public API.
+    ///
+    /// This validates the versioned REST boundary and readiness signal rather
+    /// than guessing an engine version. The current public Thingd REST health
+    /// response does not promise a concrete engine-version field; native
+    /// engine compatibility is enforced by Cargo.
+    pub async fn check_compatibility(&self) -> Result<ThingdCompatibilityReport, AppError> {
+        let health: ThingdHealthResponse = self.get("/health").await?;
+        if health.status != "ok" {
+            return Err(AppError::new(
+                ErrorKind::Dependency,
+                format!(
+                    "Thingd {THINGD_HTTP_API_VERSION} health status is '{}', expected 'ok'",
+                    health.status
+                ),
+            ));
+        }
+        Ok(ThingdCompatibilityReport {
+            api_version: THINGD_HTTP_API_VERSION.to_string(),
+            status: health.status,
+        })
     }
 
     /// Bound the number of active requests sent to the remote Thingd server.
@@ -475,10 +501,61 @@ mod tests {
         assert_eq!(keys[0], keys[1]);
         server.abort();
     }
+
+    #[tokio::test]
+    async fn compatibility_probe_validates_v1_health_contract() {
+        let app = Router::new().route(
+            "/v1/health",
+            get(|| async { Json(json!({ "data": { "status": "ok" } })) }),
+        );
+        let listener = TcpListener::bind((std::net::Ipv4Addr::LOCALHOST, 0))
+            .await
+            .unwrap();
+        let address = listener.local_addr().unwrap();
+        let server = tokio::spawn(async move {
+            axum::serve(listener, app).await.unwrap();
+        });
+
+        let report = HttpThingdBackend::new(&format!("http://{address}"))
+            .check_compatibility()
+            .await
+            .unwrap();
+        assert_eq!(report.api_version, THINGD_HTTP_API_VERSION);
+        assert_eq!(report.status, "ok");
+        server.abort();
+    }
+
+    #[tokio::test]
+    async fn compatibility_probe_rejects_unhealthy_v1_service() {
+        let app = Router::new().route(
+            "/v1/health",
+            get(|| async { Json(json!({ "data": { "status": "not_ready" } })) }),
+        );
+        let listener = TcpListener::bind((std::net::Ipv4Addr::LOCALHOST, 0))
+            .await
+            .unwrap();
+        let address = listener.local_addr().unwrap();
+        let server = tokio::spawn(async move {
+            axum::serve(listener, app).await.unwrap();
+        });
+
+        let error = HttpThingdBackend::new(&format!("http://{address}"))
+            .check_compatibility()
+            .await
+            .unwrap_err();
+        assert_eq!(error.kind, ErrorKind::Dependency);
+        assert!(error.message.contains("expected 'ok'"));
+        server.abort();
+    }
 }
 
 #[derive(Deserialize)]
 struct EmptyResponse {}
+
+#[derive(Deserialize)]
+struct ThingdHealthResponse {
+    status: String,
+}
 
 #[derive(Deserialize)]
 struct Envelope<T> {

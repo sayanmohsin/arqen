@@ -42,27 +42,54 @@ pub async fn ready(
     Extension(correlation_id): Extension<CorrelationId>,
 ) -> impl IntoResponse {
     let scheduler = scheduler_health(&state).await;
+    let compatibility = state.storage.check_compatibility().await;
+    let thingd_ready = state.thingd_ready && compatibility.is_ok();
     if let Some(registry) = &state.health_registry {
         let report = registry.check_readiness().await;
-        let status = StatusCode::from_u16(report.status.to_http_status()).unwrap_or(StatusCode::OK);
+        let mut checks = format_checks(&report);
+        checks.insert(
+            "thingd".to_string(),
+            match &compatibility {
+                Ok(report) => json!({
+                    "status": "healthy",
+                    "api_version": report.api_version,
+                }),
+                Err(error) => json!({
+                    "status": "unhealthy",
+                    "reason": error.to_string(),
+                }),
+            },
+        );
+        let report_status =
+            StatusCode::from_u16(report.status.to_http_status()).unwrap_or(StatusCode::OK);
+        let status = if thingd_ready {
+            report_status
+        } else {
+            StatusCode::SERVICE_UNAVAILABLE
+        };
         let body = Json(json!({
-            "status": format_health_status(&report),
+            "status": if thingd_ready { format_health_status(&report) } else { "not_ready" },
             "storage_mode": state.storage_mode,
-            "checks": format_checks(&report),
+            "checks": checks,
             "scheduler": scheduler,
             "correlation_id": correlation_id.to_string()
         }));
         (status, body)
     } else {
-        let status = if state.thingd_ready {
+        let status = if thingd_ready {
             StatusCode::OK
         } else {
             StatusCode::SERVICE_UNAVAILABLE
         };
         let body = Json(json!({
-            "status": if state.thingd_ready { "ready" } else { "not_ready" },
+            "status": if thingd_ready { "ready" } else { "not_ready" },
             "storage_mode": state.storage_mode,
-            "checks": { "thingd": if state.thingd_ready { "ok" } else { "unavailable" } },
+            "checks": {
+                "thingd": match compatibility {
+                    Ok(report) => json!({ "status": "ok", "api_version": report.api_version }),
+                    Err(error) => json!({ "status": "unavailable", "reason": error.to_string() }),
+                }
+            },
             "scheduler": scheduler,
             "correlation_id": correlation_id.to_string()
         }));
