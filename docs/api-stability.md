@@ -12,8 +12,8 @@ The following are intended for application code:
 - `arqen::http` helpers and re-exported HTTP types;
 - the Arqen-owned `ThingdBackend` contract and memory adapter;
 - the HTTP adapter and its public `v1` compatibility probe;
-- the native adapter only when the `thingd-native` feature is explicitly
-  enabled and the pinned Thingd version is accepted;
+- the optional `thingd-native` and `thingd-migration` features for local native
+  development and migration;
 - configuration, validation, error, health, job, module, OpenAPI, and testing
   types documented in the guides;
 - Thingd schema reports and the current Thingd sync client types.
@@ -36,9 +36,10 @@ adapter.
 
 ## Thingd compatibility
 
-The current native adapter is pinned to Thingd `0.83.2` and is compiled only
-when `thingd-native` is enabled. A native Thingd upgrade is therefore an
-adapter compatibility change and must pass the native contract suite.
+The native feature accepts Thingd `>=0.83.2, <0.84.0`. Compatible patch
+updates are selected through Cargo and do not require an Arqen release. A
+minor Thingd upgrade requires updating Arqen’s range and passing the native
+contract suite; it may require an Arqen release if native APIs changed.
 
 The HTTP adapter targets the public Thingd REST API `v1`. Call
 `HttpThingdBackend::check_compatibility()` during startup and keep the service

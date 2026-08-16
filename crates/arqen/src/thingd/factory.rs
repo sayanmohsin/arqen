@@ -48,14 +48,14 @@ impl StorageFactory {
                     } else {
                         thingd::PersistentOpenOptions::default()
                     };
-                    let backend =
+                    Arc::new(
                         crate::thingd::NativeThingdBackend::persistent_with_options(path, options)
                             .map_err(|error| ConfigError::InvalidValue {
                                 field: "persistent_path".to_string(),
                                 value: path.display().to_string(),
                                 expected: error.to_string(),
-                            })?;
-                    Arc::new(backend)
+                            })?,
+                    )
                 }
                 #[cfg(not(feature = "thingd-native"))]
                 {
@@ -184,7 +184,6 @@ fn warn_if_low_native_memory() {
                 .and_then(|line| line.split_whitespace().nth(1))
                 .and_then(|value| value.parse::<u64>().ok())
         });
-
     if let Some(total_kb) = total_kb
         && total_kb < 2_000_000
     {

@@ -30,7 +30,7 @@ Integrate with a future public thingd-cloud customer API while preserving the di
 
 ## Current framework hardening (implemented, deployment validation ongoing)
 
-The current single-package framework also includes layered configuration,
+The current core package and optional native adapter include layered configuration,
 stable error contracts, authentication, request validation, health/readiness,
 testing utilities, observability, OpenAPI helpers, and explicit module
 composition. These capabilities are tested in the `arqen` package, but

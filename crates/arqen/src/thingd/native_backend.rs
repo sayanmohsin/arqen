@@ -10,7 +10,6 @@ use crate::thingd::{
     QueryOptions, SearchOptions, SearchResults, ThingdBackend, ThingdEvent, ThingdJob, ThingdLink,
     ThingdObject, ThingdOperation, ThingdOperationResult,
 };
-
 use thingd::{
     EventLog, LinkDirection, LinkQueryOptions, LinkStore, ListEventsOptions, ListObjectsOptions,
     MemoryEvent, MemoryObject, ObjectStore, QueueClaimOptions, QueueJob, QueueJobStatus,

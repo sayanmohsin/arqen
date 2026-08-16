@@ -212,6 +212,31 @@ fn bench_thingd_native_and_cache(c: &mut Criterion) {
     cache_group.finish();
 }
 
+#[cfg(not(feature = "thingd-native"))]
+fn bench_thingd_native_and_cache(c: &mut Criterion) {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let mut cache_group = c.benchmark_group("thingd_cache");
+    cache_group.bench_function("hit", |b| {
+        let source: Arc<dyn arqen::ThingdBackend> = Arc::new(arqen::MemoryThingdBackend::new());
+        let cache: Arc<dyn arqen::ThingdBackend> = Arc::new(arqen::MemoryThingdBackend::new());
+        let backend =
+            arqen::CachingThingdBackend::new(source.clone(), cache, arqen::CachePolicy::default());
+        rt.block_on(async {
+            source
+                .put_object("bench", "item1", serde_json::json!({"data": "value"}))
+                .await
+                .unwrap();
+            backend.get_object("bench", "item1").await.unwrap();
+        });
+        b.iter(|| {
+            rt.block_on(async {
+                backend.get_object("bench", "item1").await.unwrap();
+            });
+        });
+    });
+    cache_group.finish();
+}
+
 fn bench_jobs(c: &mut Criterion) {
     let rt = tokio::runtime::Runtime::new().unwrap();
 
@@ -282,9 +307,6 @@ fn bench_metrics_and_batch(c: &mut Criterion) {
     });
     group.finish();
 }
-
-#[cfg(not(feature = "thingd-native"))]
-fn bench_thingd_native_and_cache(_: &mut Criterion) {}
 
 criterion_group!(
     framework,

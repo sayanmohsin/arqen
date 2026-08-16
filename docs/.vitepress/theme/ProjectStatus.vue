@@ -16,7 +16,7 @@ const meta = __ARQEN_DOCS_META__;
       <span>Current release</span><strong>Arqen {{ meta.arqenVersion }}</strong>
     </div>
     <div>
-      <span>Native adapter</span><strong>Thingd {{ meta.nativeThingdVersion }}</strong>
+      <span>Native Thingd</span><strong>{{ meta.nativeThingdVersion }}</strong>
     </div>
     <div>
       <span>HTTP contract</span><strong>Thingd {{ meta.httpApiVersion }}</strong>

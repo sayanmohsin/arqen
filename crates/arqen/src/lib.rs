@@ -4,8 +4,7 @@
 //!
 //! Arqen provides a complete backend toolkit including:
 //! - HTTP server with Axum (feature: `http-server`)
-//! - Thingd-owned storage contracts and adapters (`http-client` and optional
-//!   `thingd-native` features)
+//! - Thingd-owned storage contracts and adapters (`http-client`)
 //! - Typed agent tools and manifest generation
 //! - Durable job workers with graceful shutdown
 //! - Structured logging with tracing (feature: `logging`)
@@ -39,8 +38,6 @@ pub mod core;
 pub mod dev;
 pub mod health;
 pub mod jobs;
-#[cfg(feature = "thingd-migration")]
-pub mod migration;
 pub mod module;
 pub mod observability;
 pub mod openapi;
@@ -60,6 +57,8 @@ pub mod testutil;
 pub mod http;
 #[cfg(feature = "logging")]
 pub mod logging;
+#[cfg(feature = "thingd-migration")]
+pub mod migration;
 
 // Re-export commonly used types at crate root
 pub use agent::{
@@ -67,8 +66,8 @@ pub use agent::{
     ToolMetadata, ToolOutcome, ToolRegistry,
 };
 pub use config::{
-    AppConfig, AuthConfig, CliOverrides, HealthConfig, LogFormat, LoggingConfig, Secret,
-    ServerConfig, StorageConfig, StorageMode, ThingdSyncMode, WorkerConfig,
+    AppConfig, AuthConfig, CliOverrides, ConfigError, HealthConfig, LogFormat, LoggingConfig,
+    Secret, ServerConfig, StorageConfig, StorageMode, ThingdSyncMode, WorkerConfig,
 };
 #[cfg(feature = "http-server")]
 pub use context::RequestContext;
@@ -102,6 +101,8 @@ pub use thingd::{
     ScopedThingdBackend, StorageFactory, StorageScope, ThingdBackend, retry_bootstrap,
     seed_with_retry,
 };
+#[cfg(feature = "thingd-native")]
+pub use thingd::{NativeThingdBackend, NativeThingdEngine, NativeThingdStore};
 #[cfg(feature = "http-client")]
 pub use thingd::{THINGD_HTTP_API_VERSION, ThingdCompatibilityReport};
 
@@ -125,7 +126,3 @@ pub use http::{
 };
 #[cfg(feature = "logging")]
 pub use logging::{init_logging, init_logging_with_config};
-#[cfg(all(feature = "thingd-native", feature = "http-client"))]
-pub use thingd::NativeThingdSyncEndpoint;
-#[cfg(feature = "thingd-native")]
-pub use thingd::{NativeThingdBackend, NativeThingdStore};

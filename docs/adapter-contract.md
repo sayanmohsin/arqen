@@ -1,15 +1,18 @@
 # Thingd Adapter Contract
 
-The thingd adapter provides a unified interface for storage, events, search, links, and queues.
-The public Rust API also includes `reset` and `seed` test helpers. The exact
-trait signatures below should be checked against the versioned Rust API when
-implementing a third-party adapter.
+The Thingd adapter provides a unified interface for storage, events, search,
+links, and queues. The stable application contract is owned by Arqen and does
+not require an adapter to import the Thingd Rust crate. The public trait also
+includes compatibility probing, deterministic/delayed queue insertion, and
+`reset`/`seed` test helpers.
 
 ## Adapter trait
 
 ```rust
 #[async_trait]
 pub trait ThingdBackend: Send + Sync {
+    async fn check_compatibility(&self) -> Result<ThingdCompatibilityReport>;
+
     // Object operations
     async fn get_object(&self, collection: &str, id: &str) -> Result<Option<ThingdObject>>;
     async fn put_object(&self, collection: &str, id: &str, data: serde_json::Value) -> Result<ThingdObject>;
@@ -54,11 +57,12 @@ pub trait ThingdBackend: Send + Sync {
 - Suitable for development and testing
 - No external dependencies
 
-### NativeThingdBackend
+### `thingd-native` / `NativeThingdBackend`
 
 - Adapts embedded native thingd to the common async `ThingdBackend` contract
-- Construct it through `StorageFactory` for configured memory/native storage
+- Construct it through `StorageFactory` when the `thingd-native` feature is enabled
 - `NativeThingdStore` remains available for advanced full-native APIs
+- The feature accepts Thingd `>=0.83.2, <0.84.0`.
 
 ### CachingThingdBackend
 
@@ -103,10 +107,10 @@ shutdown. It is opt-in and experimental; Thingd remains the owner of
 replication semantics, provenance, tombstones, and conflict quarantine.
 
 Native storage is embedded in the Arqen process and does not require a local
-sidecar. `NativeThingdSyncEndpoint` uses the pinned native adapter's public
-`ReplicationService`; it never reads private Thingd internals or falls back to
-HTTP or memory. Use Arqen's replication-aware native mutation helpers so
-successful object and event writes create source feed records.
+sidecar. Native-only migration and full Thingd APIs are enabled by
+`thingd-native` and `thingd-migration`; the default Arqen build does not
+compile the Thingd Rust crate. HTTP replication remains the public runtime
+integration.
 
 ### CloudThingdBackend (future)
 
@@ -135,8 +139,10 @@ let state = AppState::builder()
     .build()?;
 ```
 
-Native storage is an explicit feature. Its Thingd crate version is pinned in
-the native adapter dependency and must be upgraded and tested as one unit.
+Native storage is an explicit optional feature. Its Thingd dependency accepts
+the supported compatible range and must pass the native contract suite after
+each lockfile update. Incompatible Thingd minor releases require an Arqen
+compatibility change.
 
 ## Data types
 

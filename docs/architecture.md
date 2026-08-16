@@ -6,9 +6,10 @@ Arqen separates the application code you write from the infrastructure it
 uses to serve requests, run jobs, and persist data.
 
 The core contract is Arqen-owned. Native Thingd is an optional compile-time
-adapter; HTTP Thingd is a runtime service boundary. This means an application
-can implement `ThingdBackend` or inject a memory, HTTP, or native adapter
-without making its domain services depend directly on the Thingd Rust crate.
+adapter inside the Arqen package; HTTP Thingd is a runtime service boundary.
+This means an application can implement `ThingdBackend` or inject a memory,
+HTTP, or native adapter without making its domain services depend directly on
+the Thingd Rust crate.
 
 ## Request flow
 
@@ -40,14 +41,14 @@ The `ThingdBackend` contract keeps application services independent of the
 selected storage mode:
 
 - `MemoryThingdBackend` is for tests and disposable development;
-- the optional native adapter embeds a pinned, compile-time-compatible Thingd
-  Rust engine in the application process;
+- the optional `thingd-native` feature embeds a compile-time-compatible Thingd
+  Rust engine in local or migration tooling;
 - `HttpThingdBackend` connects to a separate Thingd service through the
   versioned public `v1` REST API;
 - a cloud adapter is future work and requires a public customer contract.
 
-Native compatibility is determined by Cargo: the native feature pins the
-Thingd crate version it was tested with. HTTP compatibility is determined by
+Native compatibility is determined by Cargo: the native feature accepts the
+supported Thingd range `>=0.83.2, <0.84.0`. HTTP compatibility is determined by
 the public API contract and `HttpThingdBackend::check_compatibility()`, which
 validates the `/v1/health` response. The current public health response does
 not expose a stable engine-version field, so Arqen does not claim runtime
@@ -67,7 +68,7 @@ crates/arqen/src/
   http/             # HTTP server, middleware, and routes
   agent/            # Tool definitions and manifests
   auth/             # Authentication adapters and policies
-  thingd/           # Memory, native, HTTP, scoped, and cache adapters
+  thingd/           # Memory, optional native, HTTP, scoped, and cache adapters
   jobs/             # Durable job handlers and workers
   scheduler.rs      # Durable Thingd-backed schedule heartbeat
   logging/          # Tracing and redaction
@@ -80,7 +81,8 @@ crates/arqen/src/
   testutil.rs       # Test helpers
 ```
 
-The public library and feature-gated CLI are published as one Cargo package.
+The public library and feature-gated CLI are published as the `arqen` Cargo
+package. Native support is optional and is not compiled into the default build.
 Generated application code is replaceable; your domain services do not need to
 depend on generated implementation details.
 

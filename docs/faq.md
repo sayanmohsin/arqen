@@ -15,14 +15,14 @@ mobile backend, internal service, or automation worker.
 ## Which storage mode should I use?
 
 - Use `memory` for tests, examples, and disposable local development.
-- Use `native` when one application process should own an embedded durable
-  Thingd store and the application explicitly enables the pinned
+- Use `native` only for local development or migration, with Arqen’s optional
   `thingd-native` feature.
 - Use `http` when Thingd should run as a separate service with its own memory,
   schema, index, backup, and operational lifecycle.
 
-Native mode is compile-time coupled to the Thingd crate version selected by
-the optional adapter. HTTP mode is coupled to the public Thingd `v1` API;
+Native mode is compile-time coupled to the supported Thingd Cargo range.
+Compatible patch updates do not require an Arqen release. HTTP mode is coupled
+to the public Thingd `v1` API;
 call `HttpThingdBackend::check_compatibility()` during startup and fail
 readiness if it returns an error.
 
