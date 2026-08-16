@@ -32,9 +32,9 @@ pub use sync::{
 };
 
 #[cfg(feature = "http-client")]
-pub use http::HttpClientPolicy;
-#[cfg(feature = "http-client")]
 pub use http::HttpThingdBackend;
+#[cfg(feature = "http-client")]
+pub use http::{HttpClientPolicy, THINGD_HTTP_API_VERSION};
 #[cfg(feature = "thingd-native")]
 pub use native::{NativeThingdEngine, NativeThingdStore};
 #[cfg(feature = "thingd-native")]

@@ -75,6 +75,8 @@ tracing::info!(api_key = %redacted(&key), "key validated");
   break existing code.
 - Maintain adapter parity between in-memory and durable backends.
 - Document any deviation from the public thingd HTTP contract.
+- Keep native Thingd dependencies behind an explicit feature and publish the
+  tested native version separately from the HTTP API version.
 
 ## Changelog
 

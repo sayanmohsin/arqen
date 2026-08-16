@@ -29,7 +29,8 @@ pub use crate::thingd::NativeThingdSyncEndpoint;
 pub use crate::thingd::{
     ApplyResult, FileSyncCheckpointStore, HttpClientPolicy, ReplicationChange, ReplicationSnapshot,
     ReplicationStatus, SyncCheckpointStore, SyncClientPolicy, SyncEndpoint, SyncPage,
-    SyncRuntimeStatus, ThingdSyncClient, ThingdSyncWorker,
+    SyncRuntimeStatus, THINGD_HTTP_API_VERSION, ThingdCompatibilityReport, ThingdSyncClient,
+    ThingdSyncWorker,
 };
 pub use crate::thingd::{
     BootstrapPolicy, CachePolicy, CachingThingdBackend, ScopedThingdBackend, StorageFactory,

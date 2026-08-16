@@ -1,7 +1,8 @@
 <script setup lang="ts">
 declare const __ARQEN_DOCS_META__: {
   arqenVersion: string;
-  thingdVersion: string;
+  nativeThingdVersion: string;
+  httpApiVersion: string;
   releaseDate: string;
   docsRevision: string;
 };
@@ -15,7 +16,10 @@ const meta = __ARQEN_DOCS_META__;
       <span>Current release</span><strong>Arqen {{ meta.arqenVersion }}</strong>
     </div>
     <div>
-      <span>Thingd integration</span><strong>Thingd {{ meta.thingdVersion }}</strong>
+      <span>Native adapter</span><strong>Thingd {{ meta.nativeThingdVersion }}</strong>
+    </div>
+    <div>
+      <span>HTTP contract</span><strong>Thingd {{ meta.httpApiVersion }}</strong>
     </div>
     <div>
       <span>Released</span><strong>{{ meta.releaseDate }}</strong>

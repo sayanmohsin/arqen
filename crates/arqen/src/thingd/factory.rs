@@ -195,7 +195,7 @@ fn warn_if_low_native_memory() {
     }
 }
 
-#[cfg(not(target_os = "linux"))]
+#[cfg(all(not(target_os = "linux"), feature = "thingd-native"))]
 fn warn_if_low_native_memory() {}
 
 #[cfg(test)]

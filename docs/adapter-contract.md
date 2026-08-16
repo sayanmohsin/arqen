@@ -15,6 +15,7 @@ pub trait ThingdBackend: Send + Sync {
     async fn put_object(&self, collection: &str, id: &str, data: serde_json::Value) -> Result<ThingdObject>;
     async fn delete_object(&self, collection: &str, id: &str) -> Result<()>;
     async fn query_objects(&self, collection: &str, options: QueryOptions) -> Result<Vec<ThingdObject>>;
+    async fn count_objects(&self, collection: &str) -> Result<usize>;
 
     // Batch operations
     async fn batch_write(&self, operations: Vec<ThingdOperation>) -> Result<Vec<ThingdOperationResult>>;
@@ -25,6 +26,7 @@ pub trait ThingdBackend: Send + Sync {
 
     // Queue operations
     async fn push_job(&self, queue: &str, payload: serde_json::Value, max_retries: u32) -> Result<ThingdJob>;
+    async fn push_job_with_options(&self, queue: &str, payload: serde_json::Value, max_retries: u32, options: PushJobOptions) -> Result<ThingdJob>;
     async fn claim_job(&self, queue: &str, worker_id: &str, lease_seconds: u32) -> Result<Option<ThingdJob>>;
     async fn complete_job(&self, queue: &str, job_id: &str) -> Result<()>;
     async fn nack_job(&self, queue: &str, job_id: &str) -> Result<()>;
@@ -34,9 +36,12 @@ pub trait ThingdBackend: Send + Sync {
     async fn search(&self, query: &str, options: SearchOptions) -> Result<SearchResults>;
 
     // Link operations
-    async fn create_link(&self, link: ThingdLink) -> Result<ThingdLink>;
+    async fn create_link(&self, source_id: &str, target_id: &str, relation: &str) -> Result<ThingdLink>;
     async fn get_links(&self, source_id: &str, relation: Option<&str>) -> Result<Vec<ThingdLink>>;
     async fn delete_link(&self, link_id: &str) -> Result<()>;
+
+    async fn reset(&self) -> Result<()>;
+    async fn seed(&self) -> Result<()>;
 }
 ```
 
@@ -82,8 +87,12 @@ full collection.
 - Uses thingd's public REST API
 - Suitable for production deployments
 - Requires network connectivity
+- `check_compatibility()` validates the versioned `/v1/health` contract before
+  the application marks the remote dependency ready
+- It reports API compatibility, not an arbitrary concrete Thingd engine
+  version, because the public health response does not expose one
 
-### <CurrentVersion kind="thingd" /> synchronization
+### <CurrentVersion kind="http-api" /> synchronization
 
 With the `http-client` feature, `ThingdSyncClient` and `ThingdSyncWorker` wrap
 Thingd's public `/v1/replication/events`, `/apply`, `/status`, `/conflicts`, and
@@ -94,7 +103,7 @@ shutdown. It is opt-in and experimental; Thingd remains the owner of
 replication semantics, provenance, tombstones, and conflict quarantine.
 
 Native storage is embedded in the Arqen process and does not require a local
-sidecar. `NativeThingdSyncEndpoint` uses the current Thingd release's public
+sidecar. `NativeThingdSyncEndpoint` uses the pinned native adapter's public
 `ReplicationService`; it never reads private Thingd internals or falls back to
 HTTP or memory. Use Arqen's replication-aware native mutation helpers so
 successful object and event writes create source feed records.
@@ -115,6 +124,19 @@ let thingd = StorageFactory::build(&config)?;
 
 let app_state = AppState::new(thingd);
 ```
+
+For an HTTP deployment, validate the remote contract during startup:
+
+```rust,ignore
+let backend = HttpThingdBackend::new("https://thingd.internal");
+backend.check_compatibility().await?;
+let state = AppState::builder()
+    .with_storage(std::sync::Arc::new(backend))
+    .build()?;
+```
+
+Native storage is an explicit feature. Its Thingd crate version is pinned in
+the native adapter dependency and must be upgraded and tested as one unit.
 
 ## Data types
 

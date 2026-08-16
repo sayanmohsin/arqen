@@ -16,9 +16,16 @@ mobile backend, internal service, or automation worker.
 
 - Use `memory` for tests, examples, and disposable local development.
 - Use `native` when one application process should own an embedded durable
-  Thingd store.
+  Thingd store and the application explicitly enables the pinned
+  `thingd-native` feature.
 - Use `http` when Thingd should run as a separate service with its own memory,
   schema, index, backup, and operational lifecycle.
+
+Native mode is compile-time coupled to the Thingd crate version selected by
+the optional adapter. HTTP mode is coupled to the public Thingd `v1` API;
+call `HttpThingdBackend::check_compatibility()` during startup and fail
+readiness if it returns an error.
+
 - Do not use `cloud` as a current production mode; the public cloud adapter is
   not implemented.
 

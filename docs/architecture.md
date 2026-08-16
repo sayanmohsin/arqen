@@ -5,6 +5,11 @@
 Arqen separates the application code you write from the infrastructure it
 uses to serve requests, run jobs, and persist data.
 
+The core contract is Arqen-owned. Native Thingd is an optional compile-time
+adapter; HTTP Thingd is a runtime service boundary. This means an application
+can implement `ThingdBackend` or inject a memory, HTTP, or native adapter
+without making its domain services depend directly on the Thingd Rust crate.
+
 ## Request flow
 
 1. A person, program, or agent calls an HTTP route or discovers a tool.
@@ -35,9 +40,18 @@ The `ThingdBackend` contract keeps application services independent of the
 selected storage mode:
 
 - `MemoryThingdBackend` is for tests and disposable development;
-- native Thingd is embedded in the application process;
-- `HttpThingdBackend` connects to a separate Thingd service;
+- the optional native adapter embeds a pinned, compile-time-compatible Thingd
+  Rust engine in the application process;
+- `HttpThingdBackend` connects to a separate Thingd service through the
+  versioned public `v1` REST API;
 - a cloud adapter is future work and requires a public customer contract.
+
+Native compatibility is determined by Cargo: the native feature pins the
+Thingd crate version it was tested with. HTTP compatibility is determined by
+the public API contract and `HttpThingdBackend::check_compatibility()`, which
+validates the `/v1/health` response. The current public health response does
+not expose a stable engine-version field, so Arqen does not claim runtime
+compatibility with arbitrary Thingd engine versions.
 
 See [Configuration](./configuration.md) and
 [Thingd integration](./thingd-integration.md).

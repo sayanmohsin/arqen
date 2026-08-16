@@ -282,6 +282,15 @@ pub struct ThingdOperationResult {
     pub error: Option<String>,
 }
 
+/// Result of validating a Thingd backend boundary.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ThingdCompatibilityReport {
+    /// API or adapter boundary that was validated.
+    pub api_version: String,
+    /// Health status returned by the boundary.
+    pub status: String,
+}
+
 /// Async trait for thingd storage backends.
 ///
 /// Implement this trait to provide a custom storage backend. See
@@ -289,6 +298,19 @@ pub struct ThingdOperationResult {
 /// implementation.
 #[async_trait]
 pub trait ThingdBackend: Send + Sync {
+    /// Validate that this backend is available and compatible.
+    ///
+    /// Local adapters are compatible once constructed. Remote adapters should
+    /// override this to probe their versioned service boundary.
+    async fn check_compatibility(
+        &self,
+    ) -> Result<ThingdCompatibilityReport, crate::core::AppError> {
+        Ok(ThingdCompatibilityReport {
+            api_version: "local".to_string(),
+            status: "ok".to_string(),
+        })
+    }
+
     /// Get an object by collection and ID.
     async fn get_object(
         &self,

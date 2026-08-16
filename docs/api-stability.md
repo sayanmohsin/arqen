@@ -10,7 +10,10 @@ The following are intended for application code:
 - `arqen::prelude` for application state, configuration, storage factories,
   validation, modules, jobs, health, and metrics;
 - `arqen::http` helpers and re-exported HTTP types;
-- the `ThingdBackend` contract and memory, native, and HTTP adapters;
+- the Arqen-owned `ThingdBackend` contract and memory adapter;
+- the HTTP adapter and its public `v1` compatibility probe;
+- the native adapter only when the `thingd-native` feature is explicitly
+  enabled and the pinned Thingd version is accepted;
 - configuration, validation, error, health, job, module, OpenAPI, and testing
   types documented in the guides;
 - Thingd schema reports and the current Thingd sync client types.
@@ -27,7 +30,20 @@ public Thingd contracts and deployment experience develop.
 
 Thingd remains responsible for replication, conflicts, encryption, tombstones,
 and migrations. Arqen provides the client, configuration, lifecycle, and
-metrics integration around those capabilities.
+metrics integration around those capabilities. Arqen core does not promise
+that arbitrary Thingd engine versions are source-compatible with its native
+adapter.
+
+## Thingd compatibility
+
+The current native adapter is pinned to Thingd `0.83.2` and is compiled only
+when `thingd-native` is enabled. A native Thingd upgrade is therefore an
+adapter compatibility change and must pass the native contract suite.
+
+The HTTP adapter targets the public Thingd REST API `v1`. Call
+`HttpThingdBackend::check_compatibility()` during startup and keep the service
+out of readiness when the probe fails. The public health response currently
+proves API availability and readiness, not a concrete engine version.
 
 ## SemVer and deprecations
 

@@ -10,29 +10,30 @@ const definitions = {
   architecture: `flowchart TB
     client["People, programs, and agents"] --> api["Arqen HTTP boundary"]
     api --> core
-    subgraph core["Arqen application boundary"]
-      direction LR
+    subgraph core["Arqen core"]
+      direction TB
       policy["Auth + policy"]
       tools["Typed tools + manifests"]
       jobs["Durable jobs + workers"]
       health["Health + observability"]
+      policy --> domain["Application domain services"]
+      tools --> domain
+      jobs --> domain
+      health --> domain
     end
-    core --> domain["Application domain services"]
-    domain --> adapter["ThingdBackend adapter"]
-    adapter --> stores
-    subgraph stores["Storage paths"]
-      direction LR
-      memory["Memory backend"]
-      native["Native Thingd"]
-      http["HTTP Thingd"]
-    end
-    http -. future contract .-> cloud["Hosted Thingd / Cloud"]
+    domain --> contract["Arqen-owned ThingdBackend contract"]
+    contract --> memory["Memory adapter"]
+    contract --> httpAdapter["HTTP adapter"]
+    contract --> nativeAdapter["Optional native adapter"]
+    httpAdapter --> server["Thingd service\nversioned REST API v1"]
+    nativeAdapter --> engine["Thingd Rust crate\ncompile-time compatible version"]
+    httpAdapter -. future public contract .-> cloud["Hosted Thingd / Cloud"]
     classDef edge fill:#171127,stroke:#a78bfa,color:#f5f3ff
     classDef core fill:#102530,stroke:#22d3ee,color:#ecfeff
     classDef store fill:#21152a,stroke:#f0abfc,color:#fff1ff
     class client,api,policy,tools,jobs,health,domain edge
-    class adapter core
-    class memory,native,http,cloud store`,
+    class contract core
+    class memory,httpAdapter,nativeAdapter,server,engine,cloud store`,
   "use-cases": `flowchart TB
     request["Request from a person, program, or agent"] --> discover{"What does the caller need?"}
     discover -->|"A capability"| tool["Discover typed tool + permissions"]
