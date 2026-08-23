@@ -19,8 +19,12 @@ pub use bootstrap::{BootstrapPolicy, retry as retry_bootstrap, seed_with_retry};
 pub use cache::{CachePolicy, CachingThingdBackend};
 pub use factory::StorageFactory;
 pub use memory::MemoryThingdBackend;
+#[cfg(feature = "thingd-connectors")]
+pub use native::connectors;
 #[cfg(feature = "thingd-native")]
 pub use native::{NativeThingdEngine, NativeThingdStore};
+#[cfg(feature = "thingd-maintenance")]
+pub use native::{PersistentSearchMode, RecoveryBudget};
 #[cfg(feature = "thingd-native")]
 pub use native_backend::NativeThingdBackend;
 pub use scoped::{ScopeSubject, ScopedThingdBackend, StorageScope};

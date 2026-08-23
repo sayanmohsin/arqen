@@ -66,11 +66,12 @@ separate persistent-path benchmark before choosing disk settings. HTTP latency
 must be measured against the deployed thingd service because network distance,
 TLS, pooling, and server load dominate the result.
 
-Thingd 0.83 replaces Fjall with embedded RocksDB, improves persistent queue
-indexing, and exposes configurable search-index rebuild modes plus bounded
-large-journal recovery. Those engine-level improvements are used by the native
-adapter without an Arqen API change; asynchronous rebuild mode remains owned by
-the standalone Thingd server lifecycle.
+Thingd 0.84 adds the experimental ThingDB backend, bounded storage caches,
+layered table recovery, durable group commit, configurable search-index rebuild
+modes, and bounded large-journal recovery. The native adapter inherits these
+engine-level capabilities; maintenance controls are available only through the
+optional `thingd-maintenance` feature. HTTP deployments remain owned by the
+standalone Thingd server lifecycle.
 
 ## HTTP response performance
 
