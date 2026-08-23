@@ -96,7 +96,9 @@ Thingd supplies the durable records and replication primitives. Arqen owns
 configuration, lifecycle, the stable `ThingdBackend` contract, health,
 metrics, and operator workflows. Production applications should use the HTTP
 adapter. Enable `thingd-native` only for local tooling that must embed the
-engine, and `thingd-migration` for native-to-HTTP migration. See [migration](https://sayanmohsin.github.io/arqen/migration)
+engine, `thingd-maintenance` for native diagnostics and repair operations, and
+`thingd-connectors` for optional native connector APIs. Use
+`thingd-migration` for native-to-HTTP migration. See [migration](https://sayanmohsin.github.io/arqen/migration)
 for the safe native-to-HTTP data movement workflow.
 
 ### Compatibility policy
@@ -107,8 +109,9 @@ for the safe native-to-HTTP data movement workflow.
 | Native adapter | Optional Arqen feature and compatible Thingd Cargo range | Compile-time failure or native contract test failure |
 | HTTP adapter | Public Thingd REST API `v1` and required endpoint behavior | `check_compatibility()` returns a dependency error |
 
-The native adapter currently supports Thingd `>=0.83.2, <0.84.0`. Cargo can
-update compatible `0.83.x` releases without an Arqen release. The public Thingd
+The native adapter currently supports Thingd `>=0.84.2, <0.85.0`. The optional
+`thingd-maintenance` and `thingd-connectors` features use Thingd's public native
+APIs without changing the backend-neutral contract. The public Thingd
 health endpoint does not expose a stable engine version, so HTTP compatibility
 is checked at the API/capability boundary rather than inferred from an
 arbitrary server version string.

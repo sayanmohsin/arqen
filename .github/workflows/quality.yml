@@ -68,6 +68,11 @@ jobs:
     steps:
       - uses: actions/checkout@v7
       - uses: actions-rust-lang/audit@v1
+        # thingd 0.84.2 transitively enables sqlx-mysql/rsa. RustSec has no
+        # fixed rsa release for RUSTSEC-2023-0071; retain the audit result as
+        # an explicit, reviewed exception until thingd removes that path.
+        with:
+          ignore: RUSTSEC-2023-0071
       - uses: pnpm/action-setup@v6
         with: { version: 10 }
       - uses: actions/setup-node@v7

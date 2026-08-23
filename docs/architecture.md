@@ -48,7 +48,7 @@ selected storage mode:
 - a cloud adapter is future work and requires a public customer contract.
 
 Native compatibility is determined by Cargo: the native feature accepts the
-supported Thingd range `>=0.83.2, <0.84.0`. HTTP compatibility is determined by
+supported Thingd range `>=0.84.2, <0.85.0`. HTTP compatibility is determined by
 the public API contract and `HttpThingdBackend::check_compatibility()`, which
 validates the `/v1/health` response. The current public health response does
 not expose a stable engine-version field, so Arqen does not claim runtime

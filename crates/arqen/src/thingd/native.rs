@@ -40,6 +40,27 @@ use crate::core::{AppError, ErrorKind};
 use thingd::ThingdResult;
 use thingd::{MemoryEvent, MemoryObject, ReplicationConfig, ReplicationService, ThingStore};
 
+#[cfg(feature = "thingd-maintenance")]
+use thingd::{StorageDiagnostics, StorageMaintenanceStatus, StorageValidationReport};
+
+#[cfg(feature = "thingd-maintenance")]
+pub use thingd::{PersistentSearchMode, RecoveryBudget};
+
+#[cfg(feature = "thingd-connectors")]
+pub mod connectors {
+    //! Optional native Thingd connector APIs.
+    //!
+    //! Connector support is intentionally native-only. The Arqen
+    //! [`ThingdBackend`](super::super::traits::ThingdBackend) and HTTP
+    //! adapters remain backend-neutral until Thingd publishes a stable remote
+    //! connector contract.
+    pub use thingd::{
+        Column, ColumnType, Connector, ConnectorAuth, ConnectorConfig, ConnectorDescriptor,
+        ConnectorOperation, ExcelConnector, FileConnector, GoogleSheetsConnector, MysqlConnector,
+        PostgresConnector, PullStream, Schema, SslMode, SyncStrategy,
+    };
+}
+
 /// An embedded thingd engine selected by deployment mode.
 pub enum NativeThingdEngine {
     /// Ephemeral engine for local development and tests.
@@ -132,6 +153,45 @@ impl NativeThingdStore {
         lock_engine(&self.engine)
     }
 
+    /// Return read-only counts and journal information from the native store.
+    #[cfg(feature = "thingd-maintenance")]
+    pub fn storage_diagnostics(&self) -> Result<StorageDiagnostics, AppError> {
+        self.with_engine(|engine| engine.with_store(|store| store.storage_diagnostics()))?
+            .map_err(native_error)
+    }
+
+    /// Return the current recovery, compaction, and search-maintenance state.
+    #[cfg(feature = "thingd-maintenance")]
+    pub fn storage_maintenance_status(&self) -> Result<StorageMaintenanceStatus, AppError> {
+        self.with_engine(|engine| engine.with_store(|store| store.storage_maintenance_status()))
+    }
+
+    /// Validate a persistent Thingd directory without opening or modifying it.
+    #[cfg(feature = "thingd-maintenance")]
+    pub fn validate_path(path: impl AsRef<Path>) -> Result<StorageValidationReport, AppError> {
+        thingd::PersistentEngine::validate_path(path).map_err(native_error)
+    }
+
+    /// Persist and compact the native store.
+    #[cfg(feature = "thingd-maintenance")]
+    pub fn compact_storage(&self) -> Result<(), AppError> {
+        self.with_engine(|engine| engine.with_store(|store| store.compact_storage()))?
+            .map_err(native_error)
+    }
+
+    /// Advance a bounded search-index rebuild, returning whether it is done.
+    #[cfg(feature = "thingd-maintenance")]
+    pub fn search_rebuild_step(&self, batch_size: usize) -> Result<bool, AppError> {
+        self.with_engine(|engine| engine.with_store(|store| store.search_rebuild_step(batch_size)))?
+            .map_err(native_error)
+    }
+
+    /// Retry a failed asynchronous search-index rebuild.
+    #[cfg(feature = "thingd-maintenance")]
+    pub fn retry_search_rebuild(&self) -> Result<bool, AppError> {
+        self.with_engine(|engine| engine.with_store(|store| store.retry_search_rebuild()))
+    }
+
     /// Put an object and record its source replication change while holding
     /// the same native engine lock.
     pub fn put_object_replicated(
@@ -197,6 +257,11 @@ impl NativeThingdStore {
     }
 }
 
+#[cfg(feature = "thingd-maintenance")]
+fn native_error(error: thingd::ThingdError) -> AppError {
+    AppError::new(ErrorKind::Dependency, error.to_string())
+}
+
 fn ensure_source_config(config: &ReplicationConfig) -> Result<(), AppError> {
     if config.role != thingd::ReplicationRole::Source {
         return Err(AppError::new(
@@ -211,4 +276,41 @@ fn ensure_source_config(config: &ReplicationConfig) -> Result<(), AppError> {
         ));
     }
     Ok(())
+}
+
+#[cfg(all(test, feature = "thingd-maintenance"))]
+mod maintenance_tests {
+    use super::NativeThingdStore;
+
+    #[test]
+    fn reports_memory_store_diagnostics_and_maintenance() {
+        let store = NativeThingdStore::memory();
+        store
+            .with_engine(|engine| {
+                engine
+                    .with_store(|native| {
+                        native.put_object(thingd::MemoryObject::new(
+                            "notes",
+                            "one",
+                            r#"{"ok":true}"#,
+                        ))
+                    })
+                    .unwrap();
+            })
+            .unwrap();
+
+        let diagnostics = store.storage_diagnostics().unwrap();
+        assert_eq!(diagnostics.objects, 1);
+        assert_eq!(diagnostics.events, 0);
+
+        let maintenance = store.storage_maintenance_status().unwrap();
+        assert_eq!(maintenance.state, "idle");
+    }
+
+    #[test]
+    fn memory_search_rebuild_controls_are_safe() {
+        let store = NativeThingdStore::memory();
+        assert!(store.search_rebuild_step(32).unwrap());
+        assert!(!store.retry_search_rebuild().unwrap());
+    }
 }

@@ -1,12 +1,12 @@
 # thingd integration
 
 The optional `thingd-native` adapter is currently compatible with Thingd
-`>=0.83.2, <0.84.0`. It supplies objects, events,
-search, links, durable queues, encryption-aware persistence, and a public
-replication contract. Thingd `0.83.2` replaced the legacy Fjall backend with
-embedded RocksDB for production durable storage; the public REST/MCP/native
-contracts are unchanged, but existing Fjall directories must be migrated
-explicitly with `thingd-migrate` before they can be opened.
+`>=0.84.2, <0.85.0`. It supplies objects, events, search, links, durable
+queues, encryption-aware persistence, and a public replication contract.
+Thingd 0.84 adds the experimental ThingDB backend, bounded storage caches,
+layered table recovery, durable group commit, and storage maintenance
+diagnostics. Arqen exposes those operational controls through the optional
+`thingd-maintenance` feature while keeping the stable adapter contract intact.
 
 The stable cross-version integration is Thingd’s public HTTP API, currently
 `v1`. Arqen should not
@@ -22,7 +22,7 @@ The adapter contract supports:
 - links for relationships.
 
 The Arqen scheduler persists its records through the object contract and hands
-off runs through the queue contract. Native Thingd `0.83.2` supports
+off runs through the queue contract. Native Thingd 0.84.2 supports
 deterministic queue IDs and delayed availability. The current public HTTP
 queue endpoint exposes neither option, so HTTP scheduling returns an explicit
 unsupported error for those operations; it never starts an in-memory timer.
@@ -87,9 +87,10 @@ bounded by `HttpClientPolicy::max_query_scan_objects`, and an exceeded bound
 returns an explicit error. Revisit this fallback only when the deployed
 Thingd server contract provides a tested range-filter representation.
 
-### Native adapter Thingd 0.83.2 persistent asynchronous search
+### Native adapter Thingd 0.84.2 persistent asynchronous search
 
-Thingd 0.83.2 provides coalesced asynchronous Tantivy indexing while RocksDB
+Thingd 0.84.2 provides coalesced asynchronous Tantivy indexing while the
+configured durable backend
 remains the durable source of truth. For an HTTP Thingd deployment, configure
 the Thingd service (not Arqen) with:
 
@@ -105,7 +106,7 @@ retry search-after-write reads with bounded backoff or use the primary object
 read until the indexed result appears. Arqen does not run a separate Tantivy
 maintenance loop.
 
-Thingd 0.83.2 also adds bounded large-journal recovery for low-memory hosts:
+Thingd 0.84.2 also provides bounded large-journal recovery for low-memory hosts:
 recovery runs in two phases (primary RocksDB recovery/compaction, then Tantivy
 search rebuild in bounded batches). During recovery `/ready` and mutation
 endpoints return `503 Retry-After: 1`, reads remain available, and compatible
@@ -166,43 +167,23 @@ Native storage means one embedded Thingd engine and one durable data directory
 inside the Arqen application process. It does not mean that Arqen starts a
 second Thingd server against the same directory.
 
-### Migrating from Fjall to RocksDB (Thingd 0.83.2)
+### Upgrading native storage to Thingd 0.84.2
 
-Thingd 0.83.2 cannot open an existing Fjall directory. Opening one fails closed
-with `UnsupportedStorageFormat`. The migration is a logical copy into a new
-RocksDB directory and is performed offline, before Arqen starts against the
-new path:
+Thingd 0.84.2 uses its current persistent storage contract and no longer
+publishes the removed legacy `thingd-migrate` utility. Before opening an
+existing native directory with a new Arqen build:
 
-1. Stop Arqen and every process that uses the existing database.
-2. Identify the configured persistent directory (an old Fjall store).
-3. Choose a separate destination path that does not exist and is not inside
-   the source directory.
-4. Run the Thingd migration utility (built from the thingd repository):
+1. Stop Arqen and every process using the directory.
+2. Run `NativeThingdStore::validate_path()` from a maintenance-enabled build.
+3. Back up the source directory and verify the format and search-index report.
+4. Open the directory with the same backend and encryption options used by the
+   original deployment; do not change backend mode during the upgrade.
+5. Validate diagnostics, search-rebuild state, object/event/queue/link counts,
+   and representative reads and writes before resuming traffic.
 
-   ```bash
-   cargo run -p thingd-migrate -- fjall-to-rocksdb \
-     --source <existing-fjall-path> \
-     --destination <new-rocksdb-path>
-   ```
-
-5. Never reuse the source path as the destination and never modify, delete, or
-   overwrite the Fjall source.
-6. Point Arqen at the new RocksDB path (for native mode, `ARQEN_PERSISTENT_PATH`
-   or `ARQEN_NATIVE_DATA_DIR`), then start Arqen/Thingd and validate: `/healthz`
-   and `/ready` return `200`, diagnostics report an idle/healthy maintenance
-   state, object counts and IDs are preserved, versions/timestamps are
-   preserved, events and sequence state survive, queues/leases/retries/dead
-   letters survive, links, schemas, migrations, idempotency, and replication
-   state are preserved, search rebuild completes, and representative reads and
-   writes succeed after a restart.
-7. Keep the original Fjall directory and a backup until the migrated store has
-   passed restart and production validation.
-
-Do not seed or write data while Thingd is unavailable during migration; retry
-with bounded backoff. In HTTP mode the backend talks to a standalone Thingd
-server over REST, so only the sidecar's data directory needs migration. The
-`thingd-migrate` binary is an offline utility owned by Thingd; Arqen does not
-embed Fjall or perform the conversion itself.
+If validation reports an unsupported format, preserve the source and use the
+Thingd release-specific logical repack or migration procedure. Arqen does not
+guess at destructive conversion steps or overwrite the original directory.
 
 ### What is recorded
 

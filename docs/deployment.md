@@ -24,8 +24,8 @@ RAM (`e2-medium` or larger); the native store alone can consume hundreds of MB
 and Linux OOM kills commonly appear only as exit code 137. For e2-micro and
 other small VMs, use HTTP mode and run thingd separately. See the thingd memory
 and native-store compatibility documentation for the store-specific
-requirements. Existing Fjall directories must be migrated with
-`thingd-migrate` before they can be opened by Thingd 0.83.2.
+requirements. Validate existing directories with the optional Arqen
+`thingd-maintenance` feature before upgrading the native runtime.
 
 Use the `native` storage mode for local durable storage without a
 separate thingd service.
