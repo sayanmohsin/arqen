@@ -11,6 +11,13 @@
   APIs.
 - Upgrade the Thingd dependency to `0.83.2`.
 
+## [0.14.0](https://github.com/sayanmohsin/arqen/compare/arqen-v0.13.0...arqen-v0.14.0) (2026-08-23)
+
+
+### Features
+
+* upgrade Arqen Thingd integration ([#54](https://github.com/sayanmohsin/arqen/issues/54)) ([65c448d](https://github.com/sayanmohsin/arqen/commit/65c448dc7fe1721d061a46f33cb34c843449ca12))
+
 ## [0.13.0](https://github.com/sayanmohsin/arqen/compare/arqen-v0.12.0...arqen-v0.13.0) (2026-08-16)
 
 
