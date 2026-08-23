@@ -4,7 +4,7 @@ exclude = ["examples/minimal-api", "examples/memory-backend", "watchloom"]
 members = ["crates/arqen"]
 
 [workspace.package]
-version = "0.14.0"
+version = "0.3.0"
 edition = "2024"
 rust-version = "1.96"
 license = "MIT"

@@ -21,7 +21,10 @@ services:
 
   # Standalone thingd sidecar used by the production-style Arqen smoke test.
   thingd:
-    image: sayanmohsin/thingd:latest
+    # Thingd 0.84.2's published scratch image currently loses the executable
+    # bit on /thingd-server. Keep the smoke sidecar on the last known-good
+    # image until that upstream artifact is republished.
+    image: sayanmohsin/thingd:v0.84.1
     ports:
       - "8757:8757"
     volumes:
