@@ -159,7 +159,7 @@ which overrides the compiled default of `8888`.
 When an Arqen application starts, it prints a banner with essential information:
 
 ```text
-Arqen v0.5.0
+Arqen v<current-version>
 API:    http://127.0.0.1:8888
 Health: http://127.0.0.1:8888/health
 Docs:   http://127.0.0.1:8888/docs
