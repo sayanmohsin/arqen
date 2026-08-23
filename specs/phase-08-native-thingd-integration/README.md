@@ -15,7 +15,7 @@ tests, and migration notes for the legacy copied backend.
 Acceptance: no production path uses copied storage semantics; both native
 engines pass the same contract suite; unsupported operations fail explicitly.
 
-Tests: unit conversions, memory/Fjall integration, reopen persistence,
+Tests: unit conversions, memory/native integration, reopen persistence,
 concurrency, and legacy contract regression.
 
 Docs: update `docs/thingd-integration.md` and `docs/adapter-contract.md`.

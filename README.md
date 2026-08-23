@@ -43,7 +43,7 @@ Add the core package for production HTTP deployments:
 
 ```toml
 [dependencies]
-arqen = "0.13"
+arqen = "0.14"
 ```
 
 Create a starter application from a checkout:

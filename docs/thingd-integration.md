@@ -1,7 +1,7 @@
 # thingd integration
 
 The optional `thingd-native` adapter is currently compatible with Thingd
-`>=0.84.2, <0.85.0`. It supplies objects, events, search, links, durable
+<CurrentVersion kind="native-thingd" :label="false" />. It supplies objects, events, search, links, durable
 queues, encryption-aware persistence, and a public replication contract.
 Thingd 0.84 adds the experimental ThingDB backend, bounded storage caches,
 layered table recovery, durable group commit, and storage maintenance

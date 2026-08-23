@@ -37,6 +37,7 @@ Before opening a pull request:
 - [ ] `cargo clippy --workspace --all-targets --all-features -- -D warnings`
 - [ ] `cargo doc --workspace --no-deps`
 - [ ] Documentation build: `cd docs && pnpm install --frozen-lockfile && pnpm build`
+- [ ] Release documentation audit: `bash scripts/check-release-docs.sh`
 - [ ] Generated project compiles: `cargo run -p arqen --features cli --bin arqen -- new test-project && cargo check --manifest-path test-project/Cargo.toml`
 
 ## Documentation drift

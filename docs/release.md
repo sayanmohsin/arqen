@@ -15,12 +15,19 @@ cargo clippy -p arqen --all-targets --all-features -- -D warnings
 cargo bench --bench framework -- --noplot
 cargo doc -p arqen --all-features --no-deps
 cargo package -p arqen --allow-dirty
-cd docs && pnpm install --frozen-lockfile && pnpm build
+cd docs && pnpm install --frozen-lockfile && pnpm build && cd ..
+bash scripts/check-release-docs.sh
 ```
 
 Review [feature status](feature-status.md), update `CHANGELOG.md`, and include
 known blockers. Do not turn a planned adapter, cloud mode, or Node.js package
 into a completed claim without acceptance evidence.
+
+The release documentation audit derives the Arqen and Thingd versions from the
+Cargo manifest and Release Please metadata. It also checks the README and
+current examples, verifies the native-to-HTTP migration surface is still
+present, and rejects retired storage terminology. The audit is a required CI and
+release gate; historical version examples in migration notes remain allowed.
 
 ## Automated release flow
 

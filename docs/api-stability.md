@@ -36,7 +36,7 @@ adapter.
 
 ## Thingd compatibility
 
-The native feature accepts Thingd `>=0.84.2, <0.85.0`. The maintenance and
+The native feature accepts Thingd <CurrentVersion kind="native-thingd" :label="false" />. The maintenance and
 connector features are opt-in native extensions. A minor Thingd upgrade
 requires updating Arqen’s range and passing the native contract suite; it may
 require an Arqen release if native APIs changed.

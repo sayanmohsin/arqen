@@ -47,6 +47,18 @@ jobs:
           args: --verbose --no-progress --exclude '127\.0\.0\.1' --exclude 'github.com/.*/compare/' --exclude 'github.com/login' --exclude 'github.com/.*/security/advisories/new' --exclude 'github.com/.*/issues/new' "**/*.md" "README.md"
           fail: true
 
+  release-docs:
+    name: Release documentation audit
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - name: Install audit dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y jq ripgrep
+      - name: Check release documentation and legacy terms
+        run: bash scripts/check-release-docs.sh
+
   prettier:
     runs-on: ubuntu-latest
     steps:

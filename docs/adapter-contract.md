@@ -62,7 +62,7 @@ pub trait ThingdBackend: Send + Sync {
 - Adapts embedded native thingd to the common async `ThingdBackend` contract
 - Construct it through `StorageFactory` when the `thingd-native` feature is enabled
 - `NativeThingdStore` remains available for advanced full-native APIs
-- The feature accepts Thingd `>=0.84.2, <0.85.0`.
+- The feature accepts Thingd <CurrentVersion kind="native-thingd" :label="false" />.
 - `thingd-maintenance` exposes optional native diagnostics, validation,
   compaction, and bounded search-rebuild operations.
 - `thingd-connectors` exposes Thingd's native connector traits and built-in
