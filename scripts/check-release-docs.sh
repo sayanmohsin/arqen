@@ -56,7 +56,7 @@ while IFS= read -r reference; do
   [[ "$reference" == *"$thingd_range"* ]] || fail "stale Thingd compatibility range: $reference"
 done < <(rg -n -o '>=([0-9]+\.[0-9]+\.[0-9]+), <([0-9]+\.[0-9]+\.[0-9]+)' README.md docs --glob '!docs/.vitepress/dist/**' || true)
 
-if git grep -niE 'fjall|fjall[[:space:]_-]*migration|migration[[:space:]_-]*fjall' -- .; then
+if git grep -niE 'fjall|fjall[[:space:]_-]*migration|migration[[:space:]_-]*fjall' -- . ':(exclude)scripts/check-release-docs.sh'; then
   fail "forbidden legacy Fjall terminology is present in tracked files"
 fi
 
