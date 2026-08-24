@@ -30,6 +30,7 @@
 use std::fmt;
 use std::path::PathBuf;
 
+#[cfg(feature = "cli")]
 use clap::ValueEnum;
 use std::time::Duration;
 
@@ -435,7 +436,8 @@ fn default_log_level() -> String {
     "info".to_string()
 }
 
-#[derive(Debug, Clone, Copy, Default, Serialize, Deserialize, ValueEnum)]
+#[derive(Debug, Clone, Copy, Default, Serialize, Deserialize)]
+#[cfg_attr(feature = "cli", derive(ValueEnum))]
 #[serde(rename_all = "lowercase")]
 pub enum LogFormat {
     #[default]

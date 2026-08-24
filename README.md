@@ -10,23 +10,26 @@
 
 ## Backend infrastructure for agent-ready applications
 
-Arqen is a developer-focused backend toolkit for HTTP services. It brings
-typed tools, durable jobs, discoverable APIs, explicit modules, health checks,
-and Thingd integration to one readable project structure.
+Arqen is a Rust-first backend toolkit for HTTP services, built with Tokio,
+Axum, Tower, tracing, Serde, and optional Reqwest and Clap integrations. It
+brings typed tools, durable jobs, discoverable APIs, explicit modules, health
+checks, and an Arqen-owned Thingd adapter contract to one readable project
+structure.
 
 “Agent-ready” does not mean AI-only. It means capabilities are discoverable,
 typed, permission-aware, auditable, and automation-friendly.
 
-Arqen is Rust-first, built on Tokio, Tower, tracing, and Axum. Thingd storage
-is reached through an Arqen-owned adapter contract. Memory and HTTP support are
-available in the core package; native Thingd is included only when the optional
-`thingd-native` feature is enabled. Clients in other languages can use the HTTP
-API and machine-readable manifests.
+Thingd storage is reached through an Arqen-owned adapter contract; Arqen is not
+Thingd itself. Memory support is available in the core package. HTTP Thingd,
+native Thingd, migration, and maintenance capabilities are feature-gated, and
+native Thingd is included only when the optional `thingd-native` feature is
+enabled. The optional `cli` feature provides the Clap-based command-line tool.
+Clients in other languages can use the HTTP API and machine-readable manifests.
 
 ## Project status
 
 Arqen is early-stage and actively maturing. The current package
-contains the library and feature-gated CLI, including configuration,
+contains the library and feature-gated Clap CLI, including configuration,
 authentication, validation, jobs, observability, OpenAPI helpers, module
 composition, testing utilities, and Thingd encryption, schema, migration, and
 opt-in replication integration. Production adoption still requires
