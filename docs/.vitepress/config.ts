@@ -39,7 +39,7 @@ export default defineConfig({
   lang: "en-US",
   cleanUrls: true,
   head: [
-    ["link", { rel: "icon", type: "image/svg+xml", href: "/arqen/logo.svg" }],
+    ["link", { rel: "icon", type: "image/svg+xml", href: "/arqen/favicon.svg" }],
     ["meta", { name: "theme-color", content: "#080a0d" }],
     [
       "meta",
