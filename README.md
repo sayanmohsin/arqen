@@ -40,6 +40,8 @@ See the [feature status](https://sayanmohsin.github.io/arqen/feature-status)
 before depending on a capability. The current release is shown dynamically in
 the documentation site and on [crates.io](https://crates.io/crates/arqen).
 
+Read the live documentation on [GitHub Pages](https://sayanmohsin.github.io/arqen/).
+
 ## Quickstart
 
 Add the core package for production HTTP deployments:
@@ -154,7 +156,7 @@ runtime, frontend, BaaS, or workflow system, but does not require any of them.
 
 ## Explore the documentation
 
-- [Documentation site](https://sayanmohsin.github.io/arqen/)
+- [Documentation site on GitHub Pages](https://sayanmohsin.github.io/arqen/)
 - [Getting started](https://sayanmohsin.github.io/arqen/getting-started) · [Configuration](https://sayanmohsin.github.io/arqen/configuration) · [Commands](https://sayanmohsin.github.io/arqen/commands)
 - [Architecture](https://sayanmohsin.github.io/arqen/architecture) · [Modules](https://github.com/sayanmohsin/arqen/blob/main/docs/modules.md) · [Feature status](https://sayanmohsin.github.io/arqen/feature-status)
 - [Authentication](https://github.com/sayanmohsin/arqen/blob/main/docs/authentication.md) · [Validation](https://github.com/sayanmohsin/arqen/blob/main/docs/validation.md) · [OpenAPI](https://github.com/sayanmohsin/arqen/blob/main/docs/openapi.md)

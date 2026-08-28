@@ -1,0 +1,32 @@
+name: Nice Code
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  audit:
+    name: Run Nice Code audit
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          path: arqen
+      - uses: actions/checkout@v7
+        with:
+          repository: sayanmohsin/nice-code
+          path: nice-code
+          ref: main
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+      - name: Run Nice Code
+        working-directory: arqen
+        env:
+          NICE_CODE_DIR: ${{ github.workspace }}/nice-code
+        run: bash scripts/check-nice-code.sh
