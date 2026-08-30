@@ -22,6 +22,9 @@ jobs:
           repository: sayanmohsin/nice-code
           path: nice-code
           ref: main
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Build Nice Code engine
+        run: cargo build --release --manifest-path nice-code/engine/Cargo.toml
       - uses: actions/setup-node@v7
         with:
           node-version: 24
@@ -29,4 +32,5 @@ jobs:
         working-directory: arqen
         env:
           NICE_CODE_DIR: ${{ github.workspace }}/nice-code
+          NICE_CODE_ENGINE: ${{ github.workspace }}/nice-code/engine/target/release/nice-code-engine
         run: bash scripts/check-nice-code.sh
