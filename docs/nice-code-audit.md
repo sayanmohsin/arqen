@@ -37,7 +37,7 @@ packages with newer major releases, including Axum 0.8, Reqwest 0.13, Tower
 Treat those as a separate compatibility upgrade: update one dependency family
 at a time, run the full-feature build and tests, review public API changes,
 then update the release documentation. Keep Thingd constrained to
-`>=0.84.2, <0.85.0` until the Arqen adapter contract is explicitly revalidated.
+`>=0.85.0, <0.86.0` until the Arqen adapter contract is explicitly revalidated.
 
 The checker is advisory for review findings; critical findings and failed
 native checks remain actionable in CI.

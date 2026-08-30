@@ -43,7 +43,7 @@ serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 sha2 = "0.10"
 subtle = "2"
-thingd = { version = ">=0.84.2, <0.85.0", optional = true, features = ["persistent", "search"] }
+thingd = { version = ">=0.85.0, <0.86.0", optional = true, features = ["persistent", "search"] }
 thiserror = "1"
 tokio = { version = "1", features = ["full"] }
 tokio-util = { version = "0.7", features = ["io"], optional = true }

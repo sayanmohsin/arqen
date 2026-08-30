@@ -21,7 +21,7 @@ services:
 
   # Standalone thingd sidecar used by the production-style Arqen smoke test.
   thingd:
-    # Thingd 0.84.2's published scratch image currently loses the executable
+    # Thingd 0.85.0's published scratch image currently loses the executable
     # bit on /thingd-server. Build the smoke image with a mode repair until
     # that upstream artifact is republished.
     build:
