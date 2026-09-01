@@ -30,13 +30,15 @@ Install or run the CLI from the Arqen checkout:
 
 ```bash
 cargo install --path crates/arqen --features cli
-arqen new catalog-api
+arqen new catalog-api --yes
 cd catalog-api
 cargo run
 ```
 
-The generated app starts with memory storage. Confirm that the service is
-running before writing application code:
+The generator defaults to an HTTP app with memory storage and structured
+logging. In a terminal, remove `--yes` to choose native Thingd, starter
+examples, and optional Nice Code setup. Confirm that the service is running
+before writing application code:
 
 ```bash
 curl http://127.0.0.1:8888/health

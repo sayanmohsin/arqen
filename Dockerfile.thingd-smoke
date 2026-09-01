@@ -1,7 +1,7 @@
 # Temporary smoke-test repair for the published Thingd scratch image.
 # The upstream image currently loses the executable bit on /thingd-server
 # when the release artifact is copied into the image.
-FROM sayanmohsin/thingd:v0.85.0 AS thingd
+FROM sayanmohsin/thingd:v0.86.0 AS thingd
 
 FROM alpine:3.22 AS permissions
 COPY --from=thingd /thingd-server /thingd-server

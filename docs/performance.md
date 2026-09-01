@@ -66,7 +66,7 @@ separate persistent-path benchmark before choosing disk settings. HTTP latency
 must be measured against the deployed thingd service because network distance,
 TLS, pooling, and server load dominate the result.
 
-Thingd 0.84 adds the experimental ThingDB backend, bounded storage caches,
+Thingd 0.86 adds the experimental ThingDB backend, bounded storage caches,
 layered table recovery, durable group commit, configurable search-index rebuild
 modes, and bounded large-journal recovery. The native adapter inherits these
 engine-level capabilities; maintenance controls are available only through the

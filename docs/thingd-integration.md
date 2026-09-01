@@ -3,7 +3,7 @@
 The optional `thingd-native` adapter is currently compatible with Thingd
 <CurrentVersion kind="native-thingd" :label="false" />. It supplies objects, events, search, links, durable
 queues, encryption-aware persistence, and a public replication contract.
-Thingd 0.84 adds the experimental ThingDB backend, bounded storage caches,
+Thingd 0.86 adds the experimental ThingDB backend, bounded storage caches,
 layered table recovery, durable group commit, and storage maintenance
 diagnostics. Arqen exposes those operational controls through the optional
 `thingd-maintenance` feature while keeping the stable adapter contract intact.
@@ -22,7 +22,7 @@ The adapter contract supports:
 - links for relationships.
 
 The Arqen scheduler persists its records through the object contract and hands
-off runs through the queue contract. Native Thingd 0.85.0 supports
+off runs through the queue contract. Native Thingd 0.86.0 supports
 deterministic queue IDs and delayed availability. The current public HTTP
 queue endpoint exposes neither option, so HTTP scheduling returns an explicit
 unsupported error for those operations; it never starts an in-memory timer.
@@ -87,9 +87,9 @@ bounded by `HttpClientPolicy::max_query_scan_objects`, and an exceeded bound
 returns an explicit error. Revisit this fallback only when the deployed
 Thingd server contract provides a tested range-filter representation.
 
-### Native adapter Thingd 0.85.0 persistent asynchronous search
+### Native adapter Thingd 0.86.0 persistent asynchronous search
 
-Thingd 0.85.0 provides coalesced asynchronous Tantivy indexing while the
+Thingd 0.86.0 provides coalesced asynchronous Tantivy indexing while the
 configured durable backend
 remains the durable source of truth. For an HTTP Thingd deployment, configure
 the Thingd service (not Arqen) with:
@@ -106,7 +106,7 @@ retry search-after-write reads with bounded backoff or use the primary object
 read until the indexed result appears. Arqen does not run a separate Tantivy
 maintenance loop.
 
-Thingd 0.85.0 also provides bounded large-journal recovery for low-memory hosts:
+Thingd 0.86.0 also provides bounded large-journal recovery for low-memory hosts:
 recovery runs in two phases (primary RocksDB recovery/compaction, then Tantivy
 search rebuild in bounded batches). During recovery `/ready` and mutation
 endpoints return `503 Retry-After: 1`, reads remain available, and compatible
@@ -167,9 +167,9 @@ Native storage means one embedded Thingd engine and one durable data directory
 inside the Arqen application process. It does not mean that Arqen starts a
 second Thingd server against the same directory.
 
-### Upgrading native storage to Thingd 0.85.0
+### Upgrading native storage to Thingd 0.86.0
 
-Thingd 0.85.0 uses its current persistent storage contract and no longer
+Thingd 0.86.0 uses its current persistent storage contract and no longer
 publishes the removed legacy `thingd-migrate` utility. Before opening an
 existing native directory with a new Arqen build:
 

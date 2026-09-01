@@ -15,6 +15,7 @@ pub mod test;
 pub mod thingd_schema;
 
 use clap::{Parser, Subcommand, ValueEnum};
+use std::path::PathBuf;
 
 use output::Output;
 
@@ -51,6 +52,30 @@ pub enum Commands {
     New {
         /// Project name
         name: String,
+        /// Output directory (defaults to the project name)
+        #[arg(short, long)]
+        output: Option<PathBuf>,
+        /// Accept the default project options without prompting
+        #[arg(long)]
+        yes: bool,
+        /// Do not include the Arqen HTTP server feature
+        #[arg(long)]
+        no_http: bool,
+        /// Include embedded native Thingd storage
+        #[arg(long)]
+        thingd: bool,
+        /// Do not include embedded native Thingd storage
+        #[arg(long)]
+        no_thingd: bool,
+        /// Do not include Arqen logging
+        #[arg(long)]
+        no_logging: bool,
+        /// Include starter module, tool, and job guidance
+        #[arg(long)]
+        examples: bool,
+        /// Include optional Nice Code documentation and CI configuration
+        #[arg(long)]
+        nice_code: bool,
     },
     /// Generate code scaffolding
     Generate {
@@ -235,8 +260,27 @@ pub enum GenerateKind {
 
 fn dispatch(cli: &Cli, output: &Output) -> anyhow::Result<()> {
     match &cli.command {
-        Commands::New { name } => {
-            generate::generate_project(name, output)?;
+        Commands::New {
+            name,
+            output: output_dir,
+            yes,
+            no_http,
+            thingd,
+            no_thingd,
+            no_logging,
+            examples,
+            nice_code,
+        } => {
+            let options = generate::ProjectOptions {
+                output_dir: output_dir.clone(),
+                yes: *yes,
+                http: !*no_http,
+                thingd: *thingd && !*no_thingd,
+                logging: !*no_logging,
+                examples: *examples,
+                nice_code: *nice_code,
+            };
+            generate::generate_project(name, options, output)?;
         }
         Commands::Generate { kind } => match kind {
             GenerateKind::Module { name } => generate::generate_module(name, output)?,

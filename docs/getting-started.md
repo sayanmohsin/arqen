@@ -32,7 +32,7 @@ cargo run -p arqen --features cli --bin arqen -- --help
 ## Create a project
 
 ```bash
-arqen new hello-api
+arqen new hello-api --yes
 cd hello-api
 ```
 
@@ -40,14 +40,21 @@ This generates:
 
 ```text
 hello-api/
-Cargo.toml          # depends on the current Arqen 0.14 release
+Cargo.toml          # current Arqen 0.14 release and selected features
   README.md
-  rustfmt.toml        # formatting config
-  clippy.toml         # lint config
+  arqen.toml         # runtime configuration
+  .env.example       # environment template
+  AGENTS.md           # portable project guidance
+  rustfmt.toml       # formatting config
+  clippy.toml        # lint config
   src/
     main.rs           # entry point
     app/mod.rs        # AppModule (Module trait)
 ```
+
+In a terminal, omit `--yes` to choose HTTP, native Thingd, logging, starter
+examples, and optional Nice Code setup interactively. See the [CLI project
+generator](./cli-generator.md) for all options.
 
 ## Run the project
 

@@ -21,7 +21,7 @@ jobs:
         with:
           repository: sayanmohsin/nice-code
           path: nice-code
-          ref: main
+          ref: v0.1.11
       - uses: dtolnay/rust-toolchain@stable
       - name: Build Nice Code engine
         run: cargo build --release --manifest-path nice-code/engine/Cargo.toml

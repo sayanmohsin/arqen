@@ -1,6 +1,9 @@
 # Logging and observability
 
-Use `tracing` and `tracing-subscriber` throughout the generated application.
+When logging is selected by `arqen new`, use `tracing` and
+`tracing-subscriber` throughout the generated application. Logging is
+optional; projects generated with `--no-logging` remain runnable without the
+Arqen logging feature.
 
 Development logs should be readable. Production logs should be structured JSON written to stderr so container runtimes, journald, and future collectors can consume them without application changes. The logging worker is non-blocking and remains alive for the process lifetime. Every request and job should carry a request or correlation ID.
 

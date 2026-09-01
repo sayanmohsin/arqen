@@ -59,17 +59,18 @@ automation backends.
 
 ## Choose a starting path
 
-| You need                       | Start here                                                      | What you get                                                         |
-| ------------------------------ | --------------------------------------------------------------- | -------------------------------------------------------------------- |
-| A complete backend path        | [Build a backend](./build-a-backend.md)                         | One guided route from project creation to production                 |
-| A quick local prototype        | [Getting started](./getting-started.md)                         | A runnable app with memory storage                                   |
-| Durable single-process storage | [Deployment](./deployment.md)                                   | Embedded native Thingd with recovery responsibilities clearly stated |
-| A separate data service        | [Thingd integration](./thingd-integration.md)                   | The public HTTP adapter and its compatibility requirements           |
-| To move existing data          | [Migration](./migration.md)                                     | A checked, resumable native-to-HTTP JSONL workflow                   |
-| A Thingd data contract         | [Thingd schema](./schema.md)                                    | Store, validate, inspect, and operate a `.thingd` schema             |
-| Agent-facing capabilities      | [Agent guide](./agent-guide.md)                                 | Discovery, permissions, typed inputs, and invocation                 |
-| Production readiness           | [Production runbook](./production-runbook.md)                   | Deployment checks, health, logs, backups, and ownership              |
-| Request diagnosis              | [Logging](./logging.md) and [Observability](./observability.md) | Structured logs, correlation, bounded metrics, and collector handoff |
+| You need                       | Start here                                                      | What you get                                                          |
+| ------------------------------ | --------------------------------------------------------------- | --------------------------------------------------------------------- |
+| A complete backend path        | [Build a backend](./build-a-backend.md)                         | One guided route from project creation to production                  |
+| A quick local prototype        | [Getting started](./getting-started.md)                         | A runnable app with memory storage                                    |
+| A configurable starter app     | [CLI generator](./cli-generator.md)                             | Interactive or scripted setup for HTTP, Thingd, examples, and tooling |
+| Durable single-process storage | [Deployment](./deployment.md)                                   | Embedded native Thingd with recovery responsibilities clearly stated  |
+| A separate data service        | [Thingd integration](./thingd-integration.md)                   | The public HTTP adapter and its compatibility requirements            |
+| To move existing data          | [Migration](./migration.md)                                     | A checked, resumable native-to-HTTP JSONL workflow                    |
+| A Thingd data contract         | [Thingd schema](./schema.md)                                    | Store, validate, inspect, and operate a `.thingd` schema              |
+| Agent-facing capabilities      | [Agent guide](./agent-guide.md)                                 | Discovery, permissions, typed inputs, and invocation                  |
+| Production readiness           | [Production runbook](./production-runbook.md)                   | Deployment checks, health, logs, backups, and ownership               |
+| Request diagnosis              | [Logging](./logging.md) and [Observability](./observability.md) | Structured logs, correlation, bounded metrics, and collector handoff  |
 
 ## Start here
 
@@ -80,10 +81,15 @@ a Thingd schema, validate it, and prepare a deployment.
 ## Start locally
 
 ```bash
-cargo run -p arqen --features cli --bin arqen -- new hello-api
+cargo run -p arqen --features cli --bin arqen -- new hello-api --yes
 cd hello-api
 cargo run
 ```
+
+For interactive setup, remove `--yes`. The generator can add native Thingd,
+starter guidance, and optional Nice Code CI while keeping Nice Code outside
+the application's Rust and runtime dependencies. Read the [CLI project
+generator](./cli-generator.md) guide for the full option set.
 
 Or run the workspace server directly:
 

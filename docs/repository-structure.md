@@ -60,7 +60,7 @@ arqen/
   specs/                   # Phase specifications
   .github/workflows/       # CI workflows
   CHANGELOG.md
-  AGENTS.md                # Private agent instructions
+  AGENTS.md                # Repository-local contributor instructions
   README.md
 ```
 
@@ -68,7 +68,8 @@ arqen/
 
 - **`Cargo.toml`**: workspace root with one package, feature flags, and
   dependencies.
-- **`AGENTS.md`**: private instructions for coding agents (not public).
+- **Root `AGENTS.md`**: repository-local contributor instructions. Generated
+  applications receive a separate portable `AGENTS.md` with starter guidance.
 - **`CHANGELOG.md`**: user-facing changes for each release.
 - **`docs/.vitepress/config.ts`**: documentation site configuration and
   navigation sidebar.

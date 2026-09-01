@@ -65,9 +65,17 @@ When you run `arqen new`, the project ships with:
 
 - `rustfmt.toml` — arqen default formatting config
 - `clippy.toml` — arqen default lint config
+- `arqen.toml` — starter runtime configuration
+- `.env.example` — environment variable template
+- `AGENTS.md` — portable project guidance and validation commands
 
 These are used automatically by `arqen lint` and `arqen format`. Edit them
 to customize formatting and lint rules.
+
+The generator can also add starter guidance under `examples/` and optional
+Nice Code documentation and CI under `NICE_CODE.md` and
+`.github/workflows/nice-code.yml`. Nice Code remains independent of the
+application's Rust dependencies.
 
 ## CI integration
 
@@ -96,3 +104,34 @@ Or install the CLI first for faster runs:
 - name: Test
   run: arqen test
 ```
+
+## Optional Nice Code integration
+
+Nice Code is an optional development and CI tool. Arqen does not install it,
+depend on it at runtime, or require Node.js for applications.
+
+### Working on Arqen
+
+The repository wrapper fetches the Nice Code source into a temporary cache and
+updates it from the `main` branch:
+
+```bash
+./scripts/check-nice-code.sh
+```
+
+Set `NICE_CODE_DIR` to use an existing checkout without fetching, or set
+`NICE_CODE_CACHE_DIR` to choose the cache location. The wrapper runs the full
+audit and does not modify the Arqen project.
+
+### Using Nice Code in an Arqen application
+
+Install or invoke the public npm launcher from the application repository:
+
+```bash
+npx --yes @sayanmohsin/nice-code@0.1.11 --changed --project .
+```
+
+It requires Node.js 20 or newer. For CI, run the same command with
+`--ci --format sarif` and upload the resulting SARIF file with your preferred
+code-scanning integration. This remains entirely opt-in and is not an Arqen
+package dependency.

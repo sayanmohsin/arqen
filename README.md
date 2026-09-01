@@ -59,6 +59,11 @@ cd hello-api
 cargo run
 ```
 
+Run `arqen new hello-api` in a terminal for interactive setup, or add
+`--yes` for the default HTTP/logging starter. Optional native Thingd storage,
+starter guidance, and Nice Code CI can be selected without making Nice Code a
+runtime dependency. See the [CLI project generator](docs/cli-generator.md).
+
 Run the example server:
 
 ```bash
@@ -114,7 +119,7 @@ for the safe native-to-HTTP data movement workflow.
 | Native adapter | Optional Arqen feature and compatible Thingd Cargo range | Compile-time failure or native contract test failure |
 | HTTP adapter | Public Thingd REST API `v1` and required endpoint behavior | `check_compatibility()` returns a dependency error |
 
-The native adapter currently supports Thingd `>=0.85.0, <0.86.0`. The optional
+The native adapter currently supports Thingd `>=0.86.0, <0.87.0`. The optional
 `thingd-maintenance` and `thingd-connectors` features use Thingd's public native
 APIs without changing the backend-neutral contract. The public Thingd
 health endpoint does not expose a stable engine version, so HTTP compatibility

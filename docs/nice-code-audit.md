@@ -15,7 +15,10 @@ documented exceptions:
 - `crates/arqen/src/dev.rs` is an intentional human-readable local CLI and
   child-process output path, not production telemetry.
 
-The current Nice Code result is `PASS` with zero unsuppressed findings.
+The current full audit result is `ADVISORY`: it reports 12 non-blocking
+`REVIEW` findings for the intentional human-readable `arqen dev` output in
+`crates/arqen/src/dev.rs`. There are no blocking findings; the configured
+exception documents why that output is not production telemetry.
 
 ## Improvement plan
 
@@ -37,7 +40,7 @@ packages with newer major releases, including Axum 0.8, Reqwest 0.13, Tower
 Treat those as a separate compatibility upgrade: update one dependency family
 at a time, run the full-feature build and tests, review public API changes,
 then update the release documentation. Keep Thingd constrained to
-`>=0.85.0, <0.86.0` until the Arqen adapter contract is explicitly revalidated.
+`>=0.86.0, <0.87.0` until the Arqen adapter contract is explicitly revalidated.
 
 The checker is advisory for review findings; critical findings and failed
 native checks remain actionable in CI.

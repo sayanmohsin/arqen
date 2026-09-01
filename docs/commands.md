@@ -23,14 +23,24 @@ suppressed automatically for `--quiet` and `--json`.
 Generate a new Arqen application with the module-based starter structure.
 
 ```bash
-arqen new hello-api
+arqen new hello-api --yes
 cd hello-api
 cargo run
 ```
 
-Options: none beyond the project name. No `--template` flag is available.
-Generated files are intentionally conservative; review and register each
-generated module, tool, or job in the application.
+In a terminal, `arqen new` asks whether to include HTTP, native Thingd,
+logging, starter examples, and optional Nice Code setup. Use `--yes` for the
+default non-interactive project, or choose options explicitly:
+
+```bash
+arqen new hello-api --output ./hello-api --yes --thingd --examples --nice-code
+arqen new worker --yes --no-http --no-logging
+```
+
+The generator never makes Nice Code a runtime dependency. If selected, it
+adds `NICE_CODE.md` and an optional GitHub Actions workflow using the Nice Code
+npm package. `AGENTS.md` contains portable project guidance and validation
+commands.
 
 The CLI refuses to overwrite an existing directory.
 

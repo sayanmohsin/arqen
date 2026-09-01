@@ -151,3 +151,89 @@ fn new_json_includes_rustfmt_and_clippy_toml() {
     assert!(file_names.contains(&"clippy.toml"));
     std::fs::remove_dir_all(&dir).unwrap();
 }
+
+#[test]
+fn new_yes_generates_current_minimal_project() {
+    let dir = std::env::temp_dir().join(format!("arqen-test-new-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&dir);
+    let output = Command::new(arqen_bin())
+        .args(["new", dir.to_str().unwrap(), "--yes"])
+        .output()
+        .unwrap();
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let cargo = std::fs::read_to_string(dir.join("Cargo.toml")).unwrap();
+    assert!(cargo.contains("version = \"0.14.0\""));
+    assert!(cargo.contains("http-server"));
+    assert!(cargo.contains("logging"));
+    assert!(!cargo.contains("thingd-native"));
+    assert!(dir.join("AGENTS.md").exists());
+    assert!(dir.join("arqen.toml").exists());
+    assert!(dir.join("src/app/mod.rs").exists());
+    assert!(!dir.join("NICE_CODE.md").exists());
+    std::fs::remove_dir_all(&dir).unwrap();
+}
+
+#[test]
+fn new_optional_flags_generate_optional_files() {
+    let dir = std::env::temp_dir().join(format!("arqen-test-new-options-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&dir);
+    let output = Command::new(arqen_bin())
+        .args([
+            "new",
+            dir.to_str().unwrap(),
+            "--yes",
+            "--thingd",
+            "--examples",
+            "--nice-code",
+        ])
+        .output()
+        .unwrap();
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let cargo = std::fs::read_to_string(dir.join("Cargo.toml")).unwrap();
+    assert!(cargo.contains("thingd-native"));
+    assert!(
+        std::fs::read_to_string(dir.join("arqen.toml"))
+            .unwrap()
+            .contains("mode = \"native\"")
+    );
+    assert!(dir.join("examples/README.md").exists());
+    assert!(dir.join("NICE_CODE.md").exists());
+    assert!(dir.join(".github/workflows/nice-code.yml").exists());
+    std::fs::remove_dir_all(&dir).unwrap();
+}
+
+#[test]
+fn new_no_http_generates_non_http_app() {
+    let dir = std::env::temp_dir().join(format!("arqen-test-new-no-http-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&dir);
+    let output = Command::new(arqen_bin())
+        .args([
+            "new",
+            dir.to_str().unwrap(),
+            "--yes",
+            "--no-http",
+            "--no-logging",
+        ])
+        .output()
+        .unwrap();
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let cargo = std::fs::read_to_string(dir.join("Cargo.toml")).unwrap();
+    assert!(!cargo.contains("http-server"));
+    assert!(!cargo.contains("logging"));
+    assert!(!dir.join("src/app/mod.rs").exists());
+    std::fs::remove_dir_all(&dir).unwrap();
+}

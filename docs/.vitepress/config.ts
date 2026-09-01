@@ -102,6 +102,7 @@ export default defineConfig({
         text: "Guides",
         items: [
           { text: "Getting started", link: "/getting-started" },
+          { text: "CLI project generator", link: "/cli-generator" },
           { text: "Thingd schema", link: "/schema" },
           { text: "Thingd bootstrap", link: "/bootstrap" },
           { text: "Commands", link: "/commands" },
