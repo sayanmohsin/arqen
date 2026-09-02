@@ -6,7 +6,7 @@ on:
   workflow_dispatch:
     inputs:
       publish_version:
-        description: "Existing Arqen version to retry, for example 0.14.0"
+        description: "Existing Arqen version to retry, for example 0.15.0"
         required: false
         type: string
 

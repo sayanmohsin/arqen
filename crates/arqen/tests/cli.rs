@@ -167,7 +167,7 @@ fn new_yes_generates_current_minimal_project() {
     );
 
     let cargo = std::fs::read_to_string(dir.join("Cargo.toml")).unwrap();
-    assert!(cargo.contains("version = \"0.14.0\""));
+    assert!(cargo.contains("version = \"0.15.0\""));
     assert!(cargo.contains("http-server"));
     assert!(cargo.contains("logging"));
     assert!(!cargo.contains("thingd-native"));

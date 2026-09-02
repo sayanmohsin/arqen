@@ -11,6 +11,19 @@
   APIs.
 - Upgrade the Thingd dependency to `0.86.3`.
 
+## [0.15.0](https://github.com/sayanmohsin/arqen/compare/arqen-v0.14.0...arqen-v0.15.0) (2026-09-02)
+
+
+### Features
+
+* add native RocksDB build toolchain docs and upgrade thingd to 0.86.3 ([a86c1cf](https://github.com/sayanmohsin/arqen/commit/a86c1cf978a449951e2a6386ce1ebb681ebc752c))
+* improve project generator and documentation ([4593d9e](https://github.com/sayanmohsin/arqen/commit/4593d9e5f496debc8e38338ca84f4033b41ce153))
+
+
+### Bug Fixes
+
+* support Thingd 0.85.0 ([749c453](https://github.com/sayanmohsin/arqen/commit/749c453aa6832dcd3520b5ce54ca458c8543136e))
+
 ## [0.14.0](https://github.com/sayanmohsin/arqen/compare/arqen-v0.13.0...arqen-v0.14.0) (2026-08-23)
 
 
