@@ -2,7 +2,7 @@ FROM rust:1.96 AS builder
 
 WORKDIR /build
 
-# Thingd 0.83 uses RocksDB and Bindgen to build its native backend.
+# Thingd 0.86 uses RocksDB and Bindgen to build its native backend.
 RUN apt-get update && apt-get install -y \
     clang \
     libclang-dev \
@@ -14,6 +14,8 @@ COPY Cargo.toml Cargo.lock ./
 COPY crates/ ./crates/
 
 # The production image requires the CLI and HTTP thingd adapter features.
+# thingd-native is not needed in HTTP-only mode; the LLVM packages above are
+# installed for forward compatibility.
 RUN cargo build --release --bin arqen --features cli,http-client
 
 FROM debian:trixie-slim AS runtime

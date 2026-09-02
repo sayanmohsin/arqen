@@ -16,10 +16,29 @@ crate_version=$(sed -n 's/^version = "\([^"]*\)"/\1/p' crates/arqen/Cargo.toml |
 workspace_version=$(sed -n '/^\[workspace\.package\]/,/^\[/p' Cargo.toml | sed -n 's/^version = "\([^"]*\)"/\1/p' | head -n 1)
 release_version=$(jq -r '."crates/arqen"' .release-please-manifest.json)
 thingd_range=$(sed -n 's/.*thingd = { version = "\([^"]*\)".*/\1/p' crates/arqen/Cargo.toml | head -n 1)
+thingd_locked=$(sed -n '/^name = "thingd"/{n;s/^version = "\([^"]*\)"/\1/p;}' Cargo.lock | head -n 1)
 crate_series=${crate_version%.*}
 
 if [[ -z "$crate_version" || -z "$workspace_version" || -z "$release_version" || "$release_version" == "null" || -z "$thingd_range" ]]; then
   fail "could not derive all release metadata from Cargo and Release Please files"
+fi
+
+# Verify the locked thingd version satisfies the declared range.
+if [[ -n "$thingd_locked" ]]; then
+  # Parse range bounds: ">=0.86.0, <0.87.0" → lower=0.86.0 upper=0.87.0
+  range_lower=$(echo "$thingd_range" | sed -n 's/.*>=\([0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*\).*/\1/p')
+  range_upper=$(echo "$thingd_range" | sed -n 's/.*<\([0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*\).*/\1/p')
+  if [[ -n "$range_lower" && -n "$range_upper" ]]; then
+    # Semver comparison using sort -V
+    if printf '%s\n%s\n' "$range_lower" "$thingd_locked" | sort -V -C && \
+       printf '%s\n%s\n' "$thingd_locked" "$range_upper" | sort -V -C; then
+      : # locked version is within range
+    else
+      fail "Cargo.lock thingd $thingd_locked is outside declared range $thingd_range"
+    fi
+  fi
+else
+  fail "could not determine locked thingd version from Cargo.lock"
 fi
 
 if [[ "$crate_version" != "$workspace_version" ]]; then

@@ -9,7 +9,7 @@
 - Add a durable Thingd-backed scheduler with interval, cron, one-time,
   lifecycle, pause/resume, deterministic enqueue, and worker reconciliation
   APIs.
-- Upgrade the Thingd dependency to `0.83.2`.
+- Upgrade the Thingd dependency to `0.86.3`.
 
 ## [0.14.0](https://github.com/sayanmohsin/arqen/compare/arqen-v0.13.0...arqen-v0.14.0) (2026-08-23)
 
@@ -132,14 +132,6 @@
 * **thingd:** add /v1 prefix to HttpThingdBackend for sidecar compatibility ([f9c3fb2](https://github.com/sayanmohsin/arqen/commit/f9c3fb243d8bc347e35629ea92842d42deb2b783))
 * use literal version strings in crate Cargo.toml ([7340693](https://github.com/sayanmohsin/arqen/commit/7340693e9108a2247336234f59e13456d223bbce))
 * use literal version strings in crate Cargo.toml for Release Please ([1467a58](https://github.com/sayanmohsin/arqen/commit/1467a58b3398b8a07f45591be5c6340043044f30))
-
-## [0.10.0] - unreleased
-
-### Features
-
-* harden structured observability, correlation IDs, bounded metrics, and production logging
-* update the native Thingd integration to Thingd 0.80.0
-* add sampled request logging, response compression, atomic request counters, response-size metrics, and bounded Thingd/job concurrency
 
 ## [0.9.1](https://github.com/sayanmohsin/arqen/compare/arqen-v0.9.0...arqen-v0.9.1) (2026-08-12)
 

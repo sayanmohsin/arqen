@@ -40,6 +40,41 @@ Before opening a pull request:
 - [ ] Release documentation audit: `bash scripts/check-release-docs.sh`
 - [ ] Generated project compiles: `cargo run -p arqen --features cli --bin arqen -- new test-project && cargo check --manifest-path test-project/Cargo.toml`
 
+## Native RocksDB build (thingd-native feature)
+
+The `thingd-native` feature pulls in a transitive native dependency chain:
+
+    arqen → thingd → rocksdb → librocksdb-sys → bindgen → clang-sys
+
+`librocksdb-sys` builds RocksDB from C++ source and requires `libclang` at
+build time. On macOS, the linker must resolve a `libclang.dylib` whose LLVM
+symbols match the rustc-bundled LLVM version — otherwise the build fails with
+a symbol mismatch or missing library error.
+
+### macOS setup
+
+Run the toolchain detection script before building with `thingd-native`:
+
+    source scripts/setup-llvm.sh
+    cargo check --features thingd-native
+
+The script detects the LLVM major version from `rustc --version --verbose`,
+finds the matching Homebrew formula (`llvm@<MAJOR>`), and sets `LIBCLANG_PATH`,
+`LLVM_CONFIG_PATH`, and `DYLD_LIBRARY_PATH`. If no matching formula exists, it
+prints a clear install command.
+
+### Linux / CI
+
+CI and Docker use apt-managed packages. The standard installation is sufficient:
+
+    sudo apt-get install -y clang libclang-dev llvm
+
+### Docker
+
+The `Dockerfile` builder stage installs `clang`, `libclang-dev`, and `llvm`.
+The default production build uses HTTP-only mode (`--features cli,http-client`)
+which does not require the native toolchain.
+
 ## Documentation drift
 
 Before a release, verify:
