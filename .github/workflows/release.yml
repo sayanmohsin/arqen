@@ -35,9 +35,22 @@ jobs:
         run: sudo apt-get update && sudo apt-get install -y jq ripgrep
       - name: Audit release documentation and legacy terms
         run: bash scripts/check-release-docs.sh
+      - name: Check if release already exists
+        id: check-release
+        if: ${{ inputs.publish_version == '' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          VERSION=$(jq -r '."crates/arqen"' .release-please-manifest.json)
+          if gh release view "arqen-v${VERSION}" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+            echo "Release arqen-v${VERSION} already exists - skipping Release Please"
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+          fi
       - name: Create release App token
         id: app-token
-        if: ${{ inputs.publish_version == '' }}
+        if: ${{ inputs.publish_version == '' && steps.check-release.outputs.exists != 'true' }}
         uses: actions/create-github-app-token@v3
         with:
           client-id: ${{ vars.RELEASE_APP_CLIENT_ID }}
@@ -46,7 +59,7 @@ jobs:
           repositories: arqen
       - name: Run Release Please
         id: release
-        if: ${{ inputs.publish_version == '' }}
+        if: ${{ inputs.publish_version == '' && steps.check-release.outputs.exists != 'true' }}
         uses: googleapis/release-please-action@v5
         with:
           token: ${{ steps.app-token.outputs.token }}
