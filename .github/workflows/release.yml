@@ -44,9 +44,6 @@ jobs:
           private-key: ${{ secrets.RELEASE_APP_PRIVATE_KEY }}
           owner: ${{ github.repository_owner }}
           repositories: arqen
-          permission-contents: write
-          permission-issues: write
-          permission-pull-requests: write
       - name: Run Release Please
         id: release
         if: ${{ inputs.publish_version == '' }}
