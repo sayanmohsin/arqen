@@ -52,7 +52,7 @@ jobs:
           token: ${{ steps.app-token.outputs.token }}
           config-file: release-please-config.json
           manifest-file: .release-please-manifest.json
-      - name: Update Cargo.lock on release PR
+      - name: Synchronize release metadata on release PR
         if: ${{ steps.release.outputs.prs_created == 'true' }}
         env:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
@@ -64,10 +64,13 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git fetch origin "$BRANCH"
           git checkout "$BRANCH"
+          VERSION=$(sed -n 's/^version = "\([^"]*\)"/\1/p' crates/arqen/Cargo.toml | head -n 1)
+          bash scripts/sync-release-docs.sh "$VERSION"
           cargo update -w
           git add Cargo.lock
+          git add Cargo.toml README.md CHANGELOG.md docs/getting-started.md docs/testing.md docs/troubleshooting.md
           if ! git diff --cached --quiet; then
-            git commit -m "chore: update Cargo.lock"
+            git commit -m "chore: synchronize release metadata"
             git push origin "$BRANCH"
           fi
       - name: Normalize manual retry

@@ -5,9 +5,9 @@ Release history for the published `arqen` crate is maintained in
 
 ## Current release
 
-The current published release is **0.15.0**. It adds native RocksDB build
-toolchain documentation, upgrades Thingd to 0.86.3, and improves the project
-generator and documentation.
+The current published release is **0.16.0**. It adds the runtime-neutral
+application platform, lifecycle and development tooling, and readiness-aware
+service supervision. See the crate changelog for the complete release notes.
 
 ## Unreleased
 
