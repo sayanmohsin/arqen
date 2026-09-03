@@ -35,41 +35,24 @@ jobs:
         run: sudo apt-get update && sudo apt-get install -y jq ripgrep
       - name: Audit release documentation and legacy terms
         run: bash scripts/check-release-docs.sh
-      - name: Select release token
-        id: release-auth
-        env:
-          GH_TOKEN: ${{ github.token }}
-          PUBLISH_VERSION: ${{ inputs.publish_version }}
-        run: |
-          if [[ -n "$PUBLISH_VERSION" ]]; then
-            echo "use_default_token=true" >> "$GITHUB_OUTPUT"
-            exit 0
-          fi
-
-          version=$(jq -r '."crates/arqen"' .release-please-manifest.json)
-          if gh release view "arqen-v${version}" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
-            echo "use_default_token=false" >> "$GITHUB_OUTPUT"
-          else
-            # The App token is used for release PRs so their checks run. Once
-            # that PR is merged, finalize the release with GITHUB_TOKEN; the
-            # installed App does not have permission to create releases.
-            echo "use_default_token=true" >> "$GITHUB_OUTPUT"
-          fi
       - name: Create release App token
         id: app-token
-        if: ${{ inputs.publish_version == '' && steps.release-auth.outputs.use_default_token != 'true' }}
+        if: ${{ inputs.publish_version == '' }}
         uses: actions/create-github-app-token@v3
         with:
           client-id: ${{ vars.RELEASE_APP_CLIENT_ID }}
           private-key: ${{ secrets.RELEASE_APP_PRIVATE_KEY }}
           owner: ${{ github.repository_owner }}
           repositories: arqen
+          permission-contents: write
+          permission-issues: write
+          permission-pull-requests: write
       - name: Run Release Please
         id: release
         if: ${{ inputs.publish_version == '' }}
         uses: googleapis/release-please-action@v5
         with:
-          token: ${{ steps.release-auth.outputs.use_default_token == 'true' && github.token || steps.app-token.outputs.token }}
+          token: ${{ steps.app-token.outputs.token }}
           config-file: release-please-config.json
           manifest-file: .release-please-manifest.json
       - name: Synchronize release metadata on release PR
