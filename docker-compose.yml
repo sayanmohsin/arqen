@@ -15,6 +15,7 @@ services:
       - ARQEN_THINGD_URL=http://thingd:8757
       - ARQEN_THINGD_AUTH_TOKEN=${THINGD_AUTH_TOKEN:-dev-token}
       - ARQEN_JWT_SECRET=${ARQEN_JWT_SECRET:-arqen-docker-smoke-secret}
+      - ARQEN_CORS_ORIGINS=${ARQEN_CORS_ORIGINS:-http://localhost:8888}
     volumes:
       - arqen_data:/data
     restart: unless-stopped
