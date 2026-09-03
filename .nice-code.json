@@ -4,13 +4,13 @@
   "severity": {},
   "exceptions": [
     {
-      "id": "AP-ERR-001",
-      "file": "docs/.vitepress/config.ts",
+      "patternId": "AP-ERR-001",
+      "path": "docs/.vitepress/config.ts",
       "reason": "The docs build is also supported from source archives where Git is unavailable; the fallback revision is intentionally local metadata, and the failure is not part of the published site runtime."
     },
     {
-      "id": "AP-LOG-002",
-      "file": "crates/arqen/src/dev.rs",
+      "patternId": "AP-LOG-002",
+      "path": "crates/arqen/src/dev.rs",
       "reason": "This module is the human-readable local `arqen dev` console and child-process output path, not production telemetry; stable prefixes and service names are the intentional operator-facing contract."
     }
   ]

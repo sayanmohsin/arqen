@@ -23,12 +23,13 @@ An Arqen application usually contains:
 The application owns its domain models and business rules. Arqen supplies the
 composition, runtime, and integration points around them.
 
-## Implementation
+## Implementation boundary
 
-The current implementation is Rust-first and uses Tokio, Tower, tracing,
-Axum, and Thingd. The HTTP integration is feature-gated. The public data
-integration uses Thingd’s HTTP API, while native Thingd can be embedded for
-applications that need a local durable store.
+Arqen is Rust-first, but applications should depend on Arqen’s contracts
+rather than its internal runtime, transport, or storage-engine choices. The
+HTTP integration is feature-gated. Applications select public storage modes
+and adapter contracts; the implementation behind those choices can evolve
+without changing normal application code.
 
 Start with [Build an Arqen backend](./build-a-backend.md) to create a project,
 add a module, choose storage, define a schema, and prepare a deployment.

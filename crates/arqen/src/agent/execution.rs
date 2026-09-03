@@ -86,10 +86,11 @@ pub trait ToolHandler: Send + Sync {
     ) -> Result<serde_json::Value, AppError>;
 }
 
-/// Validate a value against a hand-written JSON Schema.
+/// Validate the JSON Schema subset supported by Arqen tool contracts.
 ///
-/// Supports the subset used by Arqen tool schemas: `type`, `required`, and
-/// nested `properties`/`items`. Unknown schema keywords are ignored.
+/// The validator intentionally fails closed for unknown `type` values and
+/// supports the common structural and constraint keywords used by generated
+/// tool contracts.
 pub fn validate_against_schema(
     value: &serde_json::Value,
     schema: &serde_json::Value,
@@ -107,12 +108,58 @@ pub fn validate_against_schema(
             "boolean" => value.is_boolean(),
             "array" => value.is_array(),
             "null" => value.is_null(),
-            _ => true,
+            _ => {
+                return Err(AppError::new(
+                    ErrorKind::Validation,
+                    format!("unsupported schema type: {expected_type}"),
+                ));
+            }
         };
         if !valid {
             return Err(AppError::new(
                 ErrorKind::Validation,
                 format!("expected value of type {expected_type}"),
+            ));
+        }
+    }
+
+    if let Some(enums) = schema.get("enum").and_then(serde_json::Value::as_array)
+        && !enums.iter().any(|candidate| candidate == value)
+    {
+        return Err(AppError::new(
+            ErrorKind::Validation,
+            "value is not one of the allowed enum values",
+        ));
+    }
+
+    if let Some(string) = value.as_str() {
+        if let Some(minimum) = schema.get("minLength").and_then(serde_json::Value::as_u64)
+            && string.chars().count() < minimum as usize
+        {
+            return Err(AppError::new(ErrorKind::Validation, "string is too short"));
+        }
+        if let Some(maximum) = schema.get("maxLength").and_then(serde_json::Value::as_u64)
+            && string.chars().count() > maximum as usize
+        {
+            return Err(AppError::new(ErrorKind::Validation, "string is too long"));
+        }
+    }
+
+    if let Some(number) = value.as_f64() {
+        if let Some(minimum) = schema.get("minimum").and_then(serde_json::Value::as_f64)
+            && number < minimum
+        {
+            return Err(AppError::new(
+                ErrorKind::Validation,
+                "number is below minimum",
+            ));
+        }
+        if let Some(maximum) = schema.get("maximum").and_then(serde_json::Value::as_f64)
+            && number > maximum
+        {
+            return Err(AppError::new(
+                ErrorKind::Validation,
+                "number exceeds maximum",
             ));
         }
     }
@@ -139,6 +186,16 @@ pub fn validate_against_schema(
                     validate_against_schema(field_value, field_schema)?;
                 }
             }
+            if schema.get("additionalProperties") == Some(&serde_json::Value::Bool(false)) {
+                for field in object.keys() {
+                    if !properties.contains_key(field) {
+                        return Err(AppError::new(
+                            ErrorKind::Validation,
+                            format!("unknown field: {field}"),
+                        ));
+                    }
+                }
+            }
         }
     }
 
@@ -147,6 +204,22 @@ pub fn validate_against_schema(
     {
         for item in array {
             validate_against_schema(item, items_schema)?;
+        }
+        if let Some(minimum) = schema.get("minItems").and_then(serde_json::Value::as_u64)
+            && array.len() < minimum as usize
+        {
+            return Err(AppError::new(
+                ErrorKind::Validation,
+                "array has too few items",
+            ));
+        }
+        if let Some(maximum) = schema.get("maxItems").and_then(serde_json::Value::as_u64)
+            && array.len() > maximum as usize
+        {
+            return Err(AppError::new(
+                ErrorKind::Validation,
+                "array has too many items",
+            ));
         }
     }
 
@@ -190,6 +263,33 @@ mod tests {
         let value = serde_json::json!({"id": 42});
         let err = validate_against_schema(&value, &schema).unwrap_err();
         assert_eq!(err.kind, ErrorKind::Validation);
+    }
+
+    #[test]
+    fn test_validate_against_schema_enforces_constraints() {
+        let schema = serde_json::json!({
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+                "kind": {"type": "string", "enum": ["movie", "series"]},
+                "name": {"type": "string", "minLength": 2}
+            }
+        });
+        assert!(
+            validate_against_schema(&serde_json::json!({"kind": "movie", "name": "ok"}), &schema)
+                .is_ok()
+        );
+        assert!(
+            validate_against_schema(&serde_json::json!({"kind": "book", "name": "ok"}), &schema)
+                .is_err()
+        );
+        assert!(
+            validate_against_schema(
+                &serde_json::json!({"kind": "movie", "name": "ok", "extra": true}),
+                &schema
+            )
+            .is_err()
+        );
     }
 
     #[test]

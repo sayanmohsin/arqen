@@ -53,14 +53,15 @@ Arqen applications are configured through environment variables and optional con
 | `ARQEN_MAX_BODY_SIZE`                 | Maximum request body size                                          | `1048576`                            |
 | `ARQEN_SHUTDOWN_TIMEOUT`              | Graceful shutdown timeout                                          | `10s`                                |
 
-`ARQEN_CONFIG_FILE` is also recognized by `arqen check` and selects the file
-used for configuration validation. It is a CLI diagnostic variable rather
-than a runtime configuration field.
+`ARQEN_CONFIG_FILE` selects the configuration file for generated applications
+and for `arqen check`. The explicit `--file` CLI flag remains the preferred
+way to select a file from the Arqen CLI.
 
-`RUST_LOG` overrides `ARQEN_LOG_LEVEL` when present. Local development should
-normally use pretty logs. Production should use JSON logs and a conservative
-filter such as `service=info,arqen=info,tantivy=warn`; change the environment
-and restart the service to apply a new filter.
+`RUST_LOG` overrides `ARQEN_LOG_LEVEL` when present. Local development uses
+compact logs by default; choose `pretty` for diagnosis. Production should use
+JSON logs and a conservative application filter such as
+`service=info,arqen=info`; change the environment and restart the service to
+apply a new filter.
 
 ## Configuration file
 
@@ -176,8 +177,8 @@ The banner includes:
 - Agent endpoint URL
 - Storage mode (memory, native, persistent, or http)
 
-Development mode (`arqen dev`) uses pretty logging. Production mode
-(`arqen start`) uses JSON logging. `arqen dev` does not include an
-integrated file watcher. Call `AppConfig::validate_production()` from a
+Development mode (`arqen dev`) uses compact logging by default. Production
+mode (`arqen start`) uses JSON logging. Use `arqen dev --watch` for optional
+automatic reload. Call `AppConfig::validate_production()` from a
 production bootstrap to reject memory storage, disabled authentication, and
 pretty logs.

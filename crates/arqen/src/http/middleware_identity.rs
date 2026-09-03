@@ -9,9 +9,17 @@ pub const POWERED_BY_HEADER: &str = "x-powered-by";
 /// Public framework identity value.
 pub const ARQEN_IDENTITY: &str = "Arqen";
 
+#[derive(Clone, Copy)]
+pub(crate) struct IdentityApplied;
+
 /// Mark a response as being served by Arqen.
-pub async fn identity_middleware(request: Request, next: Next) -> Response {
+pub async fn identity_middleware(mut request: Request, next: Next) -> Response {
+    let already_applied = request.extensions().get::<IdentityApplied>().is_some();
+    request.extensions_mut().insert(IdentityApplied);
     let mut response = next.run(request).await;
+    if already_applied {
+        return response;
+    }
     response
         .headers_mut()
         .insert(SERVER_HEADER, HeaderValue::from_static(ARQEN_IDENTITY));

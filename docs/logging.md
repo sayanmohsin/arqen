@@ -5,7 +5,12 @@ When logging is selected by `arqen new`, use `tracing` and
 optional; projects generated with `--no-logging` remain runnable without the
 Arqen logging feature.
 
-Development logs should be readable. Production logs should be structured JSON written to stderr so container runtimes, journald, and future collectors can consume them without application changes. The logging worker is non-blocking and remains alive for the process lifetime. Every request and job should carry a request or correlation ID.
+Development logs should be readable compact single-line records by default.
+Pretty logs remain available for deliberate local diagnosis. Production logs
+should be structured JSON written to stderr so container runtimes, journald,
+and future collectors can consume them without application changes. The
+logging worker is non-blocking and remains alive for the process lifetime.
+Every request and job should carry a request or correlation ID.
 
 Minimum fields for every request or job:
 
@@ -57,11 +62,10 @@ sample them in the deployment collector; always retain errors and slow
 requests.
 
 `EnvFilter` takes precedence over the configured level when the standard
-`RUST_LOG` variable is set. This is a tracing ecosystem variable, not an
-Axum-specific variable:
+`RUST_LOG` variable is set:
 
 ```bash
-RUST_LOG=arqen=debug,my_app=info arqen dev
+RUST_LOG=arqen=debug,my_app=info arqen dev --log-format compact
 ARQEN_LOG_FORMAT=json arqen start
 ```
 
@@ -70,10 +74,10 @@ stdout/stderr overhead. Errors, timeouts, dependency failures, and requests
 slower than 250ms are always emitted. Configure this with
 `ARQEN_REQUEST_LOG_SAMPLE_RATE` and `ARQEN_SLOW_REQUEST_THRESHOLD_MS`.
 
-For production, prefer a conservative filter such as:
+For production, prefer a conservative application filter such as:
 
 ```text
-RUST_LOG=goodone_watch_backend=info,arqen=info,tantivy=warn,reqwest=warn,hyper=warn
+RUST_LOG=goodone_watch_backend=info,arqen=info
 ```
 
 Change the environment file and restart the service to change production

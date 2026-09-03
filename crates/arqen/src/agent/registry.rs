@@ -46,6 +46,11 @@ impl ToolRegistry {
     }
 
     pub fn register_tool(&mut self, tool: ToolMetadata) {
+        assert!(
+            !self.tools.contains_key(&tool.name),
+            "duplicate agent tool registration: {}",
+            tool.name
+        );
         self.tools.insert(tool.name.clone(), tool);
     }
 
@@ -59,7 +64,12 @@ impl ToolRegistry {
         name: impl Into<String>,
         handler: impl ToolHandler + 'static,
     ) {
-        self.handlers.insert(name.into(), Arc::new(handler));
+        let name = name.into();
+        assert!(
+            !self.handlers.contains_key(&name),
+            "duplicate agent tool handler registration: {name}"
+        );
+        self.handlers.insert(name, Arc::new(handler));
     }
 
     pub fn register_job(&mut self, job: JobMetadata) {
@@ -75,7 +85,9 @@ impl ToolRegistry {
     }
 
     pub fn list_tools(&self) -> Vec<&ToolMetadata> {
-        self.tools.values().collect()
+        let mut tools: Vec<_> = self.tools.values().collect();
+        tools.sort_by(|left, right| left.name.cmp(&right.name));
+        tools
     }
 
     /// Execute a tool by name.
@@ -150,7 +162,7 @@ impl ToolRegistry {
 
     pub fn generate_manifest(&self) -> AgentManifest {
         let mut endpoints = self.endpoints.clone();
-        for tool in self.tools.values() {
+        for tool in self.list_tools() {
             endpoints.push(EndpointMetadata {
                 path: format!("/agent/tools/{}", tool.name),
                 method: "POST".to_string(),
@@ -158,13 +170,24 @@ impl ToolRegistry {
                 authenticated: !tool.scopes.is_empty(),
             });
         }
+        endpoints.sort_by(|left, right| {
+            left.path
+                .cmp(&right.path)
+                .then_with(|| left.method.cmp(&right.method))
+                .then_with(|| left.description.cmp(&right.description))
+        });
+        let tools = self.list_tools().into_iter().cloned().collect();
         AgentManifest {
             name: self.app_name.clone(),
             version: self.app_version.clone(),
             description: self.app_description.clone(),
             storage_mode: self.storage_mode.clone(),
-            tools: self.tools.values().cloned().collect(),
-            jobs: self.jobs.clone(),
+            tools,
+            jobs: {
+                let mut jobs = self.jobs.clone();
+                jobs.sort_by(|left, right| left.name.cmp(&right.name));
+                jobs
+            },
             endpoints,
         }
     }
@@ -329,7 +352,8 @@ mod tests {
     }
 
     #[test]
-    fn test_register_tool_overwrites_existing() {
+    #[should_panic(expected = "duplicate agent tool registration")]
+    fn test_register_tool_rejects_duplicate() {
         let mut registry = ToolRegistry::default();
         registry.register_tool(sample_tool("tool"));
         registry.register_tool(ToolMetadata {
@@ -343,10 +367,6 @@ mod tests {
             enqueues_job: None,
             timeout: None,
         });
-
-        let tool = registry.get_tool("tool").unwrap();
-        assert_eq!(tool.description, "Updated");
-        assert!(matches!(tool.effect, ToolEffect::Write));
     }
 
     struct EchoHandler;

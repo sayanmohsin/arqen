@@ -80,7 +80,7 @@ configured consecutive failure limit.
 
 Example weekly schedule:
 
-```rust,ignore
+```rust
 let scheduler = arqen::Scheduler::new(state.storage.clone());
 scheduler.schedule("ott-release-refresh", arqen::ScheduleOptions {
     expression: Some("0 0 * * 0".into()),

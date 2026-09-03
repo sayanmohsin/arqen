@@ -22,6 +22,26 @@ fn help_flag_works() {
 }
 
 #[test]
+fn dev_and_up_expose_runtime_neutral_operations() {
+    let dev = Command::new(arqen_bin())
+        .args(["dev", "--help"])
+        .output()
+        .unwrap();
+    assert!(dev.status.success());
+    let dev_help = String::from_utf8_lossy(&dev.stdout);
+    assert!(dev_help.contains("--watch"));
+
+    let up = Command::new(arqen_bin())
+        .args(["up", "--help"])
+        .output()
+        .unwrap();
+    assert!(up.status.success());
+    let up_help = String::from_utf8_lossy(&up.stdout);
+    assert!(up_help.contains("--raw"));
+    assert!(up_help.contains("--wait-ready"));
+}
+
+#[test]
 fn no_args_shows_help() {
     let bin = arqen_bin();
     let output = Command::new(&bin).output().unwrap();
@@ -174,6 +194,17 @@ fn new_yes_generates_current_minimal_project() {
     assert!(dir.join("AGENTS.md").exists());
     assert!(dir.join("arqen.toml").exists());
     assert!(dir.join("src/app/mod.rs").exists());
+    assert!(!cargo.contains("tokio"));
+    assert!(
+        std::fs::read_to_string(dir.join("README.md"))
+            .unwrap()
+            .contains("arqen dev")
+    );
+    assert!(
+        std::fs::read_to_string(dir.join("src/main.rs"))
+            .unwrap()
+            .contains("arqen::run")
+    );
     assert!(!dir.join("NICE_CODE.md").exists());
     std::fs::remove_dir_all(&dir).unwrap();
 }

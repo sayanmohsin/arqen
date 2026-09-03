@@ -102,6 +102,9 @@ pub enum Commands {
         /// Config file path
         #[arg(long = "file")]
         config_file: Option<String>,
+        /// Restart the application after Rust source/configuration changes.
+        #[arg(long)]
+        watch: bool,
     },
     /// Run the application (aliases: run, serve)
     #[command(visible_alias = "run", alias = "serve")]
@@ -139,6 +142,12 @@ pub enum Commands {
         /// Print the services that would be started without running them
         #[arg(long)]
         dry_run: bool,
+        /// Preserve child output without Arqen service prefixes.
+        #[arg(long)]
+        raw: bool,
+        /// Wait for configured service readiness URLs after startup.
+        #[arg(long)]
+        wait_ready: bool,
     },
     /// Run checks on the current environment
     Check,
@@ -294,6 +303,7 @@ fn dispatch(cli: &Cli, output: &Output) -> anyhow::Result<()> {
             storage,
             config_file,
             log_format,
+            watch,
         } => {
             let code = serve::serve_dev(
                 config_file.as_deref(),
@@ -302,6 +312,7 @@ fn dispatch(cli: &Cli, output: &Output) -> anyhow::Result<()> {
                 log.as_deref(),
                 storage.as_deref(),
                 log_format.as_ref(),
+                *watch,
                 output,
             );
             if code != exit::SUCCESS {
@@ -335,9 +346,17 @@ fn dispatch(cli: &Cli, output: &Output) -> anyhow::Result<()> {
             services,
             file,
             dry_run,
+            raw,
+            wait_ready,
         } => {
             let rt = tokio::runtime::Runtime::new().map_err(|e| anyhow::anyhow!(e))?;
-            rt.block_on(crate::dev::run_up(file, services, *dry_run))?;
+            rt.block_on(crate::dev::run_up(
+                file,
+                services,
+                *dry_run,
+                *raw,
+                *wait_ready,
+            ))?;
         }
         Commands::Check => {
             let code = check::run_check(output);

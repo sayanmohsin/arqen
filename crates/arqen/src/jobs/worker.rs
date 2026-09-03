@@ -3,6 +3,7 @@ use tokio::sync::watch;
 use tokio::task::JoinHandle;
 use tracing::info;
 
+use crate::core::{AppError, ErrorKind};
 use crate::{JobConfig, JobHandler, JobWorker};
 
 pub struct Worker {
@@ -46,16 +47,22 @@ impl Worker {
         self.shutdown_tx.clone()
     }
 
-    pub async fn shutdown(self) {
+    pub async fn shutdown(self) -> Result<(), AppError> {
         info!("Shutting down workers");
         // Send shutdown signal
         let _ = self.shutdown_tx.send(true);
 
         // Wait for all workers to finish
         for handle in self.handles {
-            let _ = handle.await;
+            if let Err(error) = handle.await {
+                return Err(AppError::new(
+                    ErrorKind::Internal,
+                    format!("job worker task failed during shutdown: {error}"),
+                ));
+            }
         }
         info!("All workers shut down");
+        Ok(())
     }
 }
 

@@ -262,41 +262,53 @@ impl HealthRegistry {
         // Run checks in parallel
         let mut handles = Vec::new();
         for check in checks_to_run {
-            handles.push(tokio::spawn(async move {
-                let start = Instant::now();
-                let check_timeout = check.timeout();
-                let timeout = if check_timeout == Duration::from_secs(5) {
-                    default_timeout.unwrap_or(check_timeout)
-                } else {
-                    check_timeout
-                };
-                let status = run_check_with_timeout(check.as_ref(), timeout).await;
-                let duration_ms = start.elapsed().as_millis() as u64;
-                if duration_ms > 3_000 {
-                    tracing::warn!(check = %check.name(), duration_ms, "slow health check");
-                }
-                CheckResult {
-                    name: check.name().to_string(),
-                    status,
-                    duration_ms,
-                }
-            }));
+            let check_name = check.name().to_string();
+            handles.push((
+                check_name,
+                tokio::spawn(async move {
+                    let start = Instant::now();
+                    let check_timeout = check.timeout();
+                    let timeout = if check_timeout == Duration::from_secs(5) {
+                        default_timeout.unwrap_or(check_timeout)
+                    } else {
+                        check_timeout
+                    };
+                    let status = run_check_with_timeout(check.as_ref(), timeout).await;
+                    let duration_ms = start.elapsed().as_millis() as u64;
+                    if duration_ms > 3_000 {
+                        tracing::warn!(check = %check.name(), duration_ms, "slow health check");
+                    }
+                    CheckResult {
+                        name: check.name().to_string(),
+                        status,
+                        duration_ms,
+                    }
+                }),
+            ));
         }
 
-        for handle in handles {
-            if let Ok(result) = handle.await {
-                // Update overall status
-                match &result.status {
-                    HealthStatus::Unhealthy { .. } => {
-                        overall_status = result.status.clone();
-                    }
-                    HealthStatus::Degraded { .. } if overall_status.is_healthy() => {
-                        overall_status = result.status.clone();
-                    }
-                    _ => {}
+        for (check_name, handle) in handles {
+            let result = match handle.await {
+                Ok(result) => result,
+                Err(error) => CheckResult {
+                    name: check_name,
+                    status: HealthStatus::Unhealthy {
+                        reason: format!("health check task failed: {error}"),
+                    },
+                    duration_ms: 0,
+                },
+            };
+            // Update overall status
+            match &result.status {
+                HealthStatus::Unhealthy { .. } => {
+                    overall_status = result.status.clone();
                 }
-                results.push(result);
+                HealthStatus::Degraded { .. } if overall_status.is_healthy() => {
+                    overall_status = result.status.clone();
+                }
+                _ => {}
             }
+            results.push(result);
         }
 
         HealthReport {
@@ -393,6 +405,22 @@ impl HealthCheck for AlwaysUnhealthy {
 /// Check that always times out.
 pub struct AlwaysTimeout {
     delay: Duration,
+}
+
+/// A test and diagnostics check that intentionally panics.
+#[cfg(test)]
+pub struct AlwaysPanic;
+
+#[cfg(test)]
+#[async_trait]
+impl HealthCheck for AlwaysPanic {
+    fn name(&self) -> &str {
+        "always_panic"
+    }
+
+    async fn check(&self) -> HealthStatus {
+        panic!("intentional health check panic")
+    }
 }
 
 impl AlwaysTimeout {
@@ -616,6 +644,17 @@ mod tests {
         registry.register(Arc::new(AlwaysTimeout::new(Duration::from_millis(100))));
         let report = registry.check_all().await;
         assert!(report.status.is_unhealthy());
+    }
+
+    #[tokio::test]
+    async fn test_health_registry_reports_panics_as_unhealthy() {
+        let mut registry = HealthRegistry::new();
+        registry.register(Arc::new(AlwaysPanic));
+        let report = registry.check_all().await;
+        assert!(report.status.is_unhealthy());
+        assert_eq!(report.checks.len(), 1);
+        assert_eq!(report.checks[0].name, "always_panic");
+        assert!(report.checks[0].status.is_unhealthy());
     }
 
     #[tokio::test]

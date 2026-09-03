@@ -7,7 +7,7 @@ repository.workspace = true
 homepage.workspace = true
 keywords.workspace = true
 categories.workspace = true
-description = "Rust-first backend toolkit using Tokio, Axum, Tower, tracing, Serde, Reqwest, and an optional Clap CLI"
+description = "Rust-first backend toolkit for HTTP services, agents, automation, jobs, and storage adapters"
 readme = "../../README.md"
 
 [[bin]]
@@ -19,6 +19,7 @@ required-features = ["cli"]
 default = ["http-server"]
 cli = ["http-server", "logging", "http-client", "thingd-migration", "dep:clap", "dep:libc"]
 http-server = ["dep:axum", "dep:tower", "dep:tower-http"]
+advanced-transport = ["http-server"]
 http-client = ["dep:reqwest"]
 thingd-migration = ["thingd-native", "http-client", "dep:tokio-util"]
 thingd-native = ["dep:thingd"]

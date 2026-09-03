@@ -109,6 +109,9 @@ pub struct ServerConfig {
     pub compression_threshold: usize,
     #[serde(default = "default_compression_enabled")]
     pub compression_enabled: bool,
+    /// Explicit browser origins. An empty list disables CORS headers.
+    #[serde(default)]
+    pub cors_origins: Vec<String>,
 }
 
 fn default_host() -> String {
@@ -151,6 +154,7 @@ impl Default for ServerConfig {
             slow_request_threshold: default_slow_request_threshold(),
             compression_threshold: default_compression_threshold(),
             compression_enabled: default_compression_enabled(),
+            cors_origins: Vec::new(),
         }
     }
 }
@@ -485,13 +489,28 @@ pub struct CliOverrides {
 }
 
 impl AppConfig {
+    fn parse_bool(field: &str, value: String) -> Result<bool, ConfigError> {
+        match value.trim().to_ascii_lowercase().as_str() {
+            "true" | "1" | "yes" | "on" => Ok(true),
+            "false" | "0" | "no" | "off" => Ok(false),
+            _ => Err(ConfigError::InvalidValue {
+                field: field.to_string(),
+                value,
+                expected: "true, false, 1, 0, yes, no, on, or off".to_string(),
+            }),
+        }
+    }
+
     /// Load configuration with full precedence chain: CLI → env → file → defaults.
     pub fn load(cli: CliOverrides) -> Result<Self, ConfigError> {
         // Layer 1: Defaults
         let mut config = Self::default();
 
-        // Layer 2: File (arqen.toml in current directory)
-        let file_config = Self::from_file_optional("arqen.toml")?;
+        // Layer 2: File (ARQEN_CONFIG_FILE or arqen.toml in current directory)
+        let config_path = std::env::var_os("ARQEN_CONFIG_FILE")
+            .map(std::path::PathBuf::from)
+            .unwrap_or_else(|| std::path::PathBuf::from("arqen.toml"));
+        let file_config = Self::from_file_optional(config_path.to_str().unwrap_or("arqen.toml"))?;
         if let Some(file) = file_config {
             config = file;
         }
@@ -500,7 +519,7 @@ impl AppConfig {
         config = config.apply_env()?;
 
         // Layer 4: CLI overrides
-        config = config.apply_cli(cli);
+        config = config.apply_cli(cli)?;
 
         config.validate()?;
         Ok(config)
@@ -545,6 +564,14 @@ impl AppConfig {
         if let Ok(url) = std::env::var("ARQEN_CLOUD_URL") {
             self.storage.cloud_url = Some(url);
         }
+        if let Ok(origins) = std::env::var("ARQEN_CORS_ORIGINS") {
+            self.server.cors_origins = origins
+                .split(',')
+                .map(str::trim)
+                .filter(|origin| !origin.is_empty())
+                .map(str::to_string)
+                .collect();
+        }
         if let Ok(token) = std::env::var("ARQEN_THINGD_AUTH_TOKEN") {
             self.storage.auth_token = Some(Secret::new(token));
         }
@@ -555,7 +582,7 @@ impl AppConfig {
             self.storage.schema_path = Some(PathBuf::from(path));
         }
         if let Ok(enabled) = std::env::var("ARQEN_THINGD_CACHE_ENABLED") {
-            self.storage.cache_enabled = enabled == "true" || enabled == "1";
+            self.storage.cache_enabled = Self::parse_bool("storage.cache_enabled", enabled)?;
         }
         if let Ok(collections) = std::env::var("ARQEN_THINGD_CACHE_COLLECTIONS") {
             self.storage.cache_collections = collections
@@ -566,7 +593,7 @@ impl AppConfig {
                 .collect();
         }
         if let Ok(enabled) = std::env::var("ARQEN_SYNC_ENABLED") {
-            self.sync.enabled = enabled == "true" || enabled == "1";
+            self.sync.enabled = Self::parse_bool("sync.enabled", enabled)?;
         }
         if let Ok(mode) = std::env::var("ARQEN_SYNC_MODE") {
             self.sync.mode = ThingdSyncMode::parse_str(&mode)?;
@@ -592,7 +619,7 @@ impl AppConfig {
                 .collect();
         }
         if let Ok(replicate_all) = std::env::var("ARQEN_SYNC_REPLICATE_ALL") {
-            self.sync.replicate_all = replicate_all == "true" || replicate_all == "1";
+            self.sync.replicate_all = Self::parse_bool("sync.replicate_all", replicate_all)?;
         }
         if let Ok(interval) = std::env::var("ARQEN_SYNC_POLL_INTERVAL") {
             self.sync.poll_interval =
@@ -610,7 +637,7 @@ impl AppConfig {
             })?;
         }
         if let Ok(fallback) = std::env::var("ARQEN_SYNC_SNAPSHOT_FALLBACK") {
-            self.sync.snapshot_fallback = fallback == "true" || fallback == "1";
+            self.sync.snapshot_fallback = Self::parse_bool("sync.snapshot_fallback", fallback)?;
         }
         if let Ok(secret) = std::env::var("ARQEN_JWT_SECRET") {
             self.auth.enabled = true;
@@ -637,7 +664,7 @@ impl AppConfig {
             };
         }
         if let Ok(enabled) = std::env::var("ARQEN_WORKER_ENABLED") {
-            self.worker.enabled = enabled == "true" || enabled == "1";
+            self.worker.enabled = Self::parse_bool("worker.enabled", enabled)?;
         }
         if let Ok(queues) = std::env::var("ARQEN_WORKER_QUEUES") {
             self.worker.queues = queues.split(',').map(|s| s.trim().to_string()).collect();
@@ -738,13 +765,13 @@ impl AppConfig {
                 })?;
         }
         if let Ok(enabled) = std::env::var("ARQEN_COMPRESSION_ENABLED") {
-            self.server.compression_enabled = enabled == "true" || enabled == "1";
+            self.server.compression_enabled = Self::parse_bool("compression_enabled", enabled)?;
         }
         Ok(self)
     }
 
     /// Apply CLI overrides (highest precedence).
-    fn apply_cli(mut self, cli: CliOverrides) -> Self {
+    fn apply_cli(mut self, cli: CliOverrides) -> Result<Self, ConfigError> {
         if let Some(host) = cli.host {
             self.server.host = host;
         }
@@ -757,12 +784,10 @@ impl AppConfig {
         if let Some(format) = cli.log_format {
             self.logging.format = format;
         }
-        if let Some(mode) = cli.storage_mode
-            && let Ok(m) = StorageMode::parse_str(&mode)
-        {
-            self.storage.mode = m;
+        if let Some(mode) = cli.storage_mode {
+            self.storage.mode = StorageMode::parse_str(&mode)?;
         }
-        self
+        Ok(self)
     }
 
     /// Load configuration with full precedence chain, allowing a custom config file path.
@@ -784,7 +809,7 @@ impl AppConfig {
         }
 
         config = config.apply_env()?;
-        config = config.apply_cli(cli);
+        config = config.apply_cli(cli)?;
         config.validate()?;
         Ok(config)
     }
@@ -971,6 +996,12 @@ impl AppConfig {
                 expected: "json or compact in production".to_string(),
             });
         }
+        if self.server.cors_origins.is_empty() {
+            return Err(ConfigError::MissingField {
+                field: "server.cors_origins".to_string(),
+                context: "an explicit origin allowlist is required in production".to_string(),
+            });
+        }
         if require_schema_validation
             && !matches!(self.storage.mode, StorageMode::Http | StorageMode::Cloud)
             && self.storage.schema_path.is_none()
@@ -1131,10 +1162,25 @@ concurrency = 8
             log_format: None,
             storage_mode: None,
         };
-        let config = config.apply_cli(cli);
+        let config = config.apply_cli(cli).unwrap();
         assert_eq!(config.server.host, "0.0.0.0");
         assert_eq!(config.server.port, 8080);
         assert_eq!(config.logging.level, "debug");
+    }
+
+    #[test]
+    fn invalid_cli_storage_mode_is_rejected() {
+        let result = AppConfig::default().apply_cli(CliOverrides {
+            storage_mode: Some("not-a-mode".to_string()),
+            ..Default::default()
+        });
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn strict_boolean_parser_rejects_typos() {
+        assert!(AppConfig::parse_bool("worker.enabled", "tru".to_string()).is_err());
+        assert!(AppConfig::parse_bool("worker.enabled", "yes".to_string()).unwrap());
     }
 
     #[test]
@@ -1207,6 +1253,10 @@ concurrency = 8
             },
             logging: LoggingConfig {
                 format: LogFormat::Json,
+                ..Default::default()
+            },
+            server: ServerConfig {
+                cors_origins: vec!["https://example.test".to_string()],
                 ..Default::default()
             },
             ..Default::default()

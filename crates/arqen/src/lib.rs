@@ -3,11 +3,11 @@
 //! Backend infrastructure for agent-ready applications.
 //!
 //! Arqen provides a complete backend toolkit including:
-//! - HTTP server with Axum (feature: `http-server`)
-//! - Thingd-owned storage contracts and adapters (`http-client`)
+//! - HTTP services and route composition (feature: `http-server`)
+//! - Provider-neutral storage contracts and adapters (`http-client`)
 //! - Typed agent tools and manifest generation
 //! - Durable job workers with graceful shutdown
-//! - Structured logging with tracing (feature: `logging`)
+//! - Structured application logging (feature: `logging`)
 //!
 //! ## Quick Start
 //!
@@ -15,12 +15,13 @@
 //! use arqen::http::{create_router, start_server};
 //! use std::net::SocketAddr;
 //!
-//! #[tokio::main]
-//! async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-//!     let addr: SocketAddr = "127.0.0.1:8888".parse()?;
-//!     let router = create_router();
-//!     start_server(addr, router).await?;
-//!     Ok(())
+//! fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+//!     arqen::run(async {
+//!         let addr: SocketAddr = "127.0.0.1:8888".parse()?;
+//!         let router = create_router();
+//!         start_server(addr, router).await?;
+//!         Ok(())
+//!     })
 //! }
 //! ```
 
@@ -46,6 +47,23 @@ pub mod scheduler;
 pub mod schema;
 pub mod state;
 pub mod thingd;
+
+/// Attribute macro for implementing Arqen's asynchronous extension traits.
+/// The macro is re-exported so applications do not need a direct dependency
+/// on Arqen's async implementation details.
+pub use async_trait::async_trait;
+
+/// Run an Arqen application without exposing the runtime implementation in
+/// the application's entry point.
+pub fn run<F>(future: F) -> F::Output
+where
+    F: std::future::Future + Send + 'static,
+    F::Output: Send + 'static,
+{
+    tokio::runtime::Runtime::new()
+        .expect("failed to create the Arqen application runtime")
+        .block_on(future)
+}
 
 #[cfg(feature = "http-server")]
 pub mod validation;
@@ -78,7 +96,8 @@ pub use migration::{
     MigrationError, MigrationReport, NativeToHttpMigrator, ThingdMigrationOptions,
 };
 pub use module::{
-    Module, ModuleBuilder, ModuleContext, ModuleError, ModuleGraphError, ModuleHealth,
+    LifecycleHook, Module, ModuleBuilder, ModuleContext, ModuleError, ModuleGraphError,
+    ModuleHealth,
 };
 #[cfg(feature = "http-server")]
 pub use observability::{
@@ -90,6 +109,8 @@ pub use scheduler::{
     ScheduleStatus, Scheduler, SchedulerError, SchedulerStats,
 };
 pub use state::{AppState, AppStateBuilder};
+#[cfg(feature = "thingd-native")]
+pub use thingd::NativeThingdBackend;
 #[cfg(feature = "http-client")]
 pub use thingd::{
     ApplyResult, FileSyncCheckpointStore, HttpClientPolicy, HttpThingdBackend, ReplicationChange,
@@ -101,8 +122,6 @@ pub use thingd::{
     ScopedThingdBackend, StorageFactory, StorageScope, ThingdBackend, retry_bootstrap,
     seed_with_retry,
 };
-#[cfg(feature = "thingd-native")]
-pub use thingd::{NativeThingdBackend, NativeThingdEngine, NativeThingdStore};
 #[cfg(feature = "http-client")]
 pub use thingd::{THINGD_HTTP_API_VERSION, ThingdCompatibilityReport};
 
@@ -119,10 +138,10 @@ pub use validation::{FieldError, Validate, Validated, ValidationErrors};
 
 #[cfg(feature = "http-server")]
 pub use http::{
-    AuthGuard, Authenticated, HttpCachePolicy, HttpModule, RequireAuth, auth_middleware,
-    builtin_routes, create_router, create_router_with_state, create_router_with_state_and_routes,
-    jsonl_response, merge_module_routes, nest_routes, optional_auth_middleware,
-    require_auth_middleware,
+    AuthGuard, Authenticated, HttpCachePolicy, HttpModule, MiddlewareContext, MiddlewareHook,
+    RequireAuth, auth_middleware, builtin_routes, create_router, create_router_with_state,
+    create_router_with_state_and_routes, jsonl_response, merge_module_routes, nest_routes,
+    optional_auth_middleware, require_auth_middleware,
 };
 #[cfg(feature = "logging")]
 pub use logging::{init_logging, init_logging_with_config};

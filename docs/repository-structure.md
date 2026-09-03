@@ -76,8 +76,8 @@ arqen/
 
 ## Module organization inside `crates/arqen/src/`
 
-Core types stay independent of Axum and model providers. The thingd module
-owns storage and queue adapters. The CLI is enabled with the `cli` feature
+Core types stay independent of the HTTP transport and model providers. The
+thingd module owns storage and queue adapters. The CLI is enabled with the `cli` feature
 and is not a second published package.
 
 Keep the modules composable inside the public `arqen` crate. Generated

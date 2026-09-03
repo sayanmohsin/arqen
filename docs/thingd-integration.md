@@ -94,7 +94,7 @@ configured durable backend
 remains the durable source of truth. For an HTTP Thingd deployment, configure
 the Thingd service (not Arqen) with:
 
-```env
+```dotenv
 THINGD_SEARCH_MODE=persistent-async
 THINGD_SEARCH_COMMIT_INTERVAL_MS=250
 THINGD_SEARCH_COMMIT_BATCH_SIZE=32

@@ -23,6 +23,8 @@ pub use crate::module::{Module, ModuleContext, ModuleError, ModuleHealth};
 pub use crate::observability::{MetricsSink, NoopMetricsSink, SyncMetric};
 pub use crate::schema::SchemaReport;
 pub use crate::state::AppState;
+#[cfg(feature = "thingd-native")]
+pub use crate::thingd::NativeThingdBackend;
 #[cfg(feature = "http-client")]
 pub use crate::thingd::{
     ApplyResult, FileSyncCheckpointStore, HttpClientPolicy, ReplicationChange, ReplicationSnapshot,
@@ -34,7 +36,5 @@ pub use crate::thingd::{
     BootstrapPolicy, CachePolicy, CachingThingdBackend, ScopedThingdBackend, StorageFactory,
     StorageScope, ThingdBackend, retry_bootstrap, seed_with_retry,
 };
-#[cfg(feature = "thingd-native")]
-pub use crate::thingd::{NativeThingdBackend, NativeThingdEngine, NativeThingdStore};
 
 pub use async_trait::async_trait;

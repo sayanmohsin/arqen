@@ -135,7 +135,7 @@ let app_state = AppState::new(thingd);
 
 For an HTTP deployment, validate the remote contract during startup:
 
-```rust,ignore
+```rust
 let backend = HttpThingdBackend::new("https://thingd.internal");
 backend.check_compatibility().await?;
 let state = AppState::builder()

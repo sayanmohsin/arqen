@@ -7,6 +7,8 @@ nice_code_repo=https://github.com/sayanmohsin/nice-code.git
 
 if [[ -n "${NICE_CODE_DIR:-}" ]]; then
   nice_code_dir=$NICE_CODE_DIR
+elif [[ -f "$(dirname "$root_dir")/nice-code/scripts/nice-code.mjs" ]]; then
+  nice_code_dir=$(dirname "$root_dir")/nice-code
 else
   nice_code_dir=${NICE_CODE_CACHE_DIR:-"${TMPDIR:-/tmp}/arqen-nice-code"}
   if [[ -d "$nice_code_dir/.git" ]]; then
@@ -23,9 +25,16 @@ if [[ ! -f "$nice_code_dir/scripts/nice-code.mjs" ]]; then
   exit 1
 fi
 
-node "$nice_code_dir/scripts/nice-code.mjs" \
-  --project "$root_dir" \
-  --all \
-  --format agent \
-  --include-review \
+scan_args=(
+  --project "$root_dir"
+  --format agent
+  --include-review
   --max-findings 100
+)
+if [[ $# -eq 0 ]]; then
+  scan_args+=(--all)
+else
+  scan_args+=("$@")
+fi
+
+node "$nice_code_dir/scripts/nice-code.mjs" "${scan_args[@]}"

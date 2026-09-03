@@ -7,6 +7,8 @@ use std::sync::Arc;
 use crate::agent::ToolRegistry;
 use crate::config::{AppConfig, ConfigError};
 use crate::health::HealthRegistry;
+#[cfg(feature = "http-server")]
+use crate::http::MiddlewareHook;
 use crate::module::{Module, ModuleBuilder, ModuleError};
 use crate::scheduler::Scheduler;
 use crate::thingd::{StorageFactory, ThingdBackend};
@@ -28,6 +30,9 @@ pub struct AppState {
     pub health_registry: Option<Arc<HealthRegistry>>,
     /// Durable scheduler backed by the configured Thingd storage.
     pub scheduler: Arc<Scheduler>,
+    /// Application request hooks, in registration order.
+    #[cfg(feature = "http-server")]
+    pub middleware_hooks: Arc<Vec<Arc<dyn MiddlewareHook>>>,
 }
 
 impl AppState {
@@ -45,6 +50,21 @@ impl AppState {
     pub async fn stop_scheduler(&self) -> Result<(), crate::scheduler::SchedulerError> {
         self.scheduler.stop().await
     }
+
+    /// Return a clone with additional request hooks appended in registration
+    /// order. This keeps explicit-state applications composable.
+    #[cfg(feature = "http-server")]
+    pub fn with_middleware_hooks(
+        &self,
+        hooks: impl IntoIterator<Item = Arc<dyn MiddlewareHook>>,
+    ) -> Self {
+        let mut combined = self.middleware_hooks.as_ref().clone();
+        combined.extend(hooks);
+        Self {
+            middleware_hooks: Arc::new(combined),
+            ..self.clone()
+        }
+    }
 }
 
 /// Builder for `AppState`.
@@ -56,6 +76,8 @@ pub struct AppStateBuilder {
     thingd_ready: Option<bool>,
     health_registry: Option<Arc<HealthRegistry>>,
     scheduler: Option<Arc<Scheduler>>,
+    #[cfg(feature = "http-server")]
+    middleware_hooks: Vec<Arc<dyn MiddlewareHook>>,
 }
 
 impl AppStateBuilder {
@@ -69,6 +91,8 @@ impl AppStateBuilder {
             thingd_ready: None,
             health_registry: None,
             scheduler: None,
+            #[cfg(feature = "http-server")]
+            middleware_hooks: Vec::new(),
         }
     }
 
@@ -117,6 +141,20 @@ impl AppStateBuilder {
     /// Set an explicitly configured scheduler.
     pub fn with_scheduler(mut self, scheduler: Arc<Scheduler>) -> Self {
         self.scheduler = Some(scheduler);
+        self
+    }
+
+    /// Register an application request middleware hook.
+    #[cfg(feature = "http-server")]
+    pub fn with_middleware_hook<H: MiddlewareHook + 'static>(mut self, hook: H) -> Self {
+        self.middleware_hooks.push(Arc::new(hook));
+        self
+    }
+
+    /// Register multiple request middleware hooks in deterministic order.
+    #[cfg(feature = "http-server")]
+    pub fn with_middleware_hooks(mut self, hooks: Vec<Arc<dyn MiddlewareHook>>) -> Self {
+        self.middleware_hooks.extend(hooks);
         self
     }
 
@@ -203,6 +241,8 @@ impl AppStateBuilder {
             thingd_ready,
             health_registry,
             scheduler,
+            #[cfg(feature = "http-server")]
+            middleware_hooks: Arc::new(self.middleware_hooks),
         })
     }
 }

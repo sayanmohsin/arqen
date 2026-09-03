@@ -1,6 +1,7 @@
 pub mod cache;
 pub mod middleware_auth;
 pub mod middleware_correlation;
+pub mod middleware_hooks;
 pub mod middleware_identity;
 pub mod middleware_log;
 pub mod module;
@@ -13,6 +14,7 @@ pub use middleware_auth::{
     require_auth_middleware,
 };
 pub use middleware_correlation::{X_REQUEST_ID, correlation_id_middleware};
+pub use middleware_hooks::{MiddlewareContext, MiddlewareHook};
 pub use middleware_identity::{
     ARQEN_IDENTITY, POWERED_BY_HEADER, SERVER_HEADER, identity_middleware,
 };
@@ -23,22 +25,30 @@ pub use streaming::jsonl_response;
 
 use axum::extract::FromRef;
 use axum::{
+    Router,
     http::StatusCode,
+    middleware,
     routing::{get, post},
 };
 use std::net::SocketAddr;
 use tokio::net::TcpListener;
 use tower_http::compression::{CompressionLayer, predicate::SizeAbove};
-use tower_http::cors::{Any, CorsLayer};
+use tower_http::cors::{AllowOrigin, Any, CorsLayer};
 use tower_http::limit::RequestBodyLimitLayer;
 use tower_http::timeout::TimeoutLayer;
 
 use crate::state::AppState;
 
-/// Arqen's application-facing HTTP facade. These re-exports let applications
-/// build routes through `arqen::http` without importing the underlying
-/// transport crate directly.
-pub use axum::{Router, body, extract, http, middleware, response, routing};
+/// Compatibility namespace for transport-specific integrations.
+///
+/// This namespace is intentionally explicit. It is not part of the normal
+/// Arqen application surface and may change independently of the stable
+/// application APIs.
+#[cfg(feature = "advanced-transport")]
+#[doc(hidden)]
+pub mod raw {
+    pub use axum::{Router, body, extract, http, middleware, response, routing};
+}
 
 /// Create the default Arqen router.
 pub fn create_router() -> Router {
@@ -93,10 +103,28 @@ where
     S: Clone + Send + Sync + 'static,
     AppState: FromRef<S>,
 {
-    let cors = CorsLayer::new()
-        .allow_origin(Any)
-        .allow_methods(Any)
-        .allow_headers(Any);
+    let cors = if state.config.server.cors_origins.is_empty()
+        && std::env::var("ARQEN_ENV").as_deref() == Ok("production")
+    {
+        CorsLayer::new()
+    } else if state.config.server.cors_origins.is_empty() {
+        CorsLayer::new()
+            .allow_origin(Any)
+            .allow_methods(Any)
+            .allow_headers(Any)
+    } else {
+        let origins = state
+            .config
+            .server
+            .cors_origins
+            .iter()
+            .filter_map(|origin| origin.parse().ok())
+            .collect::<Vec<_>>();
+        CorsLayer::new()
+            .allow_origin(AllowOrigin::list(origins))
+            .allow_methods(Any)
+            .allow_headers(Any)
+    };
 
     let timeout = TimeoutLayer::with_status_code(
         StatusCode::GATEWAY_TIMEOUT,
@@ -135,6 +163,10 @@ where
         .layer(timeout)
         .layer(cors)
         .layer(axum::Extension(request_log_config))
+        .layer(middleware::from_fn_with_state(
+            state.clone(),
+            middleware_hooks::run_middleware_hooks,
+        ))
         .layer(middleware::from_fn(
             middleware_identity::identity_middleware,
         ))

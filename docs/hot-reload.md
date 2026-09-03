@@ -6,10 +6,18 @@
 arqen dev
 ```
 
-An external `cargo-watch` process may be used to restart on Rust source,
-configuration, and environment-file changes. It should print a fresh startup
-banner and distinguish compilation failures from application failures.
+Install the optional watcher and run:
+
+```bash
+cargo install cargo-watch
+arqen dev --watch
+```
+
+The reload loop restarts after Rust source, `arqen.toml`, or environment-file
+changes. It distinguishes compilation failures from application failures and
+returns the child exit status to the shell.
 
 The watcher must not be used in production. `arqen start` runs one process with graceful shutdown.
 
-**Current status:** Hot reload is not yet implemented. `arqen dev` currently runs the server without a watcher. Use `cargo-watch` manually for hot reload during development.
+`arqen dev` without `--watch` remains a single process. The watcher must not
+be used in production; use `arqen start` behind the deployment supervisor.

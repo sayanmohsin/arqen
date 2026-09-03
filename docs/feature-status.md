@@ -20,7 +20,7 @@ Use this page to decide which Arqen features are ready for your project.
 
 | Capability                         | Status              | Included                                                                                                                                         |
 | ---------------------------------- | ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
-| HTTP server and router composition | Available           | Axum-based routes, route merging, request limits, timeouts, CORS, and correlation IDs.                                                           |
+| HTTP server and router composition | Available           | Arqen-owned route composition, request limits, timeouts, CORS, and correlation IDs.                                                              |
 | Layered configuration              | Available / partial | CLI → environment → config file → defaults, typed validation, secret redaction, and production checks.                                           |
 | Authentication and authorization   | Available / partial | JWT, API keys, session adapters, constant-time checks, hashing, and policy combinators. JWKS rotation and key lifecycle remain application work. |
 | Request validation                 | Available / partial | Field, enum, pattern, cross-field, and nested validation through `Validate` and `Validated<T>`.                                                  |

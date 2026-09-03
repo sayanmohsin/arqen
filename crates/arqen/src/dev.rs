@@ -64,6 +64,12 @@ pub struct DevService {
     /// Extra environment variables for the process.
     #[serde(default)]
     pub env: HashMap<String, String>,
+    /// Optional HTTP URL used by `arqen up --wait-ready`.
+    #[serde(default)]
+    pub ready_url: Option<String>,
+    /// Maximum seconds to wait for `ready_url` (defaults to 60).
+    #[serde(default)]
+    pub ready_timeout_seconds: Option<u64>,
 }
 
 /// Load dev services from a TOML file. Unknown tables (for example `[server]`)
@@ -78,7 +84,13 @@ pub fn load(path: &Path) -> anyhow::Result<DevConfig> {
 /// Supervise the dev services in `path`, optionally restricted to `selection`.
 ///
 /// If `dry_run` is set, prints the plan and returns without starting anything.
-pub async fn run_up(path: &Path, selection: &[String], dry_run: bool) -> anyhow::Result<()> {
+pub async fn run_up(
+    path: &Path,
+    selection: &[String],
+    dry_run: bool,
+    raw: bool,
+    wait_ready: bool,
+) -> anyhow::Result<()> {
     let config = load(path)?;
 
     let services = select_services(&config, selection)?;
@@ -108,6 +120,19 @@ pub async fn run_up(path: &Path, selection: &[String], dry_run: bool) -> anyhow:
 
     let mut spawned = 0usize;
     let mut spawn_error = None;
+    let readiness = services
+        .iter()
+        .filter_map(|service| {
+            service.ready_url.as_ref().map(|url| {
+                (
+                    service.name.clone(),
+                    url.clone(),
+                    service.ready_timeout_seconds.unwrap_or(60),
+                )
+            })
+        })
+        .collect::<Vec<_>>();
+
     for service in services {
         let mut cmd = Command::new(&service.command);
         cmd.args(&service.args)
@@ -128,7 +153,7 @@ pub async fn run_up(path: &Path, selection: &[String], dry_run: bool) -> anyhow:
                 let rx = shutdown_rx.clone();
                 let tx = exit_tx.clone();
                 tokio::spawn(async move {
-                    supervise(&name, child, rx, tx).await;
+                    supervise(&name, child, rx, tx, raw).await;
                 });
             }
             Err(e) => {
@@ -140,6 +165,12 @@ pub async fn run_up(path: &Path, selection: &[String], dry_run: bool) -> anyhow:
 
     drop(exit_tx);
     drop(shutdown_rx);
+
+    if wait_ready && let Err(error) = wait_for_readiness(&readiness).await {
+        let _ = shutdown_tx.send(true);
+        drain(&mut exit_rx).await;
+        return Err(error);
+    }
 
     if let Some(err) = spawn_error {
         if spawned > 0 {
@@ -231,18 +262,19 @@ async fn supervise(
     mut child: Child,
     mut shutdown: watch::Receiver<bool>,
     exit_tx: mpsc::Sender<ExitInfo>,
+    raw: bool,
 ) {
     let prefix = name.to_string();
     if let Some(stdout) = child.stdout.take() {
         let prefix = prefix.clone();
         tokio::spawn(async move {
-            forward_output(&prefix, stdout).await;
+            forward_output(&prefix, stdout, raw).await;
         });
     }
     if let Some(stderr) = child.stderr.take() {
         let prefix = prefix.clone();
         tokio::spawn(async move {
-            forward_output(&prefix, stderr).await;
+            forward_output(&prefix, stderr, raw).await;
         });
     }
 
@@ -268,11 +300,34 @@ async fn supervise(
         .await;
 }
 
-async fn forward_output(prefix: &str, stream: impl AsyncRead + Unpin) {
+async fn forward_output(prefix: &str, stream: impl AsyncRead + Unpin, raw: bool) {
     let mut lines = BufReader::new(stream).lines();
     while let Ok(Some(line)) = lines.next_line().await {
-        Console::new().child_line(prefix, &line);
+        if raw {
+            println!("{line}");
+        } else {
+            Console::new().child_line(prefix, &line);
+        }
     }
+}
+
+async fn wait_for_readiness(readiness: &[(String, String, u64)]) -> anyhow::Result<()> {
+    for (name, url, timeout_seconds) in readiness {
+        let deadline = tokio::time::Instant::now() + Duration::from_secs((*timeout_seconds).max(1));
+        loop {
+            match reqwest::get(url).await {
+                Ok(response) if response.status().is_success() => {
+                    Console::new().success(&format!("{name} ready ({url})"));
+                    break;
+                }
+                _ if tokio::time::Instant::now() >= deadline => {
+                    anyhow::bail!("service '{name}' did not become ready at {url}");
+                }
+                _ => sleep(Duration::from_millis(250)).await,
+            }
+        }
+    }
+    Ok(())
 }
 
 struct Console {
@@ -431,6 +486,8 @@ args = ["dev"]
                     args: vec![],
                     cwd: None,
                     env: Default::default(),
+                    ready_url: None,
+                    ready_timeout_seconds: None,
                 }],
             },
         };
@@ -446,7 +503,7 @@ name = "quick"
 command = "false"
 "#,
         );
-        run_up(&path, &[], true).await.unwrap();
+        run_up(&path, &[], true, false, false).await.unwrap();
         std::fs::remove_file(&path).unwrap();
     }
 
@@ -465,9 +522,12 @@ command = "sleep"
 args = ["30"]
 "#,
         );
-        let result = tokio::time::timeout(Duration::from_secs(15), run_up(&path, &[], false))
-            .await
-            .expect("run_up should finish promptly");
+        let result = tokio::time::timeout(
+            Duration::from_secs(15),
+            run_up(&path, &[], false, false, false),
+        )
+        .await
+        .expect("run_up should finish promptly");
         result.unwrap();
         std::fs::remove_file(&path).unwrap();
     }
@@ -487,9 +547,12 @@ command = "sleep"
 args = ["30"]
 "#,
         );
-        let result = tokio::time::timeout(Duration::from_secs(15), run_up(&path, &[], false))
-            .await
-            .expect("run_up should finish promptly");
+        let result = tokio::time::timeout(
+            Duration::from_secs(15),
+            run_up(&path, &[], false, false, false),
+        )
+        .await
+        .expect("run_up should finish promptly");
         let err = result.unwrap_err();
         assert!(err.to_string().contains("quick"));
         std::fs::remove_file(&path).unwrap();

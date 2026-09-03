@@ -27,11 +27,12 @@ contracts, worker runtime, and operational checks.
 
 ## HTTP integration
 
-The HTTP integration uses Axum, Tokio, and Tower. Applications can use Arqen’s
-router, middleware, state, and lifecycle helpers, or use the re-exported HTTP
-types when they need lower-level control.
+Applications use Arqen’s router, middleware, state, and lifecycle helpers.
+Transport and runtime choices are implementation details of the package. An
+explicit advanced compatibility namespace exists for integrations that need
+lower-level control, but it is not required for normal applications.
 
-The common starting point is `arqen::http::{Router, routing}` with Arqen’s
+The common starting point is Arqen’s route composition API with Arqen’s
 server helpers. See [Getting started](./getting-started.md) for a runnable
 project and [OpenAPI](./openapi.md) for route documentation.
 

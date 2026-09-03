@@ -34,7 +34,7 @@ use arqen::core::AppError;
 
 pub struct UsersModule;
 
-#[async_trait::async_trait]
+#[arqen::async_trait]
 impl Module for UsersModule {
     fn name(&self) -> &str {
         "users"
@@ -95,7 +95,7 @@ use arqen::jobs::JobHandler;
 
 pub struct SendEmailHandler;
 
-#[async_trait::async_trait]
+#[arqen::async_trait]
 impl JobHandler for SendEmailHandler {
     async fn handle(&self, payload: serde_json::Value) -> Result<(), AppError> {
         tracing::info!(payload = %payload, "Processing email job");
@@ -112,7 +112,7 @@ Register a schedule during application startup and register the
 `ott_release_refresh` worker separately. The scheduler only enqueues the
 durable job; the worker performs the importer work.
 
-```rust,ignore
+```rust
 let scheduler = arqen::Scheduler::new(state.storage.clone());
 scheduler
     .schedule(
@@ -184,14 +184,13 @@ See: [`validation.md`](./validation.md)
 
 ```rust
 use arqen::health::{HealthCheck, HealthStatus};
-use async_trait::async_trait;
 use std::time::Duration;
 
 struct DatabaseCheck {
     url: String,
 }
 
-#[async_trait]
+#[arqen::async_trait]
 impl HealthCheck for DatabaseCheck {
     fn name(&self) -> &str { "database" }
     async fn check(&self) -> HealthStatus {

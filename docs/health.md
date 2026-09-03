@@ -36,7 +36,7 @@ Every check returns one of three states:
 ### HealthCheck trait
 
 ```rust
-#[async_trait]
+#[arqen::async_trait]
 pub trait HealthCheck: Send + Sync {
     fn name(&self) -> &str;
     async fn check(&self) -> HealthStatus;
@@ -150,17 +150,18 @@ From the health module tests (`health.rs`):
 use arqen::health::{HealthRegistry, AlwaysHealthy, AlwaysDegraded, OptionalCheck};
 use std::sync::Arc;
 
-#[tokio::test]
-async fn test_readiness_skips_optional() {
-    let mut registry = HealthRegistry::new();
-    registry.register(Arc::new(AlwaysHealthy));
-    registry.register(Arc::new(OptionalCheck));
+fn main() {
+    arqen::run(async {
+        let mut registry = HealthRegistry::new();
+        registry.register(Arc::new(AlwaysHealthy));
+        registry.register(Arc::new(OptionalCheck));
 
-    let liveness = registry.check_liveness().await;
-    assert_eq!(liveness.checks.len(), 2); // runs all
+        let liveness = registry.check_liveness().await;
+        assert_eq!(liveness.checks.len(), 2); // runs all
 
-    let readiness = registry.check_readiness().await;
-    assert_eq!(readiness.checks.len(), 1); // skips optional
+        let readiness = registry.check_readiness().await;
+        assert_eq!(readiness.checks.len(), 1); // skips optional
+    });
 }
 ```
 

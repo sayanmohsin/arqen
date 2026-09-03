@@ -10,11 +10,10 @@
 
 ## Backend infrastructure for agent-ready applications
 
-Arqen is a Rust-first backend toolkit for HTTP services, built with Tokio,
-Axum, Tower, tracing, Serde, and optional Reqwest and Clap integrations. It
-brings typed tools, durable jobs, discoverable APIs, explicit modules, health
-checks, and an Arqen-owned Thingd adapter contract to one readable project
-structure.
+Arqen is a Rust-first backend toolkit for HTTP services, agents, automation,
+jobs, health checks, modules, and provider-neutral storage adapters. It gives
+applications a framework-owned project structure and operational workflow
+without requiring application code to depend on transport or runtime details.
 
 “Agent-ready” does not mean AI-only. It means capabilities are discoverable,
 typed, permission-aware, auditable, and automation-friendly.

@@ -18,8 +18,8 @@ arqen dev --storage memory
 
 ### Native durable thingd
 
-Native mode embeds Thingd's durable RocksDB engine (plus Tantivy search) in the
-application process. It is intended for durable deployments with at least 4 GB
+Native mode embeds Arqen's durable local storage adapter in the application
+process. It is intended for durable deployments with at least 4 GB
 RAM (`e2-medium` or larger); the native store alone can consume hundreds of MB
 and Linux OOM kills commonly appear only as exit code 137. For e2-micro and
 other small VMs, use HTTP mode and run thingd separately. See the thingd memory
@@ -60,7 +60,7 @@ ARQEN_STORAGE_MODE=http ARQEN_THINGD_URL=http://thingd:8080 arqen start
 
 Configure the Thingd HTTP service for asynchronous search indexing:
 
-```env
+```dotenv
 THINGD_SEARCH_MODE=persistent-async
 THINGD_SEARCH_COMMIT_INTERVAL_MS=250
 THINGD_SEARCH_COMMIT_BATCH_SIZE=32

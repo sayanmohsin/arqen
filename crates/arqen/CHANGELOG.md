@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Add runtime-neutral application startup and lifecycle hook facades, generated
+  projects that use `arqen dev`/`arqen start`, automatic reload guidance, and
+  readiness-aware multi-service supervision with compact, pretty, JSON, and
+  raw output modes.
 - Make native Thingd an explicit opt-in feature instead of a default Arqen
   dependency, and document native versus HTTP compatibility boundaries.
 - Add `HttpThingdBackend::check_compatibility()` for the public Thingd `v1`

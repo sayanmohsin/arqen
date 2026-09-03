@@ -107,6 +107,8 @@ export default defineConfig({
           { text: "Thingd bootstrap", link: "/bootstrap" },
           { text: "Commands", link: "/commands" },
           { text: "Configuration", link: "/configuration" },
+          { text: "Middleware and hooks", link: "/middleware" },
+          { text: "Hot reload", link: "/hot-reload" },
           { text: "HTTP caching", link: "/http-caching" },
           { text: "Streaming", link: "/streaming" },
           { text: "Health", link: "/health" },

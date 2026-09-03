@@ -18,8 +18,8 @@ Coding and documentation standards for the Arqen project.
   reason when helpful.
 - Never expose internal system errors to API responses; map them to
   appropriate `ErrorKind` variants.
-- Use `From` impls to convert framework errors (`reqwest::Error`,
-  `std::io::Error`) into `AppError`.
+- Use `From` impls to convert external client and system errors into
+  `AppError`; keep concrete dependency types out of application contracts.
 
 ```rust
 use arqen::core::{AppError, ErrorKind};
@@ -45,7 +45,8 @@ tracing::info!(user_id = %user.id, action = "login", "user logged in");
 tracing::info!(api_key = %redacted(&key), "key validated");
 ```
 
-- Prefer `json` format in production, `pretty` in development.
+- Prefer `json` format in production, `compact` in development, and `pretty`
+  when diagnosing a local failure.
 
 ## Secrets
 
@@ -63,7 +64,8 @@ tracing::info!(api_key = %redacted(&key), "key validated");
 - **Contract tests**: verify public API stability against the published
   interface.
 - Test both success and error paths.
-- Use `tokio::test` for async tests.
+- Keep runtime-specific test details in implementation code; consumer-facing
+  examples should use Arqen's test helpers and contracts.
 - Use `HealthRegistry` and `ModuleBuilder` test helpers for health and
   module composition tests.
 

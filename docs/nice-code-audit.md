@@ -34,7 +34,7 @@ exception documents why that output is not production telemetry.
 `cargo update --workspace` was run against the Arqen root workspace on
 2026-08-27. The lockfile already contains the newest versions allowed by the
 current manifest ranges, so no dependency files changed. Cargo reports 16
-packages with newer major releases, including Axum 0.8, Reqwest 0.13, Tower
+packages with newer major releases, including the current HTTP, client, and middleware
 0.5, Thiserror 2, and Toml 1.1.
 
 Treat those as a separate compatibility upgrade: update one dependency family

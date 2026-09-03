@@ -25,7 +25,7 @@ Generate a new Arqen application with the module-based starter structure.
 ```bash
 arqen new hello-api --yes
 cd hello-api
-cargo run
+arqen dev
 ```
 
 In a terminal, `arqen new` asks whether to include HTTP, native Thingd,
@@ -80,7 +80,7 @@ Generators refuse to overwrite an existing file or module directory.
 
 ### `arqen dev`
 
-Run the application in development mode with pretty logging.
+Run the application in development mode with compact human-readable logging.
 
 ```bash
 arqen dev
@@ -90,17 +90,20 @@ arqen dev --storage memory --log debug
 
 Options:
 
-| Flag            | Default      | Description                    |
-| --------------- | ------------ | ------------------------------ |
-| `--host`        | `127.0.0.1`  | Bind address                   |
-| `-p, --port`    | `8888`       | Port                           |
-| `-l, --log`     | `info`       | Log level                      |
-| `-s, --storage` | `memory`     | Storage mode                   |
-| `--log-format`  | config       | `pretty`, `compact`, or `json` |
-| `--file`        | `arqen.toml` | Config file                    |
+| Flag            | Default      | Description                         |
+| --------------- | ------------ | ----------------------------------- |
+| `--host`        | `127.0.0.1`  | Bind address                        |
+| `-p, --port`    | `8888`       | Port                                |
+| `-l, --log`     | `info`       | Log level                           |
+| `-s, --storage` | `memory`     | Storage mode                        |
+| `--log-format`  | config       | `pretty`, `compact`, or `json`      |
+| `--file`        | `arqen.toml` | Config file                         |
+| `--watch`       | `false`      | Restart after source/config changes |
 
-`arqen dev` does not include an integrated file watcher. Use an external
-`cargo-watch` process if you need automatic restarts.
+`arqen dev --watch` uses the optional local reload tool and runs `cargo run`
+again after Rust source, configuration, or environment changes. Install it
+once with `cargo install cargo-watch`. Reload is for development only and
+restarts the application rather than preserving in-flight requests.
 
 ### `arqen start`
 
@@ -130,9 +133,12 @@ arqen up --file mydev.toml  # use custom config
 
 Options:
 
-| Flag     | Default      | Description |
-| -------- | ------------ | ----------- |
-| `--file` | `arqen.toml` | Config file |
+| Flag           | Default      | Description                                  |
+| -------------- | ------------ | -------------------------------------------- |
+| `--file`       | `arqen.toml` | Config file                                  |
+| `--raw`        | `false`      | Preserve child output without service labels |
+| `--wait-ready` | `false`      | Wait for configured readiness URLs           |
+| `--dry-run`    | `false`      | Print plan without running                   |
 
 Arqen is framework-agnostic here. A service is just a process definition;
 Arqen does not try to identify whether the process is Expo, Vite, Next.js,
@@ -150,7 +156,6 @@ cwd = "frontend"
 
 The `name` is a stable console label; `command`, `args`, `cwd`, and `env` are
 the source of truth for how the service starts.
-| `--dry-run` | false | Print plan without running |
 
 Example `arqen.toml` service definitions:
 
@@ -163,11 +168,14 @@ args = ["compose", "up"]
 [[dev.services]]
 name = "backend"
 command = "cargo"
-args = ["run"]
+args = ["run", "--quiet"]
 cwd = "backend"
+ready_url = "http://127.0.0.1:8888/ready"
+ready_timeout_seconds = 60
 ```
 
-Each service has a `name`, `command`, and optional `args`, `cwd`, and `env`.
+Each service has a `name`, `command`, and optional `args`, `cwd`, `env`,
+`ready_url`, and `ready_timeout_seconds`.
 If any service exits, the rest are shut down and the command exits non-zero
 when the exiting service failed.
 

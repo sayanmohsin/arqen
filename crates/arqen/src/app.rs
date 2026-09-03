@@ -8,8 +8,9 @@ use std::net::SocketAddr;
 use std::sync::Arc;
 
 use crate::config::AppConfig;
+use crate::http::MiddlewareHook;
 use crate::http::{create_router_with_state, start_server};
-use crate::module::{Module, ModuleBuilder, ModuleError};
+use crate::module::{LifecycleHook, Module, ModuleBuilder, ModuleError};
 use crate::state::AppState;
 
 /// A convenience wrapper for building and running Arqen applications.
@@ -26,19 +27,20 @@ use crate::state::AppState;
 ///
 /// struct UsersModule;
 ///
-/// #[async_trait::async_trait]
+/// #[arqen::async_trait]
 /// impl Module for UsersModule {
 ///     fn name(&self) -> &str { "users" }
 /// }
 ///
-/// #[tokio::main]
-/// async fn main() -> Result<(), Box<dyn std::error::Error>> {
-///     ArqenApp::builder()
-///         .name("my-api")
-///         .module(UsersModule)
-///         .build()?
-///         .start()
-///         .await
+/// fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+///     arqen::run(async {
+///         ArqenApp::builder()
+///             .name("my-api")
+///             .module(UsersModule)
+///             .build()?
+///             .start()
+///             .await
+///     })
 /// }
 /// ```
 pub struct ArqenApp {
@@ -62,6 +64,11 @@ impl ArqenApp {
         &self.module_builder
     }
 
+    /// Run the application and create the underlying runtime internally.
+    pub fn run(self) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+        crate::run(self.start())
+    }
+
     /// Start the server and run until shutdown signal.
     ///
     /// Lifecycle:
@@ -82,7 +89,8 @@ impl ArqenApp {
         )
         .parse()?;
 
-        let router = create_router_with_state(self.state);
+        let shutdown_timeout = self.state.config.server.shutdown_timeout;
+        let router = create_router_with_state(self.state.clone());
 
         tracing::info!("Starting Arqen app on {}", addr);
 
@@ -96,11 +104,27 @@ impl ArqenApp {
         };
 
         // 3. Best-effort shutdown: always attempt every module, log errors
-        if let Err(e) = self.module_builder.shutdown_all().await {
-            tracing::error!(error = %e, "module shutdown failed");
-            if server_result.is_ok() {
-                return Err(e);
+        match tokio::time::timeout(shutdown_timeout, self.module_builder.shutdown_all()).await {
+            Ok(Err(error)) => {
+                tracing::error!(error = %error, "module shutdown failed");
+                if server_result.is_ok() {
+                    return Err(error);
+                }
             }
+            Err(_) => {
+                let error = std::io::Error::new(
+                    std::io::ErrorKind::TimedOut,
+                    format!(
+                        "module shutdown exceeded {}ms",
+                        shutdown_timeout.as_millis()
+                    ),
+                );
+                tracing::error!(error = %error, "module shutdown timed out");
+                if server_result.is_ok() {
+                    return Err(Box::new(error));
+                }
+            }
+            Ok(Ok(())) => {}
         }
 
         server_result
@@ -113,6 +137,8 @@ pub struct ArqenAppBuilder {
     config: Option<AppConfig>,
     state: Option<AppState>,
     modules: Vec<Arc<dyn Module>>,
+    hooks: Vec<Arc<dyn LifecycleHook>>,
+    middleware_hooks: Vec<Arc<dyn MiddlewareHook>>,
 }
 
 impl ArqenAppBuilder {
@@ -123,6 +149,8 @@ impl ArqenAppBuilder {
             config: None,
             state: None,
             modules: Vec::new(),
+            hooks: Vec::new(),
+            middleware_hooks: Vec::new(),
         }
     }
 
@@ -140,7 +168,9 @@ impl ArqenAppBuilder {
 
     /// Set an explicit AppState (escape hatch).
     ///
-    /// When set, `config()` and `module()` are ignored.
+    /// When set, configuration and lifecycle modules cannot also be supplied;
+    /// combining them would silently discard application behavior.
+    /// Request middleware hooks are appended to the explicit state's hooks.
     pub fn state(mut self, state: AppState) -> Self {
         self.state = Some(state);
         self
@@ -152,6 +182,20 @@ impl ArqenAppBuilder {
         self
     }
 
+    /// Register a startup/shutdown hook without exposing the runtime used to
+    /// execute it.
+    pub fn hook<H: LifecycleHook + 'static>(mut self, hook: H) -> Self {
+        self.hooks.push(Arc::new(hook));
+        self
+    }
+
+    /// Register a request hook. Hooks run in registration order before a
+    /// handler and reverse order after the response.
+    pub fn middleware_hook<H: MiddlewareHook + 'static>(mut self, hook: H) -> Self {
+        self.middleware_hooks.push(Arc::new(hook));
+        self
+    }
+
     /// Build the `ArqenApp`.
     ///
     /// # Errors
@@ -160,8 +204,14 @@ impl ArqenAppBuilder {
     /// module's `register()` call fails.
     pub fn build(self) -> Result<ArqenApp, ModuleError> {
         if let Some(state) = self.state {
+            if self.config.is_some() || !self.modules.is_empty() || !self.hooks.is_empty() {
+                return Err(ModuleError::StateConflict(
+                    "state() cannot be combined with config(), module(), or hook(); use the state builder for those options".to_string(),
+                ));
+            }
+            let hooks = self.middleware_hooks;
             return Ok(ArqenApp {
-                state,
+                state: state.with_middleware_hooks(hooks),
                 module_builder: ModuleBuilder::new(),
             });
         }
@@ -175,9 +225,12 @@ impl ArqenAppBuilder {
         let mut module_builder = ModuleBuilder::new();
 
         // Validate module graph and register tools/health if modules are present
-        if !self.modules.is_empty() {
+        if !self.modules.is_empty() || !self.hooks.is_empty() {
             for module in &self.modules {
                 module_builder = module_builder.register_arc(module.clone());
+            }
+            for hook in &self.hooks {
+                module_builder = module_builder.register_hook_arc(hook.clone());
             }
             module_builder.validate()?;
 
@@ -195,6 +248,8 @@ impl ArqenAppBuilder {
                 .with_tool_registry(tools)
                 .with_health_registry(health);
         }
+
+        builder = builder.with_middleware_hooks(self.middleware_hooks);
 
         let state = builder.build().map_err(ModuleError::from)?;
 
@@ -224,6 +279,22 @@ mod tests {
         }
     }
 
+    struct TestHook;
+
+    impl LifecycleHook for TestHook {
+        fn name(&self) -> &str {
+            "startup"
+        }
+    }
+
+    struct TestMiddlewareHook;
+
+    impl MiddlewareHook for TestMiddlewareHook {
+        fn name(&self) -> &str {
+            "request-policy"
+        }
+    }
+
     #[test]
     fn test_arqen_app_builder_no_modules() {
         let app = ArqenApp::builder().build().unwrap();
@@ -236,6 +307,23 @@ mod tests {
         let app = ArqenApp::builder().module(TestModule).build().unwrap();
         assert_eq!(app.state.config.server.port, 8888);
         assert_eq!(app.module_builder.module_count(), 1);
+    }
+
+    #[test]
+    fn test_arqen_app_builder_with_lifecycle_hook() {
+        let app = ArqenApp::builder().hook(TestHook).build().unwrap();
+        assert_eq!(app.module_builder.module_count(), 1);
+        assert_eq!(app.module_builder.module_names(), vec!["startup"]);
+    }
+
+    #[test]
+    fn test_arqen_app_builder_with_middleware_hook() {
+        let app = ArqenApp::builder()
+            .middleware_hook(TestMiddlewareHook)
+            .build()
+            .unwrap();
+        assert_eq!(app.state.middleware_hooks.len(), 1);
+        assert_eq!(app.state.middleware_hooks[0].name(), "request-policy");
     }
 
     #[test]
@@ -257,6 +345,24 @@ mod tests {
         let app = ArqenApp::builder().state(state).build().unwrap();
         assert_eq!(app.state.config.server.port, 8888);
         assert_eq!(app.module_builder.module_count(), 0);
+    }
+
+    #[test]
+    fn test_explicit_state_appends_request_hooks() {
+        let state = AppState::builder().build().unwrap();
+        let app = ArqenApp::builder()
+            .state(state)
+            .middleware_hook(TestMiddlewareHook)
+            .build()
+            .unwrap();
+        assert_eq!(app.state.middleware_hooks.len(), 1);
+    }
+
+    #[test]
+    fn test_explicit_state_rejects_lossy_builder_options() {
+        let state = AppState::builder().build().unwrap();
+        let result = ArqenApp::builder().state(state).module(TestModule).build();
+        assert!(matches!(result, Err(ModuleError::StateConflict(_))));
     }
 
     #[test]

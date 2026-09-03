@@ -40,7 +40,7 @@ This generates:
 
 ```text
 hello-api/
-Cargo.toml          # current Arqen 0.15 release and selected features
+  Cargo.toml          # current Arqen 0.15 release and selected features
   README.md
   arqen.toml         # runtime configuration
   .env.example       # environment template
@@ -59,8 +59,16 @@ generator](./cli-generator.md) for all options.
 ## Run the project
 
 ```bash
-cargo run
+arqen dev
 ```
+
+The generated application owns startup and shutdown through Arqen. You do
+not need to create or configure the underlying async runtime in application
+code.
+
+For automatic Rust reload during development, install the optional watcher
+and run `arqen dev --watch`. For a frontend plus backend stack, define both
+processes in `arqen.toml` and run `arqen up`.
 
 Expected output (the version is dynamic in the real CLI):
 

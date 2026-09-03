@@ -64,7 +64,7 @@ configured `ARQEN_LOG_LEVEL`; change the environment and restart the service
 to change production verbosity. A GoodOne-style filter is:
 
 ```text
-goodone_watch_backend=info,arqen=info,tantivy=warn,reqwest=warn,hyper=warn
+goodone_watch_backend=info,arqen=info
 ```
 
 The logging writer is non-blocking, so do not add application log files inside

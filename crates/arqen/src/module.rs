@@ -66,6 +66,8 @@ pub enum ModuleError {
     },
     /// Application configuration failed while building the module-based app.
     Configuration(ConfigError),
+    /// Explicit state was combined with options that cannot be applied safely.
+    StateConflict(String),
 }
 
 impl fmt::Display for ModuleError {
@@ -76,6 +78,9 @@ impl fmt::Display for ModuleError {
                 write!(f, "module '{module}' registration failed: {message}")
             }
             ModuleError::Configuration(error) => write!(f, "configuration failed: {error}"),
+            ModuleError::StateConflict(message) => {
+                write!(f, "application state conflict: {message}")
+            }
         }
     }
 }
@@ -86,6 +91,7 @@ impl std::error::Error for ModuleError {
             ModuleError::Graph(e) => Some(e),
             ModuleError::Registration { .. } => None,
             ModuleError::Configuration(error) => Some(error),
+            ModuleError::StateConflict(_) => None,
         }
     }
 }
@@ -148,6 +154,47 @@ pub trait Module: Send + Sync {
     /// Health check for this module.
     async fn health_check(&self) -> ModuleHealth {
         ModuleHealth::Healthy
+    }
+}
+
+/// A runtime-neutral application lifecycle hook.
+///
+/// Use this for startup and shutdown work that is not naturally owned by a
+/// feature module. The hook is adapted into the normal module lifecycle, so it
+/// receives the same dependency ordering, error handling, and reverse-order
+/// shutdown behavior as every other module.
+#[async_trait]
+pub trait LifecycleHook: Send + Sync {
+    /// Stable name used in diagnostics and duplicate detection.
+    fn name(&self) -> &str;
+
+    /// Run once before the server starts accepting traffic.
+    async fn startup(&self) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+        Ok(())
+    }
+
+    /// Run once after the server stops accepting traffic.
+    async fn shutdown(&self) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+        Ok(())
+    }
+}
+
+pub(crate) struct LifecycleHookModule {
+    pub(crate) hook: Arc<dyn LifecycleHook>,
+}
+
+#[async_trait]
+impl Module for LifecycleHookModule {
+    fn name(&self) -> &str {
+        self.hook.name()
+    }
+
+    async fn init(&self) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+        self.hook.startup().await
+    }
+
+    async fn shutdown(&self) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+        self.hook.shutdown().await
     }
 }
 
@@ -220,6 +267,19 @@ impl ModuleBuilder {
     /// Register a module wrapped in Arc.
     pub fn register_arc(mut self, module: Arc<dyn Module>) -> Self {
         self.modules.push(module);
+        self
+    }
+
+    /// Register a runtime-neutral startup/shutdown hook.
+    pub fn register_hook<H: LifecycleHook + 'static>(self, hook: H) -> Self {
+        self.register_arc(Arc::new(LifecycleHookModule {
+            hook: Arc::new(hook),
+        }))
+    }
+
+    /// Register an already shared startup/shutdown hook.
+    pub fn register_hook_arc(mut self, hook: Arc<dyn LifecycleHook>) -> Self {
+        self.modules.push(Arc::new(LifecycleHookModule { hook }));
         self
     }
 
@@ -368,8 +428,21 @@ impl ModuleBuilder {
         let indices = self
             .topological_indices()
             .map_err(|e| -> Box<dyn std::error::Error + Send + Sync> { Box::new(e) })?;
+        let mut initialized: Vec<usize> = Vec::new();
         for idx in indices {
-            self.modules[idx].init().await?;
+            if let Err(error) = self.modules[idx].init().await {
+                for initialized_idx in initialized.into_iter().rev() {
+                    if let Err(shutdown_error) = self.modules[initialized_idx].shutdown().await {
+                        tracing::error!(
+                            module = self.modules[initialized_idx].name(),
+                            error = %shutdown_error,
+                            "module rollback shutdown failed"
+                        );
+                    }
+                }
+                return Err(error);
+            }
+            initialized.push(idx);
         }
         Ok(())
     }
@@ -649,6 +722,60 @@ mod tests {
             .register(EmptyModule::new("mod2"));
         assert!(builder.init_all().await.is_ok());
         assert!(builder.shutdown_all().await.is_ok());
+    }
+
+    #[tokio::test]
+    async fn test_failed_initialization_rolls_back_initialized_modules() {
+        struct RecordingModule {
+            name: &'static str,
+            fail_init: bool,
+            events: Arc<Mutex<Vec<String>>>,
+        }
+
+        #[async_trait]
+        impl Module for RecordingModule {
+            fn name(&self) -> &str {
+                self.name
+            }
+
+            async fn init(&self) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+                self.events
+                    .lock()
+                    .unwrap()
+                    .push(format!("{} init", self.name));
+                if self.fail_init {
+                    return Err(format!("{} failed", self.name).into());
+                }
+                Ok(())
+            }
+
+            async fn shutdown(&self) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+                self.events
+                    .lock()
+                    .unwrap()
+                    .push(format!("{} shutdown", self.name));
+                Ok(())
+            }
+        }
+
+        let events = Arc::new(Mutex::new(Vec::new()));
+        let builder = ModuleBuilder::new()
+            .register(RecordingModule {
+                name: "base",
+                fail_init: false,
+                events: events.clone(),
+            })
+            .register(RecordingModule {
+                name: "failing",
+                fail_init: true,
+                events: events.clone(),
+            });
+
+        assert!(builder.init_all().await.is_err());
+        assert_eq!(
+            *events.lock().unwrap(),
+            vec!["base init", "failing init", "base shutdown"]
+        );
     }
 
     #[tokio::test]

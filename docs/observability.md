@@ -6,7 +6,7 @@ correlation identifier to requests and include context such as `job_id`,
 `worker_id`, queue, status, and duration.
 
 Request logs include service/version/environment identity, a normalized route
-where Axum exposes one, request and correlation IDs, authentication context
+where the request integration exposes one, request and correlation IDs, authentication context
 when available, outcome classification, and millisecond plus microsecond
 duration fields. Client-supplied request IDs are bounded and sanitized before
 entering response headers or logs.
