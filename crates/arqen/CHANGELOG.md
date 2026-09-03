@@ -15,6 +15,18 @@
   APIs.
 - Upgrade the Thingd dependency to `0.86.3`.
 
+## [0.16.0](https://github.com/sayanmohsin/arqen/compare/arqen-v0.15.0...arqen-v0.16.0) (2026-09-03)
+
+
+### Features
+
+* harden runtime-neutral application platform ([0b07ba5](https://github.com/sayanmohsin/arqen/commit/0b07ba5cf08197b66f9c24f5057b8ae1392b5dd9))
+
+
+### Bug Fixes
+
+* repair release and docker smoke checks ([c150e64](https://github.com/sayanmohsin/arqen/commit/c150e646b66689fa25f9061cc00d16b59aac6182))
+
 ## [0.15.0](https://github.com/sayanmohsin/arqen/compare/arqen-v0.14.0...arqen-v0.15.0) (2026-09-02)
 
 
