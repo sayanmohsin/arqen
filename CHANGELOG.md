@@ -5,7 +5,7 @@ Release history for the published `arqen` crate is maintained in
 
 ## Current release
 
-The current published release is **0.17.0**. It adds the runtime-neutral
+The current published release is **0.18.0**. It adds the runtime-neutral
 application platform, lifecycle and development tooling, and readiness-aware
 service supervision. See the crate changelog for the complete release notes.
 
