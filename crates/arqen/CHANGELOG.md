@@ -15,6 +15,13 @@
   APIs.
 - Upgrade the Thingd dependency to `0.86.3`.
 
+## [0.18.0](https://github.com/sayanmohsin/arqen/compare/arqen-v0.17.0...arqen-v0.18.0) (2026-09-04)
+
+
+### Features
+
+* structured request logging + hot reload docs + thingd 0.86.4 ([ada2d1e](https://github.com/sayanmohsin/arqen/commit/ada2d1e914fda90c03b34b8f25542ba28b1821a6))
+
 ## [0.17.0](https://github.com/sayanmohsin/arqen/compare/arqen-v0.16.0...arqen-v0.17.0) (2026-09-04)
 
 
