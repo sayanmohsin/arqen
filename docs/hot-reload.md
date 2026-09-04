@@ -30,10 +30,10 @@ pnpm dev:up                 # or: arqen up
 # or: arqen up backend frontend
 ```
 
-* `cargo watch` restarts the backend on Rust source, `arqen.toml`, or env-file changes; `arqen up` prefixes logs as `[backend]│` and waits for `ready_url`.
-* Expo HMR (`pnpm dev` / `expo start`) is untouched - frontend hot reload is independent.
-* Native single-process storage is preserved: `scripts/dev-up.sh` strips `worker` when `ARQEN_STORAGE_MODE=native|memory`, so the Thingd file is never opened by two processes.
-* Do not use `arqen dev --watch` for this stack - `arqen dev` is a single-process runner; the `arqen up` service table is the correct place for watch.
+- `cargo watch` restarts the backend on Rust source, `arqen.toml`, or env-file changes; `arqen up` prefixes logs as `[backend]│` and waits for `ready_url`.
+- Expo HMR (`pnpm dev` / `expo start`) is untouched - frontend hot reload is independent.
+- Native single-process storage is preserved: `scripts/dev-up.sh` strips `worker` when `ARQEN_STORAGE_MODE=native|memory`, so the Thingd file is never opened by two processes.
+- Do not use `arqen dev --watch` for this stack - `arqen dev` is a single-process runner; the `arqen up` service table is the correct place for watch.
 
 ## Alternative: external `cargo watch` without Arqen supervision
 
