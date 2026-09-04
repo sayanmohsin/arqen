@@ -35,6 +35,7 @@ Arqen applications are configured through environment variables and optional con
 | `ARQEN_JWT_SECRET`                    | JWT secret, kept redacted in configuration output                  | unset                                |
 | `ARQEN_API_KEY_HEADER`                | API-key request header                                             | `X-API-Key`                          |
 | `ARQEN_LOG_LEVEL`                     | Log level                                                          | `info`                               |
+| `ARQEN_REQUEST_LOG_LEVEL`             | Request log level (`trace`/`debug`/`info`/`warn`/`error`) for `2xx` | `info`                               |
 | `ARQEN_LOG_FORMAT`                    | Log format (`pretty`, `json`, `compact`)                           | `pretty`                             |
 | `ARQEN_SERVICE_NAME`                  | Stable service name included in structured request logs            | package name                         |
 | `ARQEN_WORKER_ENABLED`                | Enable workers                                                     | implementation default               |
@@ -87,6 +88,7 @@ compression_threshold = 1024
 
 [logging]
 level = "info"
+request_level = "info"  # trace/debug/info/warn/error for 2xx; 4xx->warn, 5xx->error always
 format = "pretty"  # or "json"
 
 [storage]
@@ -178,7 +180,7 @@ The banner includes:
 - Storage mode (memory, native, persistent, or http)
 
 Development mode (`arqen dev`) uses compact logging by default. Production
-mode (`arqen start`) uses JSON logging. Use `arqen dev --watch` for optional
-automatic reload. Call `AppConfig::validate_production()` from a
-production bootstrap to reject memory storage, disabled authentication, and
-pretty logs.
+mode (`arqen start`) uses JSON logging. For Rust hot reload, use `cargo watch`
+as a `[[dev.services]]` in `arqen.toml` and run `arqen up` (see `hot-reload.md`).
+Call `AppConfig::validate_production()` from a production bootstrap to reject
+memory storage, disabled authentication, and pretty logs.

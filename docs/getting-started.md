@@ -66,9 +66,11 @@ The generated application owns startup and shutdown through Arqen. You do
 not need to create or configure the underlying async runtime in application
 code.
 
-For automatic Rust reload during development, install the optional watcher
-and run `arqen dev --watch`. For a frontend plus backend stack, define both
-processes in `arqen.toml` and run `arqen up`.
+For automatic Rust reload during development, install `cargo watch` and define
+the backend service in `arqen.toml` as `cargo watch -q -x "run --quiet"`, then
+run `arqen up`. The watcher is supervised by `arqen up` alongside the
+frontend, preserving Expo HMR and the native single-process Thingd topology.
+The legacy `arqen dev --watch` flag is not used for this stack.
 
 Expected output (the version is dynamic in the real CLI):
 

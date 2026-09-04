@@ -25,6 +25,7 @@
 //! - `ARQEN_CLOUD_URL` - Future public thingd.cloud URL
 //! - `ARQEN_JWT_SECRET` - JWT secret for authentication
 //! - `ARQEN_LOG_LEVEL` - Log level (default: info)
+//! - `ARQEN_REQUEST_LOG_LEVEL` - Request log level: trace, debug, info, warn, error (default: info)
 //! - `ARQEN_LOG_FORMAT` - Log format: pretty, json, compact (default: pretty)
 
 use std::fmt;
@@ -434,9 +435,15 @@ pub struct LoggingConfig {
     pub level: String,
     #[serde(default)]
     pub format: LogFormat,
+    #[serde(default = "default_request_log_level")]
+    pub request_level: String,
 }
 
 fn default_log_level() -> String {
+    "info".to_string()
+}
+
+fn default_request_log_level() -> String {
     "info".to_string()
 }
 
@@ -455,6 +462,7 @@ impl Default for LoggingConfig {
         Self {
             level: default_log_level(),
             format: LogFormat::Pretty,
+            request_level: default_request_log_level(),
         }
     }
 }
@@ -648,6 +656,9 @@ impl AppConfig {
         }
         if let Ok(level) = std::env::var("ARQEN_LOG_LEVEL") {
             self.logging.level = level;
+        }
+        if let Ok(level) = std::env::var("ARQEN_REQUEST_LOG_LEVEL") {
+            self.logging.request_level = level;
         }
         if let Ok(format) = std::env::var("ARQEN_LOG_FORMAT") {
             self.logging.format = match format.to_lowercase().as_str() {
@@ -955,6 +966,14 @@ impl AppConfig {
                 field: "worker.max_retries".to_string(),
                 value: self.worker.max_retries.to_string(),
                 expected: "a bounded retry count".to_string(),
+            });
+        }
+        let valid_levels = ["trace", "debug", "info", "warn", "error"];
+        if !valid_levels.contains(&self.logging.request_level.to_ascii_lowercase().as_str()) {
+            return Err(ConfigError::InvalidValue {
+                field: "logging.request_level".to_string(),
+                value: self.logging.request_level.clone(),
+                expected: "trace, debug, info, warn, or error".to_string(),
             });
         }
         Ok(())

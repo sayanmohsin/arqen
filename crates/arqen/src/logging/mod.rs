@@ -117,8 +117,10 @@ mod tests {
         let config = LoggingConfig {
             level: "debug".to_string(),
             format: LogFormat::Json,
+            request_level: "warn".to_string(),
         };
         assert_eq!(config.level, "debug");
         assert!(matches!(config.format, LogFormat::Json));
+        assert_eq!(config.request_level, "warn");
     }
 }

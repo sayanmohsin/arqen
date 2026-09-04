@@ -148,6 +148,7 @@ where
         service_name: std::env::var("ARQEN_SERVICE_NAME")
             .unwrap_or_else(|_| env!("CARGO_PKG_NAME").to_string()),
         environment: std::env::var("ARQEN_ENV").unwrap_or_else(|_| "development".to_string()),
+        request_level: state.config.logging.request_level.clone(),
     };
 
     Router::new()

@@ -84,11 +84,17 @@ Change the environment file and restart the service to change production
 verbosity. This keeps log-control state outside the application process and
 makes changes auditable and reversible.
 
-**Current status:** Request logging includes method, normalized route when
-available, status, outcome, duration, request/correlation ID, service identity,
-subject, tenant ID, and instance ID when a `RequestContext` is present.
-Structured JSON logging is available through the logging configuration and is
-written through a non-blocking stderr writer. Arqen provides in-process
-request metrics and percentiles; it does not currently ship an OpenTelemetry
-exporter or vendor-specific log collector. The JSON stderr contract and
-`MetricsSink` are the integration boundary for those systems.
+**Current status:** Request logging includes method, full redacted path, normalized
+route when available, status, outcome, duration, request/correlation ID, service
+identity, subject, tenant ID, and instance ID when a `RequestContext` is present.
+For `4xx`/`5xx`, structured `error_code` and `error_message` are included (with
+`5xx` at `error` level, `4xx` at `warn`). `Authorization`, `Cookie`, `password`,
+`token`, `secret`, and `key` query values are redacted to `[REDACTED]` and are
+never logged. Configure the success level via `ARQEN_REQUEST_LOG_LEVEL`
+(`trace`/`debug`/`info`/`warn`/`error`, default `info`) and `arqen.toml`
+`[logging] request_level`; `RUST_LOG` still overrides. Structured JSON logging
+is available through the logging configuration and is written through a
+non-blocking stderr writer. Arqen provides in-process request metrics and
+percentiles; it does not currently ship an OpenTelemetry exporter or vendor-specific
+log collector. The JSON stderr contract and `MetricsSink` are the integration
+boundary for those systems.

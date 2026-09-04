@@ -98,12 +98,11 @@ Options:
 | `-s, --storage` | `memory`     | Storage mode                        |
 | `--log-format`  | config       | `pretty`, `compact`, or `json`      |
 | `--file`        | `arqen.toml` | Config file                         |
-| `--watch`       | `false`      | Restart after source/config changes |
 
-`arqen dev --watch` uses the optional local reload tool and runs `cargo run`
-again after Rust source, configuration, or environment changes. Install it
-once with `cargo install cargo-watch`. Reload is for development only and
-restarts the application rather than preserving in-flight requests.
+`arqen dev` is a single-process runner without an integrated file watcher.
+For Rust hot reload, define a `cargo watch` service in `arqen.toml` and run
+`arqen up` (see `hot-reload.md`). The legacy `--watch` flag is not
+recommended for multi-service stacks and may be removed in a future release.
 
 ### `arqen start`
 
@@ -168,7 +167,7 @@ args = ["compose", "up"]
 [[dev.services]]
 name = "backend"
 command = "cargo"
-args = ["run", "--quiet"]
+args = ["watch", "-q", "-x", "run --quiet"]
 cwd = "backend"
 ready_url = "http://127.0.0.1:8888/ready"
 ready_timeout_seconds = 60
