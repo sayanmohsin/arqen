@@ -47,30 +47,11 @@ jobs:
       - name: Run Release Please
         id: release
         if: ${{ inputs.publish_version == '' }}
-        continue-on-error: true
         uses: googleapis/release-please-action@v5
         with:
           token: ${{ steps.app-token.outputs.token }}
           config-file: release-please-config.json
           manifest-file: .release-please-manifest.json
-      - name: Verify release or next PR
-        if: ${{ inputs.publish_version == '' }}
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          VERSION=$(jq -r '."crates/arqen"' .release-please-manifest.json)
-          if gh release view "arqen-v${VERSION}" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
-            echo "Release arqen-v${VERSION} exists"
-          else
-            echo "Release arqen-v${VERSION} missing" >&2
-            exit 1
-          fi
-          # Check for next PR - should exist if fix commits after 0.16.0 await release
-          if gh pr list --state open --json headRefName --jq '.[].headRefName' | grep -q "release-please"; then
-            echo "Next release PR exists"
-          else
-            echo "No open release-please PR (may be pending fix commits or App Workflows permission)"
-          fi
       - name: Synchronize release metadata on release PR
         if: ${{ steps.release.outputs.prs_created == 'true' }}
         env:
