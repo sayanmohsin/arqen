@@ -90,14 +90,14 @@ arqen dev --storage memory --log debug
 
 Options:
 
-| Flag            | Default      | Description                         |
-| --------------- | ------------ | ----------------------------------- |
-| `--host`        | `127.0.0.1`  | Bind address                        |
-| `-p, --port`    | `8888`       | Port                                |
-| `-l, --log`     | `info`       | Log level                           |
-| `-s, --storage` | `memory`     | Storage mode                        |
-| `--log-format`  | config       | `pretty`, `compact`, or `json`      |
-| `--file`        | `arqen.toml` | Config file                         |
+| Flag            | Default      | Description                    |
+| --------------- | ------------ | ------------------------------ |
+| `--host`        | `127.0.0.1`  | Bind address                   |
+| `-p, --port`    | `8888`       | Port                           |
+| `-l, --log`     | `info`       | Log level                      |
+| `-s, --storage` | `memory`     | Storage mode                   |
+| `--log-format`  | config       | `pretty`, `compact`, or `json` |
+| `--file`        | `arqen.toml` | Config file                    |
 
 `arqen dev` is a single-process runner without an integrated file watcher.
 For Rust hot reload, define a `cargo watch` service in `arqen.toml` and run
