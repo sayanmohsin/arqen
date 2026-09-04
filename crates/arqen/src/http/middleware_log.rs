@@ -82,8 +82,8 @@ fn error_details_for_status(status: u16) -> Option<(&'static str, &'static str)>
         503 => Some(("unavailable", "service unavailable")),
         500 => Some(("internal", "internal server error")),
         501 => Some(("not_impl", "not implemented")),
-        400..=499 => Some(("client_error", "client error")),
-        500..=599 => Some(("server_error", "server error")),
+        _ if (400..=499).contains(&status) => Some(("client_error", "client error")),
+        _ if (500..=599).contains(&status) => Some(("server_error", "server error")),
         _ => None,
     }
 }
@@ -91,7 +91,10 @@ fn error_details_for_status(status: u16) -> Option<(&'static str, &'static str)>
 pub async fn logging_middleware(request: Request, next: Next) -> Response {
     let method = request.method().clone();
     let uri = request.uri().clone();
-    let raw_path = uri.path_and_query().map(|pq| pq.to_string()).unwrap_or_else(|| uri.path().to_string());
+    let raw_path = uri
+        .path_and_query()
+        .map(|pq| pq.to_string())
+        .unwrap_or_else(|| uri.path().to_string());
     let path = redact_path(&raw_path);
     let start = std::time::Instant::now();
     let request_id = request
