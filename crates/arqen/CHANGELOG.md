@@ -15,6 +15,13 @@
   APIs.
 - Upgrade the Thingd dependency to `0.86.3`.
 
+## [0.19.0](https://github.com/sayanmohsin/arqen/compare/arqen-v0.18.0...arqen-v0.19.0) (2026-09-05)
+
+
+### Features
+
+* keep CLI lightweight and harden development startup ([976ceb6](https://github.com/sayanmohsin/arqen/commit/976ceb6671bd5563e7b3508bf622dc0c0208235a))
+
 ## [0.18.0](https://github.com/sayanmohsin/arqen/compare/arqen-v0.17.0...arqen-v0.18.0) (2026-09-04)
 
 
