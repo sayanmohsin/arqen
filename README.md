@@ -78,6 +78,10 @@ arqen --version
 arqen --help
 ```
 
+The basic CLI does not require native Thingd or LLVM. For native migration
+commands, install with `--features cli,thingd-migration` instead. See
+[lightweight CLI and native prerequisites](docs/lightweight-cli.md).
+
 ## Architecture
 
 ```text

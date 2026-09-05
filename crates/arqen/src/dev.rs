@@ -115,6 +115,15 @@ pub async fn run_up(
         return Ok(());
     }
 
+    // Install the Unix handler before a child can start (or signal us).
+    #[cfg(unix)]
+    let mut interrupt = tokio::signal::unix::signal(tokio::signal::unix::SignalKind::interrupt())?;
+    #[cfg(unix)]
+    let cancellation = interrupt.recv();
+    #[cfg(not(unix))]
+    let cancellation = tokio::signal::ctrl_c();
+    tokio::pin!(cancellation);
+
     let (shutdown_tx, shutdown_rx) = watch::channel(false);
     let (exit_tx, mut exit_rx) = mpsc::channel::<ExitInfo>(services.len());
 
@@ -135,6 +144,8 @@ pub async fn run_up(
 
     for service in services {
         let mut cmd = Command::new(&service.command);
+        #[cfg(unix)]
+        cmd.process_group(0);
         cmd.args(&service.args)
             .stdout(Stdio::piped())
             .stderr(Stdio::piped())
@@ -166,12 +177,6 @@ pub async fn run_up(
     drop(exit_tx);
     drop(shutdown_rx);
 
-    if wait_ready && let Err(error) = wait_for_readiness(&readiness).await {
-        let _ = shutdown_tx.send(true);
-        drain(&mut exit_rx).await;
-        return Err(error);
-    }
-
     if let Some(err) = spawn_error {
         if spawned > 0 {
             let _ = shutdown_tx.send(true);
@@ -180,11 +185,36 @@ pub async fn run_up(
         return Err(err);
     }
 
+    if wait_ready {
+        let result = tokio::select! {
+            result = wait_for_readiness(&readiness) => result,
+            _ = &mut cancellation => {
+                console.info("stopping services");
+                let _ = shutdown_tx.send(true);
+                drain(&mut exit_rx).await;
+                return Ok(());
+            }
+            info = exit_rx.recv() => {
+                if let Some(info) = info {
+                    report_exit(&info);
+                    Err(anyhow::anyhow!("dev service '{}' exited before readiness", info.name))
+                } else {
+                    Err(anyhow::anyhow!("all services stopped before readiness"))
+                }
+            }
+        };
+        if let Err(error) = result {
+            let _ = shutdown_tx.send(true);
+            drain(&mut exit_rx).await;
+            return Err(error);
+        }
+    }
+
     let mut saw_shutdown = false;
     let mut failure: Option<String> = None;
     loop {
         tokio::select! {
-            _ = tokio::signal::ctrl_c() => {
+            _ = &mut cancellation, if !saw_shutdown => {
                 console.info("stopping services");
                 if !saw_shutdown {
                     saw_shutdown = true;
@@ -284,6 +314,11 @@ async fn supervise(
             tokio::select! {
                 status = child.wait() => status.ok(),
                 _ = sleep(SHUTDOWN_TIMEOUT) => {
+                    #[cfg(unix)]
+                    if let Some(pid) = child.id() {
+                        // Each service owns a process group, including watcher children.
+                        unsafe { libc::kill(-(pid as libc::pid_t), libc::SIGKILL); }
+                    }
                     let _ = child.kill().await;
                     child.wait().await.ok()
                 }
@@ -315,8 +350,8 @@ async fn wait_for_readiness(readiness: &[(String, String, u64)]) -> anyhow::Resu
     for (name, url, timeout_seconds) in readiness {
         let deadline = tokio::time::Instant::now() + Duration::from_secs((*timeout_seconds).max(1));
         loop {
-            match reqwest::get(url).await {
-                Ok(response) if response.status().is_success() => {
+            match tokio::time::timeout_at(deadline, reqwest::get(url)).await {
+                Ok(Ok(response)) if response.status().is_success() => {
                     Console::new().success(&format!("{name} ready ({url})"));
                     break;
                 }
@@ -419,7 +454,7 @@ async fn request_stop(child: &mut Child) {
     };
     // Safety: `pid` comes from the OS for a process we spawned.
     unsafe {
-        libc::kill(pid as libc::pid_t, libc::SIGINT);
+        libc::kill(-(pid as libc::pid_t), libc::SIGINT);
     }
 }
 
@@ -474,6 +509,87 @@ args = ["dev"]
             Some("3000")
         );
         assert_eq!(config.dev.services[1].cwd, None);
+    }
+
+    #[tokio::test]
+    async fn startup_failure_precedes_readiness_timeout() {
+        let path = write_temp_config(
+            r#"[[dev.services]]
+name = "missing"
+command = "/arqen-test-nonexistent-command"
+ready_url = "http://127.0.0.1:1/ready"
+ready_timeout_seconds = 60
+"#,
+        );
+        let result = tokio::time::timeout(
+            Duration::from_secs(3),
+            run_up(&path, &[], false, false, true),
+        )
+        .await
+        .unwrap();
+        assert!(result.unwrap_err().to_string().contains("failed to start"));
+        std::fs::remove_file(path).unwrap();
+    }
+
+    #[tokio::test]
+    #[cfg(unix)]
+    async fn early_exit_interrupts_readiness() {
+        let path = write_temp_config(
+            r#"[[dev.services]]
+name = "quick"
+command = "sh"
+args = ["-c", "exit 3"]
+ready_url = "http://127.0.0.1:1/ready"
+ready_timeout_seconds = 60
+"#,
+        );
+        let result = tokio::time::timeout(
+            Duration::from_secs(3),
+            run_up(&path, &[], false, false, true),
+        )
+        .await
+        .unwrap();
+        assert!(result.unwrap_err().to_string().contains("before readiness"));
+        std::fs::remove_file(path).unwrap();
+    }
+
+    #[tokio::test]
+    async fn readiness_accepts_success() {
+        use tokio::io::{AsyncReadExt, AsyncWriteExt};
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let address = listener.local_addr().unwrap();
+        let server = tokio::spawn(async move {
+            let (mut stream, _) = listener.accept().await.unwrap();
+            let mut buffer = [0; 1024];
+            let received = stream.read(&mut buffer).await.unwrap();
+            assert!(received > 0);
+            stream
+                .write_all(b"HTTP/1.1 200 OK\r\nContent-Length: 0\r\nConnection: close\r\n\r\n")
+                .await
+                .unwrap();
+        });
+        wait_for_readiness(&[("test".into(), format!("http://{address}/ready"), 10)])
+            .await
+            .unwrap();
+        server.await.unwrap();
+    }
+
+    #[tokio::test]
+    async fn readiness_bounds_unresponsive_requests() {
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let address = listener.local_addr().unwrap();
+        let result = tokio::time::timeout(
+            Duration::from_secs(3),
+            wait_for_readiness(&[("test".into(), format!("http://{address}/ready"), 1)]),
+        )
+        .await
+        .unwrap();
+        assert!(
+            result
+                .unwrap_err()
+                .to_string()
+                .contains("did not become ready")
+        );
     }
 
     #[test]

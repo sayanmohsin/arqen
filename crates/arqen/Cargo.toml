@@ -17,7 +17,7 @@ required-features = ["cli"]
 
 [features]
 default = ["http-server"]
-cli = ["http-server", "logging", "http-client", "thingd-migration", "dep:clap", "dep:libc"]
+cli = ["http-server", "logging", "http-client", "dep:clap", "dep:libc"]
 http-server = ["dep:axum", "dep:tower", "dep:tower-http"]
 advanced-transport = ["http-server"]
 http-client = ["dep:reqwest"]
@@ -67,3 +67,4 @@ tokio-test = "0.4"
 [[bench]]
 name = "framework"
 harness = false
+required-features = ["http-server"]

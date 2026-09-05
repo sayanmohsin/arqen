@@ -7,12 +7,138 @@ fn arqen_bin() -> String {
 }
 
 #[test]
+#[cfg(unix)]
+fn watch_is_optional_and_change_details_are_verbose_only() {
+    use std::os::unix::fs::PermissionsExt;
+    let dir = std::env::temp_dir().join(format!("arqen-watch-{}", std::process::id()));
+    std::fs::create_dir_all(&dir).unwrap();
+    std::fs::write(
+        dir.join("Cargo.toml"),
+        "[package]\nname='fixture'\nversion='0.1.0'\n[dependencies]\narqen = '0.18'\n",
+    )
+    .unwrap();
+    let cargo = dir.join("cargo");
+    std::fs::write(&cargo, "#!/bin/sh\nif [ \"$2\" = --version ]; then exit \"${WATCH_MISSING:-0}\"; fi\nprintf '%s\\n' \"$@\"\n").unwrap();
+    std::fs::set_permissions(&cargo, std::fs::Permissions::from_mode(0o755)).unwrap();
+    for verbose in [false, true] {
+        let mut command = Command::new(arqen_bin());
+        command
+            .current_dir(&dir)
+            .env("PATH", &dir)
+            .args(["dev", "--watch"]);
+        if verbose {
+            command.arg("--verbose");
+        }
+        let output = command.output().unwrap();
+        assert!(
+            output.status.success(),
+            "{}",
+            String::from_utf8_lossy(&output.stderr)
+        );
+        assert_eq!(
+            String::from_utf8_lossy(&output.stdout).contains("--why"),
+            verbose
+        );
+    }
+    let output = Command::new(arqen_bin())
+        .current_dir(&dir)
+        .env("PATH", &dir)
+        .env("WATCH_MISSING", "1")
+        .args(["dev", "--watch"])
+        .output()
+        .unwrap();
+    assert!(!output.status.success());
+    let message = format!(
+        "{}{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(message.contains("cargo install cargo-watch"));
+    std::fs::remove_dir_all(dir).unwrap();
+}
+
+#[test]
+#[cfg(unix)]
+fn cancellation_during_readiness_stops_service() {
+    use std::time::{Duration, Instant};
+    let dir = std::env::temp_dir().join(format!("arqen-cancel-{}", std::process::id()));
+    std::fs::create_dir_all(&dir).unwrap();
+    let pid_file = dir.join("pid");
+    let config = dir.join("arqen.toml");
+    std::fs::write(
+        &config,
+        format!(
+            r#"[[dev.services]]
+name = "waiting"
+command = "sh"
+args = ["-c", "echo $$ > '{}'; exec sleep 60"]
+ready_url = "http://127.0.0.1:1/ready"
+ready_timeout_seconds = 60
+"#,
+            pid_file.display()
+        ),
+    )
+    .unwrap();
+    let mut child = Command::new(arqen_bin())
+        .args(["up", "--wait-ready", "--file"])
+        .arg(&config)
+        .spawn()
+        .unwrap();
+    let deadline = Instant::now() + Duration::from_secs(10);
+    while !pid_file.exists() && Instant::now() < deadline {
+        std::thread::sleep(Duration::from_millis(25));
+    }
+    if !pid_file.exists() {
+        let _ = child.kill();
+        panic!("service did not start");
+    }
+    let pid: i32 = std::fs::read_to_string(&pid_file)
+        .unwrap()
+        .trim()
+        .parse()
+        .unwrap();
+    // Safety: signal only the supervisor spawned by this test.
+    unsafe {
+        libc::kill(child.id() as i32, libc::SIGINT);
+    }
+    loop {
+        if let Some(status) = child.try_wait().unwrap() {
+            assert!(status.success());
+            break;
+        }
+        if Instant::now() >= deadline {
+            let _ = child.kill();
+            unsafe {
+                libc::kill(-pid, libc::SIGKILL);
+            }
+            panic!("supervisor ignored cancellation during readiness");
+        }
+        std::thread::sleep(Duration::from_millis(25));
+    }
+    assert_eq!(
+        unsafe { libc::kill(pid, 0) },
+        -1,
+        "service survived shutdown"
+    );
+    std::fs::remove_dir_all(dir).unwrap();
+}
+
+#[test]
 fn version_flag_works() {
     let output = Command::new(arqen_bin()).arg("--version").output().unwrap();
     assert!(output.status.success());
     let stdout = String::from_utf8_lossy(&output.stdout);
     assert!(stdout.contains("arqen"));
     assert!(stdout.contains(env!("CARGO_PKG_VERSION")));
+}
+
+#[test]
+fn migration_command_requires_explicit_feature() {
+    let output = Command::new(arqen_bin())
+        .args(["thingd", "migrate", "--help"])
+        .output()
+        .unwrap();
+    assert_eq!(output.status.success(), cfg!(feature = "thingd-migration"));
 }
 
 #[test]

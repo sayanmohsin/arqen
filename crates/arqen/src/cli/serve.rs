@@ -121,7 +121,9 @@ fn run_application(
 ) -> i32 {
     let mut command = std::process::Command::new("cargo");
     if watch {
-        command.args(["watch", "--why", "-x", "run"]);
+        if !configure_watch(&mut command, output) {
+            return exit::CONFIG;
+        }
     } else {
         command.args(["run", "--quiet"]);
     }
@@ -191,7 +193,9 @@ fn run_application(
 
 fn run_watch(output: &Output) -> i32 {
     let mut command = std::process::Command::new("cargo");
-    command.args(["watch", "--why", "-x", "run"]);
+    if !configure_watch(&mut command, output) {
+        return exit::CONFIG;
+    }
     if output.is_verbose() && !output.is_quiet() {
         output.print_verbose("starting cargo watch -x run");
     }
@@ -209,6 +213,25 @@ fn run_watch(output: &Output) -> i32 {
             exit::RUNTIME
         }
     }
+}
+
+fn configure_watch(command: &mut std::process::Command, output: &Output) -> bool {
+    let available = std::process::Command::new("cargo")
+        .args(["watch", "--version"])
+        .stdout(std::process::Stdio::null())
+        .stderr(std::process::Stdio::null())
+        .status()
+        .is_ok_and(|status| status.success());
+    if !available {
+        output.print_error("automatic reload requires cargo-watch; install it with `cargo install cargo-watch` or omit --watch");
+        return false;
+    }
+    command.args(["watch", "--delay", "1"]);
+    if output.is_verbose() && !output.is_quiet() {
+        command.arg("--why");
+    }
+    command.args(["-x", "run"]);
+    true
 }
 
 #[allow(clippy::too_many_arguments)]

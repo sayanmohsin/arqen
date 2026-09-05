@@ -68,7 +68,7 @@ where
 #[cfg(feature = "http-server")]
 pub mod validation;
 
-#[cfg(any(test, feature = "test-util"))]
+#[cfg(any(all(test, feature = "http-server"), feature = "test-util"))]
 pub mod testutil;
 
 #[cfg(feature = "http-server")]

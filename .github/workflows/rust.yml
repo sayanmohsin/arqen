@@ -19,6 +19,8 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
         with: { components: "rustfmt, clippy" }
       - uses: Swatinem/rust-cache@v2
+      - name: Verify lightweight dependency graphs
+        run: bash scripts/check-lightweight.sh
       - name: Install LLVM and Clang
         run: |
           sudo apt-get update
