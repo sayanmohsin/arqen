@@ -125,6 +125,7 @@ where
 {
     type Rejection = ValidationRejection;
 
+    #[allow(clippy::manual_async_fn)]
     fn from_request(
         req: axum::http::Request<axum::body::Body>,
         state: &S,

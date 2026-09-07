@@ -81,6 +81,7 @@ where
     S: Send + Sync,
 {
     type Rejection = crate::http::middleware_auth::AuthRejection;
+    #[allow(clippy::manual_async_fn)]
     fn from_request_parts(
         parts: &mut Parts,
         _state: &S,
