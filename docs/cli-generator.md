@@ -80,7 +80,7 @@ Selecting `--nice-code` adds `NICE_CODE.md` and
 `.github/workflows/nice-code.yml`. The generated workflow runs:
 
 ```bash
-npx --yes @sayanmohsin/nice-code@0.1.11 --ci --project . --format sarif
+npx --yes @sayanmohsin/nice-code@0.2.0 --ci --project . --format sarif
 ```
 
 Nice Code is not added to `Cargo.toml`, is not required to run the app, and

@@ -1,6 +1,6 @@
 {
-  "profiles": ["default"],
-  "ignore": ["node_modules/**", "dist/**", "build/**", "target/**"],
+  "profiles": ["default", "rust"],
+  "ignore": ["target/**", "docs/node_modules/**", "docs/.vitepress/dist/**"],
   "severity": {},
   "exceptions": [
     {
@@ -11,7 +11,7 @@
     {
       "patternId": "AP-LOG-002",
       "path": "crates/arqen/src/dev.rs",
-      "reason": "This module is the human-readable local `arqen dev` console and child-process output path, not production telemetry; stable prefixes and service names are the intentional operator-facing contract."
+      "reason": "The dev command intentionally renders contextual, human-facing service status and child output to the terminal; production telemetry uses structured logging elsewhere."
     }
   ]
 }
