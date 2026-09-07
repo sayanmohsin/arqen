@@ -128,7 +128,7 @@ audit and does not modify the Arqen project.
 Install or invoke the public npm launcher from the application repository:
 
 ```bash
-npx --yes @sayanmohsin/nice-code@0.1.11 --changed --project .
+npx --yes @sayanmohsin/nice-code@0.2.0 --changed --project .
 ```
 
 It requires Node.js 20 or newer. For CI, run the same command with

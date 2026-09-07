@@ -437,7 +437,7 @@ dependency and is not required to build or run this application.
 Run it without installing it permanently:
 
 ```bash
-npx --yes @sayanmohsin/nice-code@0.1.11 --changed --project .
+npx --yes @sayanmohsin/nice-code@0.2.0 --changed --project .
 ```
 "#
 }
@@ -458,7 +458,7 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 20
-      - run: npx --yes @sayanmohsin/nice-code@0.1.11 --ci --project . --format sarif
+      - run: npx --yes @sayanmohsin/nice-code@0.2.0 --ci --project . --format sarif
 "#
 }
 

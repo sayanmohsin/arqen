@@ -30,6 +30,8 @@ scan_args=(
   --format agent
   --include-review
   --max-findings 100
+  --ci
+  --cache
 )
 if [[ $# -eq 0 ]]; then
   scan_args+=(--all)

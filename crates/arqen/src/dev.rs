@@ -20,7 +20,7 @@
 //! ```
 
 use std::collections::HashMap;
-use std::io::IsTerminal;
+use std::io::{self, IsTerminal, Write};
 use std::path::{Path, PathBuf};
 use std::process::{ExitStatus, Stdio};
 use std::time::Duration;
@@ -339,7 +339,7 @@ async fn forward_output(prefix: &str, stream: impl AsyncRead + Unpin, raw: bool)
     let mut lines = BufReader::new(stream).lines();
     while let Ok(Some(line)) = lines.next_line().await {
         if raw {
-            println!("{line}");
+            write_stdout_line(&line);
         } else {
             Console::new().child_line(prefix, &line);
         }
@@ -377,13 +377,13 @@ impl Console {
     }
 
     fn header(&self, count: usize) {
-        println!(
+        self.line(format_args!(
             "{} arqen dev {}· {} service{}",
             self.paint("◆", 36),
             self.dim(""),
             count,
             if count == 1 { "" } else { "s" }
-        );
+        ));
     }
 
     fn plan(&self, name: &str, command: &str, args: &str, cwd: &str) {
@@ -392,37 +392,52 @@ impl Console {
         } else {
             format!("{command} {args}")
         };
-        println!(
+        self.line(format_args!(
             "  {} {:<12} {} {}",
             self.paint("│", 90),
             self.service(name),
             command_line,
             self.dim(&format!("· {cwd}"))
-        );
+        ));
     }
 
     fn footer(&self) {
-        println!("  {} {}", self.paint("└", 90), self.dim("Ctrl+C to stop"));
+        self.line(format_args!(
+            "  {} {}",
+            self.paint("└", 90),
+            self.dim("Ctrl+C to stop")
+        ));
     }
 
     fn child_line(&self, name: &str, line: &str) {
-        println!("{} {} {}", self.service(name), self.paint("│", 90), line);
+        self.line(format_args!(
+            "{} {} {}",
+            self.service(name),
+            self.paint("│", 90),
+            line
+        ));
     }
 
     fn info(&self, message: &str) {
-        println!("{} {}", self.paint("ℹ", 36), message);
+        self.line(format_args!("{} {}", self.paint("ℹ", 36), message));
     }
 
     fn success(&self, message: &str) {
-        println!("{} {}", self.paint("✓", 32), message);
+        self.line(format_args!("{} {}", self.paint("✓", 32), message));
     }
 
     fn warn(&self, message: &str) {
-        println!("{} {}", self.paint("!", 33), message);
+        self.line(format_args!("{} {}", self.paint("!", 33), message));
     }
 
     fn error(&self, message: &str) {
-        println!("{} {}", self.paint("×", 31), message);
+        self.line(format_args!("{} {}", self.paint("×", 31), message));
+    }
+
+    fn line(&self, args: std::fmt::Arguments<'_>) {
+        let mut stdout = io::stdout().lock();
+        let _ = stdout.write_fmt(args);
+        let _ = stdout.write_all(b"\n");
     }
 
     fn service(&self, name: &str) -> String {
@@ -445,6 +460,12 @@ impl Console {
             text.to_string()
         }
     }
+}
+
+fn write_stdout_line(line: &str) {
+    let mut stdout = io::stdout().lock();
+    let _ = stdout.write_all(line.as_bytes());
+    let _ = stdout.write_all(b"\n");
 }
 
 #[cfg(unix)]
