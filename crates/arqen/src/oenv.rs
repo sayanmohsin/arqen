@@ -2,7 +2,7 @@
 use crate::core::{AppError, ErrorKind};
 use std::{
     collections::BTreeMap,
-    path::{Path, PathBuf},
+    path::PathBuf,
     process::{Command, Stdio},
 };
 
@@ -116,7 +116,7 @@ impl OenvProvider {
 impl SecretProvider for OenvProvider {
     fn load(&self, environment: &str) -> Result<SecretEnvironment, AppError> {
         #[cfg(feature = "oenv")]
-        if self.config.project_file.as_path() == Path::new("open-envault.yaml") {
+        if self.config.project_file.as_path() == std::path::Path::new("open-envault.yaml") {
             return native_load(environment);
         }
         let output = self.command(environment).output().map_err(|e| {
