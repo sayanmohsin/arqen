@@ -55,6 +55,7 @@ where
 {
     type Rejection = AuthRejection;
 
+    #[allow(clippy::manual_async_fn)]
     fn from_request_parts(
         parts: &mut Parts,
         state: &S,
@@ -216,6 +217,7 @@ where
 {
     type Rejection = AuthRejection;
 
+    #[allow(clippy::manual_async_fn)]
     fn from_request_parts(
         parts: &mut Parts,
         _state: &S,
@@ -262,6 +264,7 @@ where
 {
     type Rejection = AuthRejection;
 
+    #[allow(clippy::manual_async_fn)]
     fn from_request_parts(
         parts: &mut Parts,
         state: &S,

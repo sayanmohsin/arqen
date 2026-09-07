@@ -40,7 +40,7 @@ This generates:
 
 ```text
 hello-api/
-  Cargo.toml          # current Arqen 0.19 release and selected features
+  Cargo.toml          # current Arqen 0.20 release and selected features
   README.md
   arqen.toml         # runtime configuration
   .env.example       # environment template

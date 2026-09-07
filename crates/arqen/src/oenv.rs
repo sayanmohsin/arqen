@@ -62,6 +62,9 @@ impl SecretEnvironment {
     pub fn len(&self) -> usize {
         self.0.len()
     }
+    pub fn is_empty(&self) -> bool {
+        self.0.is_empty()
+    }
 }
 #[derive(Debug, Clone, serde::Serialize)]
 pub struct SecretProviderStatus {
@@ -113,7 +116,7 @@ impl OenvProvider {
 impl SecretProvider for OenvProvider {
     fn load(&self, environment: &str) -> Result<SecretEnvironment, AppError> {
         #[cfg(feature = "oenv")]
-        if self.config.project_file == PathBuf::from("open-envault.yaml") {
+        if self.config.project_file.as_path() == std::path::Path::new("open-envault.yaml") {
             return native_load(environment);
         }
         let output = self.command(environment).output().map_err(|e| {
