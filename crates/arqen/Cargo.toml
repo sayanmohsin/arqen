@@ -41,7 +41,7 @@ urlencoding = "2"
 jsonwebtoken = { version = "11", features = ["rust_crypto"] }
 libc = { version = "0.2", optional = true }
 reqwest = { version = "0.13", features = ["json", "stream"], optional = true }
-open-envault = { version = "0.2.3", optional = true }
+open-envault = { version = "0.3.2", optional = true }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 sha2 = "0.11"
