@@ -11,13 +11,13 @@
 use std::marker::PhantomData;
 use std::sync::Arc;
 
-use async_trait::async_trait;
 use axum::extract::FromRef;
 use axum::extract::FromRequestParts;
 use axum::extract::State;
 use axum::http::StatusCode;
 use axum::http::request::Parts;
 use axum::response::{IntoResponse, Response};
+use std::future::Future;
 
 use crate::auth::{AuthContext, AuthError, Authentication, Policy};
 use crate::core::error::{CorrelationId, ErrorCode, ErrorResponse};
@@ -49,21 +49,25 @@ impl Authenticated {
     }
 }
 
-#[async_trait]
 impl<S> FromRequestParts<S> for Authenticated
 where
     S: Send + Sync,
 {
     type Rejection = AuthRejection;
 
-    async fn from_request_parts(parts: &mut Parts, state: &S) -> Result<Self, Self::Rejection> {
-        let _ = state;
-        parts
-            .extensions
-            .get::<AuthContext>()
-            .cloned()
-            .map(Authenticated)
-            .ok_or(AuthRejection::Missing)
+    fn from_request_parts(
+        parts: &mut Parts,
+        state: &S,
+    ) -> impl Future<Output = Result<Self, Self::Rejection>> + Send {
+        async move {
+            let _ = state;
+            parts
+                .extensions
+                .get::<AuthContext>()
+                .cloned()
+                .map(Authenticated)
+                .ok_or(AuthRejection::Missing)
+        }
     }
 }
 
@@ -206,19 +210,23 @@ pub async fn optional_auth_middleware(
 ///
 /// Returns 401 when no auth middleware has inserted a context. Use this in
 /// handlers behind [`auth_middleware`] or [`require_auth_middleware`].
-#[async_trait]
 impl<S> FromRequestParts<S> for AuthContext
 where
     S: Send + Sync,
 {
     type Rejection = AuthRejection;
 
-    async fn from_request_parts(parts: &mut Parts, _state: &S) -> Result<Self, Self::Rejection> {
-        parts
-            .extensions
-            .get::<AuthContext>()
-            .cloned()
-            .ok_or(AuthRejection::Missing)
+    fn from_request_parts(
+        parts: &mut Parts,
+        _state: &S,
+    ) -> impl Future<Output = Result<Self, Self::Rejection>> + Send {
+        async move {
+            parts
+                .extensions
+                .get::<AuthContext>()
+                .cloned()
+                .ok_or(AuthRejection::Missing)
+        }
     }
 }
 
@@ -246,7 +254,6 @@ pub struct RequireAuth<A, P> {
     _policy: PhantomData<P>,
 }
 
-#[async_trait]
 impl<S, A, P> FromRequestParts<S> for RequireAuth<A, P>
 where
     S: Send + Sync,
@@ -255,22 +262,27 @@ where
 {
     type Rejection = AuthRejection;
 
-    async fn from_request_parts(parts: &mut Parts, state: &S) -> Result<Self, Self::Rejection> {
-        let auth = A::from_ref(state);
-        let context = auth
-            .authenticate(&parts.headers)
-            .await
-            .map_err(AuthRejection::Error)?;
-        let policy = P::from_ref(state);
-        policy
-            .check(&context, DEFAULT_AUTH_RESOURCE)
-            .map_err(AuthRejection::Error)?;
-        parts.extensions.insert(context.clone());
-        Ok(Self {
-            context,
-            _auth: PhantomData,
-            _policy: PhantomData,
-        })
+    fn from_request_parts(
+        parts: &mut Parts,
+        state: &S,
+    ) -> impl Future<Output = Result<Self, Self::Rejection>> + Send {
+        async move {
+            let auth = A::from_ref(state);
+            let context = auth
+                .authenticate(&parts.headers)
+                .await
+                .map_err(AuthRejection::Error)?;
+            let policy = P::from_ref(state);
+            policy
+                .check(&context, DEFAULT_AUTH_RESOURCE)
+                .map_err(AuthRejection::Error)?;
+            parts.extensions.insert(context.clone());
+            Ok(Self {
+                context,
+                _auth: PhantomData,
+                _policy: PhantomData,
+            })
+        }
     }
 }
 
@@ -355,7 +367,7 @@ mod tests {
         format!("hello {}", auth.0.subject)
     }
 
-    async fn optional_handler(auth: Option<Authenticated>) -> String {
+    async fn optional_handler(auth: Option<axum::extract::Extension<AuthContext>>) -> String {
         match auth {
             Some(auth) => format!("hello {}", auth.0.subject),
             None => "hello anonymous".to_string(),

@@ -21,6 +21,7 @@ cli = ["http-server", "logging", "http-client", "dep:clap", "dep:libc"]
 http-server = ["dep:axum", "dep:tower", "dep:tower-http"]
 advanced-transport = ["http-server"]
 http-client = ["dep:reqwest"]
+oenv = ["dep:open-envault"]
 thingd-migration = ["thingd-native", "http-client", "dep:tokio-util"]
 thingd-native = ["dep:thingd"]
 thingd-maintenance = ["thingd-native"]
@@ -31,28 +32,29 @@ test-util = ["http-server", "dep:tower"]
 [dependencies]
 anyhow = "1"
 async-trait = "0.1"
-axum = { version = "0.7", features = ["macros"], optional = true }
-base64 = "0.22"
+axum = { version = "0.8", features = ["macros"], optional = true }
+base64 = "0.23"
 chrono = { version = "0.4", features = ["serde"] }
 clap = { version = "4", features = ["derive"], optional = true }
 hex = "0.4"
 urlencoding = "2"
-jsonwebtoken = "9"
+jsonwebtoken = { version = "11", features = ["rust_crypto"] }
 libc = { version = "0.2", optional = true }
-reqwest = { version = "0.12", features = ["json", "stream"], optional = true }
+reqwest = { version = "0.13", features = ["json", "stream"], optional = true }
+open-envault = { version = "0.2.3", optional = true }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
-sha2 = "0.10"
+sha2 = "0.11"
 subtle = "2"
 thingd = { version = ">=0.86.0, <0.87.0", optional = true, features = ["persistent", "search"] }
-thiserror = "1"
+thiserror = "2"
 tokio = { version = "1", features = ["full"] }
 tokio-util = { version = "0.7", features = ["io"], optional = true }
 futures-util = "0.3"
 bytes = "1"
-toml = "0.8"
-tower = { version = "0.4", features = ["util"], optional = true }
-tower-http = { version = "0.6", features = ["cors", "limit", "timeout", "compression-gzip", "compression-br"], optional = true }
+toml = "1.1"
+tower = { version = "0.5", features = ["util"], optional = true }
+tower-http = { version = "0.7", features = ["cors", "limit", "timeout", "compression-gzip", "compression-br"], optional = true }
 tracing = "0.1"
 tracing-appender = { version = "0.2", optional = true }
 tracing-subscriber = { version = "0.3", features = ["env-filter", "json"], optional = true }
@@ -60,8 +62,8 @@ uuid = { version = "1", features = ["v4"] }
 
 [dev-dependencies]
 async-trait = "0.1"
-axum = "0.7"
-criterion = { version = "0.5", features = ["html_reports"] }
+axum = "0.8"
+criterion = { version = "0.8", features = ["html_reports"] }
 tokio-test = "0.4"
 
 [[bench]]

@@ -2,12 +2,12 @@
 //!
 //! Provides typed extractors and validation for request data.
 
-use async_trait::async_trait;
 use axum::extract::FromRequest;
 use axum::http::StatusCode;
 use axum::response::{IntoResponse, Response};
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
+use std::future::Future;
 
 use crate::core::error::{ErrorCode, ErrorResponse};
 
@@ -118,7 +118,6 @@ impl<T> Validated<T> {
     }
 }
 
-#[async_trait]
 impl<T, S> FromRequest<S> for Validated<T>
 where
     T: Validate + DeserializeOwned,
@@ -126,22 +125,24 @@ where
 {
     type Rejection = ValidationRejection;
 
-    async fn from_request(
+    fn from_request(
         req: axum::http::Request<axum::body::Body>,
         state: &S,
-    ) -> Result<Self, Self::Rejection> {
-        // Extract the body using axum's Json extractor
-        let body = axum::extract::Json::<T>::from_request(req, state)
-            .await
-            .map_err(|e| {
-                ValidationRejection(ValidationErrors {
-                    errors: vec![FieldError::new("_body", "invalid_json", e.to_string())],
-                })
-            })?;
+    ) -> impl Future<Output = Result<Self, Self::Rejection>> + Send {
+        async move {
+            // Extract the body using axum's Json extractor
+            let body = axum::extract::Json::<T>::from_request(req, state)
+                .await
+                .map_err(|e| {
+                    ValidationRejection(ValidationErrors {
+                        errors: vec![FieldError::new("_body", "invalid_json", e.to_string())],
+                    })
+                })?;
 
-        // Validate the extracted data
-        body.0.validate()?;
-        Ok(Validated(body.0))
+            // Validate the extracted data
+            body.0.validate()?;
+            Ok(Validated(body.0))
+        }
     }
 }
 

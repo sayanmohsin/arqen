@@ -41,6 +41,7 @@ pub mod health;
 pub mod jobs;
 pub mod module;
 pub mod observability;
+pub mod oenv;
 pub mod openapi;
 pub mod prelude;
 pub mod scheduler;
@@ -104,6 +105,7 @@ pub use observability::{
     CacheMetric, JobMetric, MetricsSink, NoopMetricsSink, RequestMetric, SharedMetricsSink,
     StorageMetric, SyncMetric,
 };
+pub use oenv::{OenvConfig, OenvProvider, SecretEnvironment, SecretProvider, SecretProviderStatus};
 pub use scheduler::{
     Schedule, ScheduleEvent, ScheduleIntervalOptions, ScheduleOnceOptions, ScheduleOptions,
     ScheduleStatus, Scheduler, SchedulerError, SchedulerStats,

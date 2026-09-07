@@ -1,8 +1,8 @@
 //! Typed request identity shared by handlers, repositories, jobs, and logs.
 
-use async_trait::async_trait;
 use axum::extract::FromRequestParts;
 use axum::http::{Extensions, request::Parts};
+use std::future::Future;
 
 use crate::auth::AuthContext;
 use crate::core::error::CorrelationId;
@@ -76,18 +76,22 @@ fn claim_strings(auth: &AuthContext, key: &str) -> Vec<String> {
     }
 }
 
-#[async_trait]
 impl<S> FromRequestParts<S> for RequestContext
 where
     S: Send + Sync,
 {
     type Rejection = crate::http::middleware_auth::AuthRejection;
-    async fn from_request_parts(parts: &mut Parts, _state: &S) -> Result<Self, Self::Rejection> {
-        parts
-            .extensions
-            .get::<RequestContext>()
-            .cloned()
-            .ok_or(crate::http::middleware_auth::AuthRejection::Missing)
+    fn from_request_parts(
+        parts: &mut Parts,
+        _state: &S,
+    ) -> impl Future<Output = Result<Self, Self::Rejection>> + Send {
+        async move {
+            parts
+                .extensions
+                .get::<RequestContext>()
+                .cloned()
+                .ok_or(crate::http::middleware_auth::AuthRejection::Missing)
+        }
     }
 }
 

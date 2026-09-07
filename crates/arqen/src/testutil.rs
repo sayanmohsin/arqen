@@ -235,7 +235,7 @@ impl MockAuth {
     }
 }
 
-#[axum::async_trait]
+#[async_trait::async_trait]
 impl Authentication for MockAuth {
     async fn authenticate(
         &self,

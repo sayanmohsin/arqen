@@ -17,6 +17,7 @@ pub mod thingd_schema;
 use clap::{Parser, Subcommand, ValueEnum};
 use std::path::PathBuf;
 
+use crate::oenv::SecretProvider;
 use output::Output;
 
 #[derive(Parser)]
@@ -76,6 +77,9 @@ pub enum Commands {
         /// Include optional Nice Code documentation and CI configuration
         #[arg(long)]
         nice_code: bool,
+        /// Include open-envault configuration and startup wiring
+        #[arg(long)]
+        oenv: bool,
     },
     /// Generate code scaffolding
     Generate {
@@ -153,6 +157,11 @@ pub enum Commands {
     Check,
     /// Diagnose Rust, thingd, Docker, and environment setup
     Doctor,
+    /// Check the optional open-envault environment provider
+    Secrets {
+        #[command(subcommand)]
+        command: SecretsCommand,
+    },
     /// Run lint checks (fmt + clippy)
     Lint,
     /// Auto-format code
@@ -267,6 +276,17 @@ pub enum GenerateKind {
     },
 }
 
+#[derive(Subcommand)]
+pub enum SecretsCommand {
+    /// Validate that oenv is installed and usable.
+    Check {
+        #[arg(long)]
+        environment: Option<String>,
+    },
+    /// Run Arqen's oenv dependency diagnostics.
+    Doctor,
+}
+
 fn dispatch(cli: &Cli, output: &Output) -> anyhow::Result<()> {
     match &cli.command {
         Commands::New {
@@ -279,6 +299,7 @@ fn dispatch(cli: &Cli, output: &Output) -> anyhow::Result<()> {
             no_logging,
             examples,
             nice_code,
+            oenv,
         } => {
             let options = generate::ProjectOptions {
                 output_dir: output_dir.clone(),
@@ -288,6 +309,7 @@ fn dispatch(cli: &Cli, output: &Output) -> anyhow::Result<()> {
                 logging: !*no_logging,
                 examples: *examples,
                 nice_code: *nice_code,
+                oenv: *oenv,
             };
             generate::generate_project(name, options, output)?;
         }
@@ -368,6 +390,29 @@ fn dispatch(cli: &Cli, output: &Output) -> anyhow::Result<()> {
             let code = doctor::run_doctor(output);
             if code != exit::SUCCESS {
                 std::process::exit(code);
+            }
+        }
+        Commands::Secrets { command } => {
+            let config = crate::config::AppConfig::load(crate::config::CliOverrides::default())
+                .map_err(|error| anyhow::anyhow!(error.to_string()))?;
+            let environment = match command {
+                SecretsCommand::Check { environment } => {
+                    environment.as_deref().unwrap_or(&config.oenv.environment)
+                }
+                SecretsCommand::Doctor => &config.oenv.environment,
+            };
+            if !config.oenv.enabled {
+                output.print("oenv is disabled (set [oenv].enabled = true to enable it)");
+            } else {
+                let provider = crate::oenv::OenvProvider::from_config(&config.oenv);
+                let status = provider
+                    .check(environment)
+                    .map_err(|error| anyhow::anyhow!(error.to_string()))?;
+                if output.is_json() {
+                    output.print(&serde_json::to_string(&status)?);
+                } else {
+                    output.print(&format!("oenv: available ({environment})"));
+                }
             }
         }
         Commands::Lint => {

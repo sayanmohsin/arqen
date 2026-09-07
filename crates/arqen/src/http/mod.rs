@@ -133,10 +133,10 @@ where
     let body_limit = RequestBodyLimitLayer::new(state.config.server.max_body_size);
     let compression = if state.config.server.compression_enabled {
         CompressionLayer::new().compress_when(SizeAbove::new(
-            state.config.server.compression_threshold as u16,
+            state.config.server.compression_threshold as u64,
         ))
     } else {
-        CompressionLayer::new().compress_when(SizeAbove::new(u16::MAX))
+        CompressionLayer::new().compress_when(SizeAbove::new(u16::MAX as u64))
     };
     let request_log_config = RequestLogConfig {
         success_sample_rate: if std::env::var("ARQEN_ENV").as_deref() == Ok("production") {
@@ -156,7 +156,7 @@ where
         .route("/ready", get(routes::ready))
         .route("/agent", get(routes::agent))
         .route("/agent/manifest", get(routes::agent_manifest))
-        .route("/agent/tools/:name", post(routes::tool_invoke))
+        .route("/agent/tools/{name}", post(routes::tool_invoke))
         .route("/docs", get(routes::docs))
         .layer(body_limit)
         .layer(middleware::from_fn(cache::cache_headers))

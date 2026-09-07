@@ -25,6 +25,7 @@ pub struct ProjectOptions {
     pub logging: bool,
     pub examples: bool,
     pub nice_code: bool,
+    pub oenv: bool,
 }
 
 impl Default for ProjectOptions {
@@ -37,6 +38,7 @@ impl Default for ProjectOptions {
             logging: true,
             examples: false,
             nice_code: false,
+            oenv: false,
         }
     }
 }
@@ -127,6 +129,9 @@ pub fn generate_project(
     }
     if options.logging {
         features.push("logging");
+    }
+    if options.oenv {
+        features.push("oenv");
     }
     let feature_text = features
         .iter()
@@ -313,16 +318,29 @@ use_try_shorthand = true
 "#;
     fs::write(project_dir.join("clippy.toml"), clippy_toml)?;
 
-    let config = if options.thingd {
+    let mut config = if options.thingd {
         "[storage]\nmode = \"native\"\npersistent_path = \".data/thingd\"\n"
     } else {
         "[storage]\nmode = \"memory\"\n"
-    };
+    }
+    .to_string();
+    if options.oenv {
+        config.push_str("\n[oenv]\nenabled = true\nenvironment = \"dev\"\nproject_file = \"open-envault.yaml\"\nrequired = false\nexecutable = \"oenv\"\n");
+    }
     fs::write(project_dir.join("arqen.toml"), config)?;
     fs::write(
         project_dir.join(".env.example"),
-        "# Arqen configuration\nARQEN_LOG_LEVEL=info\nARQEN_LOG_FORMAT=compact\nARQEN_PORT=8888\n",
+        "# Arqen configuration\nARQEN_LOG_LEVEL=info\nARQEN_LOG_FORMAT=compact\nARQEN_PORT=8888\n# Optional open-envault\nARQEN_OENV_ENABLED=true\nARQEN_OENV_ENVIRONMENT=dev\n",
     )?;
+    if options.oenv {
+        fs::write(
+            project_dir.join("open-envault.yaml"),
+            "project: my-arqen-app\nenvironments:\n  dev:\n    file: config/dev.env.enc\n",
+        )?;
+        let mut gitignore = String::from("/target/\n.env\n.env.*\n!.env.example\n*.env.enc\n");
+        gitignore.push_str("*.key\n");
+        fs::write(project_dir.join(".gitignore"), gitignore)?;
+    }
     fs::write(project_dir.join("AGENTS.md"), agent_guide())?;
 
     let mut files = vec![
@@ -359,13 +377,17 @@ use_try_shorthand = true
         files.push("NICE_CODE.md");
         files.push(".github/workflows/nice-code.yml");
     }
+    if options.oenv {
+        files.push("open-envault.yaml");
+        files.push(".gitignore");
+    }
 
     if output.is_json() {
         let summary = serde_json::json!({
             "command": "new",
             "project": name,
             "output": project_dir,
-            "options": {"http": options.http, "thingd": options.thingd, "logging": options.logging, "examples": options.examples, "nice_code": options.nice_code},
+            "options": {"http": options.http, "thingd": options.thingd, "logging": options.logging, "examples": options.examples, "nice_code": options.nice_code, "oenv": options.oenv},
             "files": files,
         });
         output.print_json(summary);

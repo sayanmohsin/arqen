@@ -484,6 +484,8 @@ pub struct AppConfig {
     pub health: HealthConfig,
     #[serde(default)]
     pub sync: SyncConfig,
+    #[serde(default)]
+    pub oenv: crate::oenv::OenvConfig,
 }
 
 /// CLI overrides for configuration (highest precedence).
@@ -550,6 +552,21 @@ impl AppConfig {
 
     /// Apply environment variable overrides.
     fn apply_env(mut self) -> Result<Self, ConfigError> {
+        if let Ok(value) = std::env::var("ARQEN_OENV_ENABLED") {
+            self.oenv.enabled = Self::parse_bool("oenv.enabled", value)?;
+        }
+        if let Ok(value) = std::env::var("ARQEN_OENV_ENVIRONMENT") {
+            self.oenv.environment = value;
+        }
+        if let Ok(value) = std::env::var("ARQEN_OENV_PROJECT_FILE") {
+            self.oenv.project_file = PathBuf::from(value);
+        }
+        if let Ok(value) = std::env::var("ARQEN_OENV_REQUIRED") {
+            self.oenv.required = Self::parse_bool("oenv.required", value)?;
+        }
+        if let Ok(value) = std::env::var("ARQEN_OENV_EXECUTABLE") {
+            self.oenv.executable = PathBuf::from(value);
+        }
         if let Ok(host) = std::env::var("ARQEN_HOST") {
             self.server.host = host;
         }

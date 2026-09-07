@@ -494,7 +494,7 @@ mod tests {
         }
 
         let app = Router::new()
-            .route("/v1/titles/:id", get(failing_handler))
+            .route("/v1/titles/{id}", get(failing_handler))
             .layer(axum::middleware::from_fn(logging_middleware))
             .layer(axum::Extension(RequestLogConfig {
                 success_sample_rate: 0.0,

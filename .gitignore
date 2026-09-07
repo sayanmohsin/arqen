@@ -3,6 +3,9 @@
 .DS_Store
 .pnpm-store/
 .env
+!.env.example
+*.env.enc
+*.key
 *.log
 
 # Local-only agent instructions and AI tooling. Public product documentation

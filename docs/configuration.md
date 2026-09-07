@@ -2,11 +2,35 @@
 
 Arqen applications are configured through environment variables and optional configuration files.
 
+## open-envault
+
+Arqen can load encrypted environments once during startup through the optional
+`open-envault` integration. It is disabled by default. Enable it with an
+`[oenv]` section. Decrypted values remain in memory and are never written to a
+plaintext file.
+
+```toml
+[oenv]
+enabled = true
+environment = "dev"
+project_file = "open-envault.yaml"
+required = false
+executable = "oenv"
+```
+
+Required mode fails startup when the environment cannot be loaded. Use
+`arqen secrets check` or `arqen secrets doctor` for redacted diagnostics.
+
 ## Environment variables
 
 | Variable                              | Description                                                         | Default                              |
 | ------------------------------------- | ------------------------------------------------------------------- | ------------------------------------ |
 | `ARQEN_HOST`                          | Bind address for the HTTP server                                    | `127.0.0.1`                          |
+| `ARQEN_OENV_ENABLED`                  | Enable encrypted open-envault startup loading                       | `false`                               |
+| `ARQEN_OENV_ENVIRONMENT`              | open-envault environment name                                       | `dev`                                 |
+| `ARQEN_OENV_PROJECT_FILE`             | open-envault project file                                           | `open-envault.yaml`                   |
+| `ARQEN_OENV_REQUIRED`                 | Fail startup when the environment cannot be loaded                  | `false`                               |
+| `ARQEN_OENV_EXECUTABLE`               | `oenv` executable used for diagnostics/fallback                     | `oenv`                                |
 | `ARQEN_PORT`                          | Port for the HTTP server                                            | `8888`                               |
 | `ARQEN_STORAGE_MODE`                  | Storage mode: `memory`, `native`, `persistent`, `http`, or `cloud`  | `memory`                             |
 | `ARQEN_PERSISTENT_PATH`               | Native durable thingd storage path                                  | unset; required for `persistent`     |

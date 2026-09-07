@@ -408,7 +408,7 @@ mod tests {
 
     fn tool_router(state: AppState) -> Router {
         Router::new()
-            .route("/agent/tools/:name", axum::routing::post(tool_invoke))
+            .route("/agent/tools/{name}", axum::routing::post(tool_invoke))
             .layer(middleware::from_fn(correlation_id_middleware))
             .with_state(state)
     }

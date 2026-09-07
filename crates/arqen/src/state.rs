@@ -10,6 +10,7 @@ use crate::health::HealthRegistry;
 #[cfg(feature = "http-server")]
 use crate::http::MiddlewareHook;
 use crate::module::{Module, ModuleBuilder, ModuleError};
+use crate::oenv::{OenvConfig, SecretEnvironment};
 use crate::scheduler::Scheduler;
 use crate::thingd::{StorageFactory, ThingdBackend};
 
@@ -18,6 +19,8 @@ use crate::thingd::{StorageFactory, ThingdBackend};
 pub struct AppState {
     /// Application configuration.
     pub config: AppConfig,
+    /// Optional secrets loaded once during startup.
+    pub secrets: Option<Arc<SecretEnvironment>>,
     /// Storage backend.
     pub storage: Arc<dyn ThingdBackend>,
     /// Tool registry.
@@ -70,6 +73,7 @@ impl AppState {
 /// Builder for `AppState`.
 pub struct AppStateBuilder {
     config: Option<AppConfig>,
+    oenv: Option<OenvConfig>,
     storage: Option<Arc<dyn ThingdBackend>>,
     tool_registry: Option<Arc<ToolRegistry>>,
     storage_mode: Option<String>,
@@ -85,6 +89,7 @@ impl AppStateBuilder {
     pub fn new() -> Self {
         Self {
             config: None,
+            oenv: None,
             storage: None,
             tool_registry: None,
             storage_mode: None,
@@ -99,6 +104,12 @@ impl AppStateBuilder {
     /// Set the application configuration.
     pub fn with_config(mut self, config: AppConfig) -> Self {
         self.config = Some(config);
+        self
+    }
+
+    /// Override the open-envault configuration used during startup.
+    pub fn with_oenv(mut self, config: OenvConfig) -> Self {
+        self.oenv = Some(config);
         self
     }
 
@@ -200,7 +211,16 @@ impl AppStateBuilder {
     /// If no storage is provided, constructs the backend selected by config.
     /// If no tool registry is provided, creates a default `ToolRegistry`.
     pub fn build(self) -> Result<AppState, ConfigError> {
-        let config = self.config.unwrap_or_default();
+        let mut config = self.config.unwrap_or_default();
+        if let Some(oenv) = self.oenv {
+            config.oenv = oenv;
+        }
+        let secrets = crate::oenv::load_configured(&config.oenv)
+            .map_err(|error| ConfigError::MissingField {
+                field: "oenv".into(),
+                context: error.to_string(),
+            })?
+            .map(Arc::new);
 
         let storage = match self.storage {
             Some(storage) => storage,
@@ -235,6 +255,7 @@ impl AppStateBuilder {
 
         Ok(AppState {
             config,
+            secrets,
             storage,
             tool_registry,
             storage_mode,
