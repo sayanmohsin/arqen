@@ -26,11 +26,11 @@ Required mode fails startup when the environment cannot be loaded. Use
 | Variable                              | Description                                                         | Default                              |
 | ------------------------------------- | ------------------------------------------------------------------- | ------------------------------------ |
 | `ARQEN_HOST`                          | Bind address for the HTTP server                                    | `127.0.0.1`                          |
-| `ARQEN_OENV_ENABLED`                  | Enable encrypted open-envault startup loading                       | `false`                               |
-| `ARQEN_OENV_ENVIRONMENT`              | open-envault environment name                                       | `dev`                                 |
-| `ARQEN_OENV_PROJECT_FILE`             | open-envault project file                                           | `open-envault.yaml`                   |
-| `ARQEN_OENV_REQUIRED`                 | Fail startup when the environment cannot be loaded                  | `false`                               |
-| `ARQEN_OENV_EXECUTABLE`               | `oenv` executable used for diagnostics/fallback                     | `oenv`                                |
+| `ARQEN_OENV_ENABLED`                  | Enable encrypted open-envault startup loading                       | `false`                              |
+| `ARQEN_OENV_ENVIRONMENT`              | open-envault environment name                                       | `dev`                                |
+| `ARQEN_OENV_PROJECT_FILE`             | open-envault project file                                           | `open-envault.yaml`                  |
+| `ARQEN_OENV_REQUIRED`                 | Fail startup when the environment cannot be loaded                  | `false`                              |
+| `ARQEN_OENV_EXECUTABLE`               | `oenv` executable used for diagnostics/fallback                     | `oenv`                               |
 | `ARQEN_PORT`                          | Port for the HTTP server                                            | `8888`                               |
 | `ARQEN_STORAGE_MODE`                  | Storage mode: `memory`, `native`, `persistent`, `http`, or `cloud`  | `memory`                             |
 | `ARQEN_PERSISTENT_PATH`               | Native durable thingd storage path                                  | unset; required for `persistent`     |

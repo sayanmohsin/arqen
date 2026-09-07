@@ -81,6 +81,10 @@ jobs:
     steps:
       - uses: actions/checkout@v7
       - uses: actions-rust-lang/audit@v1
+        with:
+          # rsa has no fixed release yet and lru is pinned transitively by the
+          # validated Thingd/Tantivy range; revisit both on dependency updates.
+          ignore: RUSTSEC-2023-0071,RUSTSEC-2026-0253
       - uses: pnpm/action-setup@v6
         with: { version: 10 }
       - uses: actions/setup-node@v7
