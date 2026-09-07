@@ -6,7 +6,7 @@ application exercise routing and error contracts without binding a real port.
 
 ```toml
 [dev-dependencies]
-arqen = { version = "0.19", features = ["test-util"] }
+arqen = { version = "0.20", features = ["test-util"] }
 ```
 
 Keep tests layered:
