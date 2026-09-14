@@ -1,8 +1,8 @@
-FROM rust:1.96 AS builder
+FROM rust:1.98 AS builder
 
 WORKDIR /build
 
-# Thingd 0.86 uses RocksDB and Bindgen to build its native backend.
+# Thingd 0.87 uses RocksDB and Bindgen to build its native backend.
 RUN apt-get update && apt-get install -y \
     clang \
     libclang-dev \

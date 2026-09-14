@@ -236,6 +236,9 @@ impl ErrorKind {
     }
 }
 
+/// Convenience alias for fallible operations in Arqen (TRPL Ch.9 recoverable errors).
+pub type AppResult<T> = Result<T, AppError>;
+
 #[derive(Debug, thiserror::Error)]
 #[error("{kind}: {message}")]
 pub struct AppError {

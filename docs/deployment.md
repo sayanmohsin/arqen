@@ -100,7 +100,7 @@ idempotency, conditional writes, backups, and a separate worker role. See
 Build a release binary and containerize it:
 
 ```dockerfile
-FROM rust:1.96 as builder
+FROM rust:1.98 as builder
 WORKDIR /app
 COPY . .
 RUN cargo build --release --features cli

@@ -162,6 +162,9 @@ pub(crate) fn matches_filter(
 
 /// Apply conjunctive filters without silently treating unsupported values as
 /// matching every object.
+///
+/// TRPL Ch.13 iterators + Ch.8 collections: single-pass iterator chain with
+/// `try_fold` preserving the first validation error.
 pub(crate) fn filter_objects(
     objects: Vec<ThingdObject>,
     filters: &[ThingdFilter],
