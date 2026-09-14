@@ -40,7 +40,7 @@ packages with newer major releases, including the current HTTP, client, and midd
 Treat those as a separate compatibility upgrade: update one dependency family
 at a time, run the full-feature build and tests, review public API changes,
 then update the release documentation. Keep Thingd constrained to
-`>=0.86.0, <0.87.0` until the Arqen adapter contract is explicitly revalidated.
+`>=0.87.0, <0.88.0` until the Arqen adapter contract is explicitly revalidated (validated 2026-09-14 for 0.87.0 + open-envault 0.4.0).
 
 The checker is advisory for review findings; critical findings and failed
 native checks remain actionable in CI.

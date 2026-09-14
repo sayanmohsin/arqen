@@ -90,7 +90,7 @@ pub use config::{
 };
 #[cfg(feature = "http-server")]
 pub use context::RequestContext;
-pub use core::{AppError, ErrorKind};
+pub use core::{AppError, AppResult, ErrorKind};
 pub use jobs::{JobConfig, JobHandler, JobWorker, Worker};
 #[cfg(feature = "thingd-migration")]
 pub use migration::{

@@ -104,12 +104,17 @@ impl OenvProvider {
             .args(["exec", environment, "--", "env"])
             .stdin(Stdio::null())
             .stderr(Stdio::piped());
-        if self.config.project_file.file_name() == Some(std::ffi::OsStr::new("open-envault.yaml"))
-            && let Some(parent) = self.config.project_file.parent()
-            && !parent.as_os_str().is_empty()
-        {
-            command.current_dir(parent);
+        // TRPL Ch.6.3 concise control flow: use let-else for parent dir extraction.
+        if self.config.project_file.file_name() != Some(std::ffi::OsStr::new("open-envault.yaml")) {
+            return command;
         }
+        let Some(parent) = self.config.project_file.parent() else {
+            return command;
+        };
+        if parent.as_os_str().is_empty() {
+            return command;
+        }
+        command.current_dir(parent);
         command
     }
 }

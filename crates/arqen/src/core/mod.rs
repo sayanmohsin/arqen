@@ -1,3 +1,3 @@
 pub mod error;
 
-pub use error::{AppError, ErrorKind};
+pub use error::{AppError, AppResult, ErrorKind};
