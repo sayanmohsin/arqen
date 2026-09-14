@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Upgrade dependencies: patch updates for 20+ crates (tokio, axum, reqwest, chrono, etc.) and upgrade `thingd` to `0.87.0` (ThingDB 0.87.0) and `open-envault` to `0.4.0`; MSRV moved to Rust `1.98` (edition 2024) per TRPL-aligned toolchain refresh.
+- Apply TRPL improvements: add `AppResult<T>` alias (Ch.9 error handling), `let...else` concise control flow in `oenv` (Ch.6.3), and iterator-focused documentation for `filter_objects` (Ch.13) alongside doc updates for Thingd 0.87 compatibility.
 - Add runtime-neutral application startup and lifecycle hook facades, generated
   projects that use `arqen dev`/`arqen start`, automatic reload guidance, and
   readiness-aware multi-service supervision with compact, pretty, JSON, and

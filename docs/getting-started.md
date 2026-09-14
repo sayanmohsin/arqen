@@ -4,14 +4,14 @@
 
 ## Prerequisites
 
-- **Rust 1.96+** (edition 2024): install via [rustup](https://rustup.rs/)
+- **Rust 1.98+** (edition 2024): install via [rustup](https://rustup.rs/)
 - **pnpm** (for building docs only): install via `npm install -g pnpm`
 - **Docker** (optional): needed for thingd HTTP mode and `arqen up` services
 
 Verify your Rust installation:
 
 ```bash
-rustc --version   # should show 1.96 or newer
+rustc --version   # should show 1.98 or newer
 cargo --version
 ```
 
