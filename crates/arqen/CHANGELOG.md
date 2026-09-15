@@ -17,6 +17,14 @@
   APIs.
 - Upgrade the Thingd dependency to `0.86.3`.
 
+## [0.20.2](https://github.com/sayanmohsin/arqen/compare/arqen-v0.20.1...arqen-v0.20.2) (2026-09-15)
+
+
+### Bug Fixes
+
+* satisfy workspace clippy ([dbb2cad](https://github.com/sayanmohsin/arqen/commit/dbb2cad2d54ff10c43a38d5b449fe0afeaa0fd42))
+* support package-only clippy ([2a303c1](https://github.com/sayanmohsin/arqen/commit/2a303c1aad8b80c7da8da212ffdaf90de46a4d59))
+
 ## [0.20.1](https://github.com/sayanmohsin/arqen/compare/arqen-v0.20.0...arqen-v0.20.1) (2026-09-07)
 
 
