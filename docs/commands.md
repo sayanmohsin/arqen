@@ -353,7 +353,7 @@ arqen doc
 cargo doc --workspace --all-features --no-deps
 
 # Run Criterion benchmarks when present
-cargo bench --bench framework
+cargo bench --bench framework --all-features -- --noplot
 
 # Probe a running application
 curl -i http://127.0.0.1:8888/health

@@ -14,9 +14,10 @@ Reports are written to `target/criterion/` with HTML reports and estimates.
 
 ### Environment
 
-- **OS**: macOS (record actual OS/arch at handoff)
-- **Rust**: stable (record rustc version)
-- **Feature flags**: all features enabled
+- **Recorded**: 2026-09-14, commit `b9b7df0`
+- **OS/architecture**: macOS 27.0.0, arm64
+- **Rust**: `rustc 1.98.1 (48a229cea 2026-09-01)`
+- **Feature flags**: `--all-features`
 - **Storage mode**: memory, native, or cache (as named by each benchmark)
 - **Sample size**: 100 iterations (Criterion default)
 - **Warm-up**: 3 seconds per benchmark
@@ -40,10 +41,42 @@ Reports are written to `target/criterion/` with HTML reports and estimates.
 | `performance/request_metrics_record`        | Hot-path request counter and bounded sample update | RequestMetrics instance                   |
 | `performance/thingd_memory_batch_write_100` | Batch write of 100 objects                         | Memory backend                            |
 
-### Percentiles
+### Estimates and percentiles
 
-Criterion estimates report p50 (median), p84, p95, and p99 latencies.
-Raw sample data is available in `target/criterion/<group>/<id>/new/estimates.json`.
+Criterion’s `estimates.json` records statistical estimates for the median and
+mean. The table below records the median from the latest local run; it is not a
+production latency guarantee. This harness does not publish p95/p99 samples,
+so p95 budgets below require a separate distribution or service-level
+benchmark. Raw Criterion data is available in
+`target/criterion/<group>/<id>/new/estimates.json` after a local run.
+
+### Latest local baseline
+
+Measured on the environment above with `cargo bench --bench framework
+--all-features -- --noplot`. Values are median estimates from Criterion.
+
+| Workload | Median |
+| --- | ---: |
+| `routing/health_route` | 81.604 µs |
+| `manifest/100_tools` | 227.702 µs |
+| `validation/3_fields` | 3.551 ns |
+| `thingd_memory/put_object` | 533.401 ns |
+| `thingd_memory/get_object` | 270.440 ns |
+| `thingd_memory/query_objects` | 22.075 µs |
+| `thingd_native/put_object` | 5.999 µs |
+| `thingd_native/get_object` | 5.545 µs |
+| `thingd_cache/hit` | 470.115 ns |
+| `jobs/enqueue_dequeue` | 4.305 µs |
+| `health/10_checks` | 11.375 µs |
+| `performance/request_metrics_record` | 104.381 ns |
+| `performance/thingd_memory_batch_write_100` | 71.101 µs |
+
+Criterion compared this run with the local prior baseline and reported
+statistically significant regressions for routing, validation, memory CRUD,
+request metrics, and batch writes. Native Thingd and manifest results were
+stable; jobs and health improved; the cache change was within the configured
+noise threshold. These comparisons are diagnostic only until repeated on a
+controlled runner.
 
 ## Performance budgets
 
