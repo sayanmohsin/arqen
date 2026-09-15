@@ -5,20 +5,12 @@ formatter, and linter checks do not fully judge. Arqen runs it through
 `scripts/check-nice-code.sh`, using a checkout of
 [`sayanmohsin/nice-code`](https://github.com/sayanmohsin/nice-code).
 
-## Baseline findings
+## Current baseline
 
-The full audit on 2026-08-27 scanned 71 supported files and reported two
-documented exceptions:
-
-- `docs/.vitepress/config.ts` intentionally falls back when Git metadata is
-  unavailable in an archive.
-- `crates/arqen/src/dev.rs` is an intentional human-readable local CLI and
-  child-process output path, not production telemetry.
-
-The current full audit result is `ADVISORY`: it reports 12 non-blocking
-`REVIEW` findings for the intentional human-readable `arqen dev` output in
-`crates/arqen/src/dev.rs`. There are no blocking findings; the configured
-exception documents why that output is not production telemetry.
+The full Nice Code `v0.3.2` audit on 2026-09-14 scanned 73 supported files and
+reported `PASS`: zero findings and no blocked checks. The audit is advisory for
+review findings, while critical findings and failed native checks remain
+actionable in CI.
 
 ## Improvement plan
 
@@ -32,15 +24,12 @@ exception documents why that output is not production telemetry.
 ## Dependency upgrade plan
 
 `cargo update --workspace` was run against the Arqen root workspace on
-2026-08-27. The lockfile already contains the newest versions allowed by the
-current manifest ranges, so no dependency files changed. Cargo reports 16
-packages with newer major releases, including the current HTTP, client, and middleware
-0.5, Thiserror 2, and Toml 1.1.
+2026-09-14. The lockfile was refreshed for the latest compatible releases,
+including `async-compression`, `compression-codecs`, the Clap family, Quinn,
+and Rustls. Three newer transitive versions remain constrained by exact
+requirements in their upstream packages.
 
 Treat those as a separate compatibility upgrade: update one dependency family
 at a time, run the full-feature build and tests, review public API changes,
 then update the release documentation. Keep Thingd constrained to
 `>=0.87.0, <0.88.0` until the Arqen adapter contract is explicitly revalidated (validated 2026-09-14 for 0.87.0 + open-envault 0.4.0).
-
-The checker is advisory for review findings; critical findings and failed
-native checks remain actionable in CI.

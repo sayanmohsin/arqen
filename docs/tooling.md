@@ -112,23 +112,24 @@ depend on it at runtime, or require Node.js for applications.
 
 ### Working on Arqen
 
-The repository wrapper fetches the Nice Code source into a temporary cache and
-updates it from the `main` branch:
+The repository wrapper fetches the pinned Nice Code `v0.3.2` source into a
+temporary cache:
 
 ```bash
 ./scripts/check-nice-code.sh
 ```
 
-Set `NICE_CODE_DIR` to use an existing checkout without fetching, or set
-`NICE_CODE_CACHE_DIR` to choose the cache location. The wrapper runs the full
-audit and does not modify the Arqen project.
+Set `NICE_CODE_DIR` to use an existing checkout without fetching, set
+`NICE_CODE_CACHE_DIR` to choose the cache location, or set
+`NICE_CODE_VERSION` to test another tagged release explicitly. The wrapper runs
+the full audit and does not modify the Arqen project.
 
 ### Using Nice Code in an Arqen application
 
 Install or invoke the public npm launcher from the application repository:
 
 ```bash
-npx --yes @sayanmohsin/nice-code@0.2.0 --changed --project .
+npx --yes @sayanmohsin/nice-code@0.3.2 --changed --project .
 ```
 
 It requires Node.js 20 or newer. For CI, run the same command with
