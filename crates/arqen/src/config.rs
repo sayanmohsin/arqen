@@ -18,6 +18,7 @@
 //! - `ARQEN_PORT` - Server port (default: 8888)
 //! - `ARQEN_STORAGE_MODE` - Storage mode: memory, native, persistent, http, cloud (default: memory)
 //! - `ARQEN_PERSISTENT_PATH` - Path for persistent storage
+//! - `ARQEN_THINGD_NATIVE_BACKEND` - Persistent engine: rocksdb or thingdb (default: rocksdb)
 //! - `ARQEN_THINGD_URL` - Thingd HTTP URL
 //! - `ARQEN_THINGD_AUTH_TOKEN` - Thingd HTTP bearer token (redacted)
 //! - `ARQEN_THINGD_CACHE_ENABLED` - enable the allowlisted catalog cache
@@ -165,6 +166,9 @@ impl Default for ServerConfig {
 pub struct StorageConfig {
     #[serde(default)]
     pub mode: StorageMode,
+    /// Durable engine used by native Thingd storage. RocksDB remains the default.
+    #[serde(default)]
+    pub native_backend: NativeStorageBackend,
     pub persistent_path: Option<PathBuf>,
     pub http_url: Option<String>,
     /// Optional hosted thingd/cloud endpoint.
@@ -181,6 +185,32 @@ pub struct StorageConfig {
     /// Collections allowed to enter the catalog cache.
     #[serde(default)]
     pub cache_collections: Vec<String>,
+}
+
+/// Durable engine used by embedded native Thingd storage.
+#[derive(Debug, Clone, Copy, Default, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "lowercase")]
+pub enum NativeStorageBackend {
+    /// Mature C++ backend and compatibility default.
+    #[default]
+    RocksDb,
+    /// Experimental Rust-native ThingDB backend.
+    ThingDb,
+}
+
+impl NativeStorageBackend {
+    /// Parse a configured native storage engine.
+    pub fn parse_str(value: &str) -> Result<Self, ConfigError> {
+        match value.trim().to_ascii_lowercase().as_str() {
+            "rocksdb" => Ok(Self::RocksDb),
+            "thingdb" => Ok(Self::ThingDb),
+            _ => Err(ConfigError::InvalidValue {
+                field: "storage.native_backend".to_string(),
+                value: value.to_string(),
+                expected: "rocksdb or thingdb".to_string(),
+            }),
+        }
+    }
 }
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq)]
@@ -260,6 +290,7 @@ impl Default for StorageConfig {
     fn default() -> Self {
         Self {
             mode: StorageMode::Memory,
+            native_backend: NativeStorageBackend::default(),
             persistent_path: None,
             http_url: None,
             cloud_url: None,
@@ -579,6 +610,9 @@ impl AppConfig {
         }
         if let Ok(mode) = std::env::var("ARQEN_STORAGE_MODE") {
             self.storage.mode = StorageMode::parse_str(&mode)?;
+        }
+        if let Ok(backend) = std::env::var("ARQEN_THINGD_NATIVE_BACKEND") {
+            self.storage.native_backend = NativeStorageBackend::parse_str(&backend)?;
         }
         if let Ok(path) = std::env::var("ARQEN_PERSISTENT_PATH") {
             self.storage.persistent_path = Some(PathBuf::from(path));
@@ -1110,10 +1144,27 @@ mod tests {
         assert_eq!(config.server.host, "127.0.0.1");
         assert_eq!(config.server.port, 8888);
         assert_eq!(config.storage.mode, StorageMode::Memory);
+        assert_eq!(config.storage.native_backend, NativeStorageBackend::RocksDb);
         assert!(!config.auth.enabled);
         assert_eq!(config.logging.level, "info");
         assert!(!config.worker.enabled);
         assert_eq!(config.worker.queues, vec!["default".to_string()]);
+    }
+
+    #[test]
+    fn native_backend_deserializes_and_validates_from_toml() {
+        let config: AppConfig = toml::from_str(
+            r#"
+[storage]
+mode = "native"
+native_backend = "thingdb"
+persistent_path = ".data/thingdb"
+"#,
+        )
+        .unwrap();
+        assert_eq!(config.storage.native_backend, NativeStorageBackend::ThingDb);
+        assert!(config.validate().is_ok());
+        assert!(NativeStorageBackend::parse_str("unavailable").is_err());
     }
 
     #[test]

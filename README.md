@@ -47,23 +47,27 @@ Add the core package for production HTTP deployments:
 
 ```toml
 [dependencies]
-arqen = "0.20"
+arqen = "0.20.2"
 ```
 
-Create a starter application from a checkout:
+Install the optional CLI from crates.io when you want the project generator:
 
 ```bash
-cargo run -p arqen --features cli --bin arqen -- new hello-api
+cargo install arqen --locked --features cli
+arqen new hello-api
 cd hello-api
 cargo run
 ```
 
-Run `arqen new hello-api` in a terminal for interactive setup, or add
-`--yes` for the default HTTP/logging starter. Optional native Thingd storage,
-starter guidance, and Nice Code CI can be selected without making Nice Code a
-runtime dependency. See the [CLI project generator](docs/cli-generator.md).
+Run `arqen new hello-api` in a terminal for interactive setup, or add `--yes`
+for the default HTTP/logging starter. Optional native Thingd storage, starter
+guidance, and Nice Code CI can be selected without making Nice Code a runtime
+dependency. See the [CLI project generator](docs/cli-generator.md).
 
-Run the example server:
+The `cargo run -p arqen` form is for working from an Arqen repository checkout.
+It is not required when Arqen is installed from crates.io.
+
+Run the example server from an Arqen checkout:
 
 ```bash
 cargo run -p arqen --features cli --bin arqen -- dev --storage memory
@@ -122,12 +126,17 @@ for the safe native-to-HTTP data movement workflow.
 | Native adapter | Optional Arqen feature and compatible Thingd Cargo range | Compile-time failure or native contract test failure |
 | HTTP adapter | Public Thingd REST API `v1` and required endpoint behavior | `check_compatibility()` returns a dependency error |
 
-The native adapter currently supports Thingd `>=0.87.0, <0.88.0`. The optional
+The native adapter currently supports Thingd `>=0.91.1, <0.92.0`. The optional
 `thingd-maintenance` and `thingd-connectors` features use Thingd's public native
 APIs without changing the backend-neutral contract. The public Thingd
 health endpoint does not expose a stable engine version, so HTTP compatibility
 is checked at the API/capability boundary rather than inferred from an
 arbitrary server version string.
+
+Native durable storage defaults to RocksDB. The experimental Rust-native
+ThingDB backend can be selected for a new data path with
+`storage.native_backend = "thingdb"` or `ARQEN_THINGD_NATIVE_BACKEND=thingdb`;
+it cannot open an existing RocksDB directory.
 
 ### Observability by default
 

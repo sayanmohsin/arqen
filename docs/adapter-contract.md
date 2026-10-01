@@ -63,6 +63,8 @@ pub trait ThingdBackend: Send + Sync {
 - Construct it through `StorageFactory` when the `thingd-native` feature is enabled
 - `NativeThingdStore` remains available for advanced full-native APIs
 - The feature accepts Thingd <CurrentVersion kind="native-thingd" :label="false" />.
+- RocksDB remains the default durable engine; opt into Thingd's experimental
+  ThingDB backend with `storage.native_backend = "thingdb"` on a new data path.
 - `thingd-maintenance` exposes optional native diagnostics, validation,
   compaction, and bounded search-rebuild operations.
 - `thingd-connectors` exposes Thingd's native connector traits and built-in

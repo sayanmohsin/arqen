@@ -212,6 +212,46 @@ fn bench_thingd_native_and_cache(c: &mut Criterion) {
     cache_group.finish();
 }
 
+#[cfg(feature = "thingd-native")]
+fn bench_thingd_persistent_backends(c: &mut Criterion) {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let root = std::env::temp_dir().join(format!("arqen-bench-{}", uuid::Uuid::new_v4()));
+    let mut group = c.benchmark_group("thingd_persistent");
+
+    for (name, backend_kind) in [
+        ("rocksdb_put_object", thingd::PersistentBackend::RocksDb),
+        ("thingdb_put_object", thingd::PersistentBackend::ThingDb),
+    ] {
+        let path = root.join(name);
+        let backend = arqen::NativeThingdBackend::persistent_with_options(
+            &path,
+            thingd::PersistentOpenOptions {
+                backend: backend_kind,
+                search_mode: thingd::PersistentSearchMode::Disabled,
+                ..Default::default()
+            },
+        )
+        .unwrap();
+        group.bench_function(name, |b| {
+            b.iter(|| {
+                rt.block_on(async {
+                    backend
+                        .put_object("bench", "item1", serde_json::json!({"data": "value"}))
+                        .await
+                        .unwrap();
+                });
+            });
+        });
+        drop(backend);
+    }
+
+    group.finish();
+    std::fs::remove_dir_all(root).unwrap();
+}
+
+#[cfg(not(feature = "thingd-native"))]
+fn bench_thingd_persistent_backends(_: &mut Criterion) {}
+
 #[cfg(not(feature = "thingd-native"))]
 fn bench_thingd_native_and_cache(c: &mut Criterion) {
     let rt = tokio::runtime::Runtime::new().unwrap();
@@ -315,6 +355,7 @@ criterion_group!(
     bench_validation,
     bench_thingd_crud,
     bench_thingd_native_and_cache,
+    bench_thingd_persistent_backends,
     bench_jobs,
     bench_health,
     bench_metrics_and_batch,

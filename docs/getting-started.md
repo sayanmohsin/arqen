@@ -26,7 +26,8 @@ cargo install --path crates/arqen --features cli
 Or run directly without installing:
 
 ```bash
-cargo run -p arqen --features cli --bin arqen -- --help
+cargo install arqen --locked --features cli
+arqen --help
 ```
 
 ## Create a project
@@ -40,7 +41,7 @@ This generates:
 
 ```text
 hello-api/
-  Cargo.toml          # current Arqen 0.20 release and selected features
+  Cargo.toml          # current Arqen 0.20.2 release and selected features
   README.md
   arqen.toml         # runtime configuration
   .env.example       # environment template
@@ -146,7 +147,8 @@ This creates `src/jobs/send_email.rs` with a `JobHandler` stub.
 If you prefer not to install the CLI:
 
 ```bash
-cargo run -p arqen --features cli --bin arqen -- new hello-api
+cargo install arqen --locked --features cli
+arqen new hello-api
 ```
 
 ## Next steps

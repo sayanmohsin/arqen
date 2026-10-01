@@ -2,6 +2,8 @@
 
 use std::sync::Arc;
 
+#[cfg(feature = "thingd-native")]
+use crate::config::NativeStorageBackend;
 use crate::config::{AppConfig, ConfigError, StorageMode};
 use crate::thingd::ThingdBackend;
 
@@ -25,7 +27,7 @@ impl StorageFactory {
                             context: "required for native storage".to_string(),
                         }
                     })?;
-                    let options = if let Some(key) = &config.storage.encryption_key {
+                    let encryption = if let Some(key) = &config.storage.encryption_key {
                         let bytes = hex::decode(key.inner()).map_err(|error| {
                             ConfigError::InvalidValue {
                                 field: "storage.encryption_key".to_string(),
@@ -41,12 +43,18 @@ impl StorageFactory {
                                     expected: error.to_string(),
                                 }
                             })?;
-                        thingd::PersistentOpenOptions {
-                            encryption: Some(encryption),
-                            ..Default::default()
-                        }
+                        Some(encryption)
                     } else {
-                        thingd::PersistentOpenOptions::default()
+                        None
+                    };
+                    let backend = match config.storage.native_backend {
+                        NativeStorageBackend::RocksDb => thingd::PersistentBackend::RocksDb,
+                        NativeStorageBackend::ThingDb => thingd::PersistentBackend::ThingDb,
+                    };
+                    let options = thingd::PersistentOpenOptions {
+                        backend,
+                        encryption,
+                        ..Default::default()
                     };
                     Arc::new(
                         crate::thingd::NativeThingdBackend::persistent_with_options(path, options)
@@ -200,6 +208,29 @@ fn warn_if_low_native_memory() {}
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[cfg(feature = "thingd-native")]
+    #[tokio::test]
+    async fn native_mode_uses_selected_thingdb_backend() {
+        let path = std::env::temp_dir().join(format!("arqen-thingdb-{}", uuid::Uuid::new_v4()));
+        let mut config = AppConfig::default();
+        config.storage.mode = StorageMode::Native;
+        config.storage.native_backend = NativeStorageBackend::ThingDb;
+        config.storage.persistent_path = Some(path.clone());
+
+        let backend = StorageFactory::build(&config).unwrap();
+        backend
+            .put_object("test", "one", serde_json::json!({"ok": true}))
+            .await
+            .unwrap();
+        assert!(backend.get_object("test", "one").await.unwrap().is_some());
+        drop(backend);
+
+        let manifest = std::fs::read_to_string(path.join(".thingd-storage.json")).unwrap();
+        let manifest: serde_json::Value = serde_json::from_str(&manifest).unwrap();
+        assert_eq!(manifest["contract"], "thingdb-tantivy-v1");
+        std::fs::remove_dir_all(path).unwrap();
+    }
     #[tokio::test]
     async fn memory_mode_constructs_standalone_backend() {
         let backend = StorageFactory::build(&AppConfig::default()).unwrap();

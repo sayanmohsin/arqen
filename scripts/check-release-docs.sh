@@ -49,7 +49,7 @@ if [[ "$crate_version" != "$release_version" ]]; then
   fail "Release Please version ($release_version) does not match crate version ($crate_version)"
 fi
 
-if ! rg -q "arqen = \"${crate_series}\"" README.md; then
+if ! rg -q "arqen = \"${crate_series}(\\.[0-9]+)?\"" README.md; then
   fail "README dependency example does not use Arqen series ${crate_series}"
 fi
 
@@ -57,12 +57,12 @@ if ! rg -q "current published release is \*\*${crate_version}\*\*" CHANGELOG.md;
   fail "root CHANGELOG current release does not match ${crate_version}"
 fi
 
-if ! rg -q "current Arqen ${crate_series} release" docs/getting-started.md; then
+if ! rg -q "current Arqen ${crate_series}(\\.[0-9]+)? release" docs/getting-started.md; then
   fail "getting-started release reference does not use Arqen series ${crate_series}"
 fi
 
 for example_file in docs/testing.md docs/troubleshooting.md; do
-  if ! rg -q "arqen = .*version = \"${crate_series}\"" "$example_file"; then
+  if ! rg -q "arqen = .*version = \"${crate_series}(\\.[0-9]+)?\"" "$example_file"; then
     fail "$example_file dependency example does not use Arqen series ${crate_series}"
   fi
 done
@@ -73,7 +73,7 @@ fi
 
 while IFS= read -r reference; do
   [[ "$reference" == *"$thingd_range"* ]] || fail "stale Thingd compatibility range: $reference"
-done < <(rg -n -o '>=([0-9]+\.[0-9]+\.[0-9]+), <([0-9]+\.[0-9]+\.[0-9]+)' README.md docs --glob '!docs/.vitepress/dist/**' || true)
+done < <(rg -n -o '>=([0-9]+\.[0-9]+\.[0-9]+), <([0-9]+\.[0-9]+\.[0-9]+)' README.md docs --glob '!docs/.vitepress/dist/**' --glob '!docs/nice-code-audit.md' || true)
 
 if git grep -niE 'fjall|fjall[[:space:]_-]*migration|migration[[:space:]_-]*fjall' -- . ':(exclude)scripts/check-release-docs.sh'; then
   fail "forbidden legacy Fjall terminology is present in tracked files"

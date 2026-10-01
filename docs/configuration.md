@@ -34,6 +34,7 @@ Required mode fails startup when the environment cannot be loaded. Use
 | `ARQEN_PORT`                          | Port for the HTTP server                                            | `8888`                               |
 | `ARQEN_STORAGE_MODE`                  | Storage mode: `memory`, `native`, `persistent`, `http`, or `cloud`  | `memory`                             |
 | `ARQEN_PERSISTENT_PATH`               | Native durable thingd storage path                                  | unset; required for `persistent`     |
+| `ARQEN_THINGD_NATIVE_BACKEND`         | Native engine: `rocksdb` or experimental `thingdb`                  | `rocksdb`                            |
 | `ARQEN_THINGD_URL`                    | thingd HTTP service URL                                             | unset; required for `http`           |
 | `ARQEN_THINGD_MAX_CONCURRENCY`        | Maximum active HTTP Thingd requests                                 | `16`                                 |
 | `ARQEN_THINGD_REQUEST_TIMEOUT`        | HTTP Thingd request timeout in seconds                              | `30`                                 |
@@ -117,6 +118,7 @@ format = "pretty"  # or "json"
 
 [storage]
 mode = "memory"
+# native_backend = "thingdb" # experimental Rust-native engine; default is rocksdb
 # persistent_path = "/var/lib/my-app/data"  # required for native/persistent
 # http_url = "http://localhost:8080"        # required for http mode
 # auth_token = "server-side-secret"         # prefer ARQEN_THINGD_AUTH_TOKEN

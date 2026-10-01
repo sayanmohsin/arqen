@@ -2,7 +2,7 @@ FROM rust:1.98 AS builder
 
 WORKDIR /build
 
-# Thingd 0.87 uses RocksDB and Bindgen to build its native backend.
+# Optional native Thingd builds use RocksDB and Bindgen; the image below uses HTTP mode.
 RUN apt-get update && apt-get install -y \
     clang \
     libclang-dev \

@@ -86,7 +86,8 @@ pub use agent::{
 };
 pub use config::{
     AppConfig, AuthConfig, CliOverrides, ConfigError, HealthConfig, LogFormat, LoggingConfig,
-    Secret, ServerConfig, StorageConfig, StorageMode, ThingdSyncMode, WorkerConfig,
+    NativeStorageBackend, Secret, ServerConfig, StorageConfig, StorageMode, ThingdSyncMode,
+    WorkerConfig,
 };
 #[cfg(feature = "http-server")]
 pub use context::RequestContext;

@@ -11,7 +11,7 @@ pub use crate::agent::{
 };
 #[cfg(feature = "http-server")]
 pub use crate::app::ArqenApp;
-pub use crate::config::{AppConfig, StorageMode, ThingdSyncMode};
+pub use crate::config::{AppConfig, NativeStorageBackend, StorageMode, ThingdSyncMode};
 #[cfg(feature = "http-server")]
 pub use crate::context::RequestContext;
 pub use crate::core::{AppError, ErrorKind};
