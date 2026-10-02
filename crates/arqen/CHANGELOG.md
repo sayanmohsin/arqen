@@ -17,6 +17,13 @@
   APIs.
 - Upgrade the Thingd dependency to `0.86.3`.
 
+## [0.21.0](https://github.com/sayanmohsin/arqen/compare/arqen-v0.20.2...arqen-v0.21.0) (2026-10-02)
+
+
+### Features
+
+* **storage:** add ThingDB backend selection and upgrade dependencies ([3715c3b](https://github.com/sayanmohsin/arqen/commit/3715c3b720e7b6d54fc4c522c96b9c5d28a42884))
+
 ## [0.20.2](https://github.com/sayanmohsin/arqen/compare/arqen-v0.20.1...arqen-v0.20.2) (2026-09-15)
 
 
