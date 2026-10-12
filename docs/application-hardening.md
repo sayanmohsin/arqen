@@ -5,7 +5,36 @@ local durable thingd during development and hosted thingd/thingd-cloud in
 shared or production environments. Application-specific domain models and
 business rules remain outside Arqen.
 
+Phase 18 is tracked as four ordered milestones. Request context, scoped
+storage, JWT issuer/audience checks, production configuration validation,
+HTTP timeouts/retries, and replication cursors already exist. Current work
+closes gaps in those foundations: bounded scoped search, conditional writes,
+and public queue idempotency. Remaining milestones are listed below; a source
+change is not evidence of deployment readiness. See the
+[security audit](./security-audit-2026-10.md) for evidence and residual risks.
+
+## Phase 18 checkpoint
+
+| Milestone                 | Status      | Remaining work                                                                                                                                                                            |
+| ------------------------- | ----------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 18.1 Isolation            | In progress | Memory/native shared contracts pass. Run HTTP contracts against Thingd 0.92.3; add batch-failure and adversarial-scope-ID cases.                                                          |
+| 18.2 Safe mutations       | In progress | Memory/native CAS contracts pass; HTTP CAS and keyed retry/replay await the live Thingd 0.92.3 contract run. Add concurrent-writer coverage.                                              |
+| 18.3 Production boundary  | In progress | Production configuration rejection and HTTP mapping/retry unit tests pass; finish live request contracts and deployment-profile review. JWKS/discovery stays gated on a public Cloud API. |
+| 18.4 Scale and operations | Planned     | Keyset pagination, process roles, bounded backpressure, exporter hooks, and recovery exercises.                                                                                           |
+
 ## Priority 0: isolation and safe mutation
+
+### 18.1 — Isolation and scoped access
+
+`RequestContext` and `ScopedThingdBackend` are implemented. Tenant and
+instance values must continue to come from verified authentication or trusted
+server configuration. Scoped search now caps backend scans at 10,000 objects
+and returns an unavailable error above that ceiling rather than reading an
+unbounded result set. Cross-tenant and cross-instance search coverage is part
+of the scoped adapter suite. The shared contract runs for memory and native
+adapters. HTTP integration contracts cover the same isolation areas but
+require a Thingd 0.92.3 server; batch-failure and adversarial scope-identifier
+cases remain open.
 
 ### Typed request context
 
@@ -14,8 +43,7 @@ Arqen exposes a first-class `RequestContext` containing:
 - authenticated subject;
 - tenant and thingd instance identifiers;
 - scopes/roles;
-- correlation ID;
-- request origin or client metadata where appropriate.
+- correlation ID.
 
 The context is available to handlers and request logging; applications should
 pass it explicitly into repositories and jobs rather than using ambient global
@@ -25,37 +53,55 @@ trusted server configuration, never from an untrusted request body.
 
 ### Scoped storage helpers
 
-The low-level `ThingdBackend` should remain generic. Add reusable scoped
-helpers or repository decorators that make the scope explicit for reads,
-writes, deletes, queries, and links. A caller should be able to construct a
-store for a tenant/instance or user and avoid repeating string key/filter
-conventions throughout an application.
+The low-level `ThingdBackend` remains generic. `ScopedThingdBackend` makes the
+scope explicit for reads, writes, deletes, queries, and links. Shared
+contracts cover object reads and queries, event reads, job claims and replay,
+link reads, and batch object visibility across memory and native adapters.
+HTTP integration coverage is available for a 0.92.3 server; batch-failure and
+adversarial scope-identifier cases remain open.
 
-Required tests should prove that two subjects and two tenants cannot read or
-overwrite one another's objects, events, links, or jobs.
+Tests should continue to prove that two subjects and two tenants cannot read
+or overwrite one another's objects, events, links, or jobs across adapters.
+
+### 18.2 — Safe mutations
+
+`ThingdBackend::get_object_versioned` and
+`ThingdBackend::put_object_if_version` are additive and return `NotImpl` from
+older external implementations until they opt in. Memory, native, HTTP, cache,
+and scoped adapters implement versioned reads and conditional writes. The native and HTTP paths
+use Thingd's existing create-only version-zero CAS contract; HTTP CAS requests
+are sent once because a lost response followed by a retry can turn a committed
+write into a misleading stale-version conflict. Queue idempotency is
+propagated through the public Thingd HTTP adapter and server route. The Arqen
+HTTP queue pushes now propagate the caller's stable `idempotencyKey` and
+`delayMs` under Thingd 0.92.3. Unit tests verify stable retry payloads and that
+an unkeyed failed push is attempted only once. The live contracts were aimed
+at the Cloud MCP host with a project key, but `HttpThingdBackend` targets a
+direct REST server under `/v1`; all three returned 401 before assertions. Run
+them against a direct Thingd 0.92.3 REST endpoint using that server's
+`THINGD_AUTH_TOKEN` (or `auth.token`).
 
 ### Optimistic concurrency
 
-Add revision or ETag-aware writes, for example `put_if_version`, with a stable
-conflict error when the expected revision is stale. This is needed for mobile
-edits to library state, ratings, preferences, and progress, and is a
-prerequisite for safe local/cloud synchronization.
+Conditional writes return a stable `Conflict` error when the expected version
+is stale. Preserve this contract across adapters and cover create-only version
+zero, matching updates, stale writes, and concurrent writers.
 
 ### Durable idempotency
 
-Provide a reusable idempotency-key boundary for HTTP mutations and jobs. A
-retry with the same key should return or reference the original result rather
-than applying the mutation twice. The stored result must be scoped by tenant,
-subject, route/action, and key, with an explicit retention policy.
+Queue insertion uses a stable queue-scoped job ID for repeated idempotency
+keys. Broader HTTP mutation idempotency still needs a public contract with
+retention and result-replay semantics; do not imply that arbitrary mutations
+are idempotent merely because the client retries them.
 
-## Priority 1: cloud and synchronization boundary
+## 18.3 — Remote and production boundary
 
 ### JWKS and cloud identity
 
-Add rotating JWKS verification, issuer/audience validation, tenant
-resolution, and instance discovery as a documented optional cloud adapter.
-Do not couple Arqen to thingd-cloud private modules or control-plane
-databases. The adapter must target a versioned public customer API.
+Keep rotating JWKS verification, tenant resolution, and instance discovery in
+an optional lane that starts only after a versioned public Cloud customer API
+exists. Issuer and audience checks already exist for configured JWTs. Do not
+couple Arqen to thingd-cloud private modules or control-plane databases.
 
 ### Sync capability boundary
 
@@ -86,18 +132,16 @@ activity feeds, projections, and reliable consumers.
 
 ### HTTP adapter hardening
 
-The HTTP thingd adapter currently provides explicit connection pooling and
-request timeouts. It should additionally provide:
+The HTTP Thingd adapter provides connection pooling, explicit timeouts, typed
+public error mapping, and retries limited to GET and keyed queue pushes.
+Remaining work includes:
 
-- explicit connect and request timeouts;
-- retry/backoff only for safe or idempotent operations;
-- typed public error-envelope parsing;
 - API version negotiation or a pinned contract version;
 - tenant/instance authentication headers;
 - contract tests against the target thingd service;
 - observable request latency, retries, and failures.
 
-## Priority 1: production runtime
+## 18.4 — Scale and operations
 
 ### Separate worker role
 
@@ -115,10 +159,11 @@ but unique enough to avoid lease collisions.
 
 ### Production configuration guardrails
 
-Production validation should reject unsafe combinations such as memory
-storage, development authentication, permissive CORS, missing cloud/thingd
-credentials, or non-structured logging when the deployment profile requires
-structured logs. Validation should remain configurable for local development.
+Production validation rejects memory storage, disabled or credentialless
+authentication, short JWT HMAC secrets, wildcard CORS, pretty logs, and missing
+native schemas. It remains configurable for local development. Further
+credential and storage transport policy should be driven by the supported
+deployment profiles.
 
 ### Pagination and backpressure
 

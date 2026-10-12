@@ -132,6 +132,7 @@ export default defineConfig({
           { text: "OpenAPI", link: "/openapi" },
           { text: "Performance", link: "/performance" },
           { text: "Security", link: "/security" },
+          { text: "Security audit (2026-10)", link: "/security-audit-2026-10" },
           { text: "Release", link: "/release" },
         ],
       },

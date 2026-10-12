@@ -43,21 +43,31 @@ deployment, security review, recovery testing, and operational controls.
 
 Stable CLI with exit codes, JSON output, config discovery, and integration tests. Compiling project generation. Criterion benchmarks for routing, manifest, validation, in-memory thingd, jobs, and health. Prettier and Markdownlint tooling. Comprehensive documentation for first-time developers and coding agents.
 
-## Phase 18: application hardening and cloud boundary (planned)
+## Phase 18: application hardening and cloud boundary (in progress)
 
-Prioritize reusable production guarantees for thingd-backed applications:
-typed tenant/instance request context,
-scoped storage helpers, optimistic concurrency, durable idempotency, JWKS and
-public cloud customer API support, thingd sync capability integration,
-cursor-based event consumption, hardened HTTP adapter behavior, separate
-worker roles, production configuration guardrails, cursor pagination,
-schema/version envelopes, and exporter hooks.
+The October 2026 security review fixed JWT issuer validation. Phase 18 closes
+gaps in existing foundations in four ordered milestones:
 
-The sync protocol and replication engine remain owned by thingd. Arqen only
-provides the application/runtime integration boundary. HTTP replication is
-supported now; native embedded-engine replication remains gated on Thingd's
-public Rust contract.
+1. **18.1 — Isolation and scoped access:** verify `RequestContext` trust
+   sources; cover cross-tenant, cross-instance, and cross-subject reads and
+   mutations across all adapters; bound scoped search scans.
+2. **18.2 — Safe mutations:** provide additive object CAS with a safe default
+   for external backends; implement create-only version zero, matching writes,
+   stale conflicts, and queue idempotency across memory, native, and HTTP.
+3. **18.3 — Remote and production boundary:** fix confirmed HTTP error mapping
+   and retry-safety gaps; reject unsafe production storage, auth, CORS, and
+   logging combinations. JWKS rotation and tenant/instance discovery remain an
+   optional lane gated on a versioned public customer API.
+4. **18.4 — Scale and operations:** add Thingd keyset cursor pagination while
+   retaining offsets; propagate its public contract through the Rust, native,
+   REST, SDK, CLI/MCP, and Arqen layers; add process roles, bounded
+   backpressure, exporter hooks, and backup/restore exercises.
+
+Track each milestone as incomplete until its acceptance checks pass. The sync
+protocol and replication engine remain owned by Thingd. Do not couple this
+work to private Thingd Cloud internals or Watchloom domain types.
 
 See [application-hardening.md](application-hardening.md) for scope and
-boundary rules. This phase must not introduce Watchloom-specific domain types
+boundary rules and [the security audit](security-audit-2026-10.md) for the
+review evidence. This phase must not introduce Watchloom-specific domain types
 or depend on private thingd-cloud modules.

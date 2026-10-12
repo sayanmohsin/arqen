@@ -242,6 +242,14 @@ impl ThingdBackend for CachingThingdBackend {
         Ok(object)
     }
 
+    async fn get_object_versioned(
+        &self,
+        collection: &str,
+        id: &str,
+    ) -> Result<Option<crate::thingd::VersionedThingdObject>, AppError> {
+        self.source.get_object_versioned(collection, id).await
+    }
+
     async fn put_object(
         &self,
         collection: &str,
@@ -250,6 +258,20 @@ impl ThingdBackend for CachingThingdBackend {
     ) -> Result<ThingdObject, AppError> {
         self.invalidate(collection, id).await?;
         self.source.put_object(collection, id, data).await
+    }
+    async fn put_object_if_version(
+        &self,
+        collection: &str,
+        id: &str,
+        data: Value,
+        expected_version: u64,
+    ) -> Result<ThingdObject, AppError> {
+        let object = self
+            .source
+            .put_object_if_version(collection, id, data, expected_version)
+            .await?;
+        self.invalidate(collection, id).await?;
+        Ok(object)
     }
     async fn delete_object(&self, collection: &str, id: &str) -> Result<(), AppError> {
         self.invalidate(collection, id).await?;
@@ -302,6 +324,17 @@ impl ThingdBackend for CachingThingdBackend {
         max_retries: u32,
     ) -> Result<ThingdJob, AppError> {
         self.source.push_job(queue, payload, max_retries).await
+    }
+    async fn push_job_with_options(
+        &self,
+        queue: &str,
+        payload: Value,
+        max_retries: u32,
+        options: crate::thingd::PushJobOptions,
+    ) -> Result<ThingdJob, AppError> {
+        self.source
+            .push_job_with_options(queue, payload, max_retries, options)
+            .await
     }
     async fn claim_job(
         &self,

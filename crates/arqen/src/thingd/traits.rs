@@ -20,6 +20,15 @@ pub struct ThingdObject {
     pub updated_at: String,
 }
 
+/// An object together with the Thingd version required for conditional writes.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct VersionedThingdObject {
+    /// Object content and metadata.
+    pub object: ThingdObject,
+    /// Current Thingd object version.
+    pub version: u64,
+}
+
 /// An event appended to a thingd event stream.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ThingdEvent {
@@ -321,6 +330,20 @@ pub trait ThingdBackend: Send + Sync {
         id: &str,
     ) -> Result<Option<ThingdObject>, crate::core::AppError>;
 
+    /// Get an object and its current version for a subsequent CAS write.
+    /// Existing external implementations remain source-compatible and fail
+    /// closed until they can provide authoritative versions.
+    async fn get_object_versioned(
+        &self,
+        _collection: &str,
+        _id: &str,
+    ) -> Result<Option<VersionedThingdObject>, crate::core::AppError> {
+        Err(AppError::new(
+            ErrorKind::NotImpl,
+            "backend does not expose object versions",
+        ))
+    }
+
     /// Insert or replace an object.
     async fn put_object(
         &self,
@@ -328,6 +351,23 @@ pub trait ThingdBackend: Send + Sync {
         id: &str,
         data: serde_json::Value,
     ) -> Result<ThingdObject, crate::core::AppError>;
+
+    /// Insert or replace an object only when its current version matches.
+    /// Version zero means create only if the object is absent. Existing
+    /// third-party backends remain source-compatible and fail closed until
+    /// they implement the operation.
+    async fn put_object_if_version(
+        &self,
+        _collection: &str,
+        _id: &str,
+        _data: serde_json::Value,
+        _expected_version: u64,
+    ) -> Result<ThingdObject, crate::core::AppError> {
+        Err(AppError::new(
+            ErrorKind::NotImpl,
+            "backend does not support conditional object writes",
+        ))
+    }
 
     /// Delete an object by collection and ID.
     async fn delete_object(&self, collection: &str, id: &str) -> Result<(), crate::core::AppError>;
@@ -388,7 +428,12 @@ pub trait ThingdBackend: Send + Sync {
         max_retries: u32,
         options: PushJobOptions,
     ) -> Result<ThingdJob, crate::core::AppError> {
-        let _ = options;
+        if options.idempotency_key.is_some() || options.delay_ms.is_some() {
+            return Err(AppError::new(
+                ErrorKind::NotImpl,
+                "backend does not support deterministic or delayed enqueue",
+            ));
+        }
         self.push_job(queue, payload, max_retries).await
     }
 

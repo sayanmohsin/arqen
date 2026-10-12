@@ -8,7 +8,8 @@
   required.
 - `arqen --help` and each supported subcommand document valid inputs, output,
   errors, and exit behavior.
-- `arqen new` produces a project that uses only `arqen = "0.4"`, has a useful
+- `arqen new` produces a project that uses the current published `arqen`
+  version, has a useful
   README, and passes `cargo check`.
 - CLI configuration precedence and conflict behavior are covered by tests.
 - README links resolve on GitHub and crates.io; site links resolve after a clean

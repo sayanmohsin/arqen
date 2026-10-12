@@ -4,8 +4,8 @@
 
 - Status: completed
 - Implementer: opencode
-- Start commit: pending (pre-phase-17 state)
-- Completion commit: pending
+- Benchmark refresh: 2026-10-11, after the security and dependency refresh
+- Benchmark details: `docs/performance.md`
 
 ## CLI surface
 
@@ -21,15 +21,17 @@ Exit codes: 0 success, 2 usage, 3 configuration, 4 dependency, 5 runtime, 130 in
 
 ## Benchmark environment
 
-- OS: macOS (Apple Silicon)
-- Rust: stable (record rustc version at handoff)
+- OS: macOS 27.0.1, arm64
+- Rust: `rustc 1.99.0 (b940084d7 2026-09-28)`
 - Feature flags: all features enabled
-- Storage mode: memory
+- Storage modes: memory, native, RocksDB, ThingDB, and cache
 
 ## Benchmark results
 
-Run `cargo bench --bench framework` and record p50/p95/p99 for each workload.
-Reports are in `target/criterion/`.
+Run `cargo bench --workspace --all-features --bench framework -- --noplot`.
+The latest local run records Criterion median estimates in
+`docs/performance.md`; Criterion's current harness does not produce p95/p99
+samples. Raw reports are written to `target/criterion/`.
 
 ## Documentation pages added
 
@@ -54,15 +56,13 @@ Reports are in `target/criterion/`.
 
 ## Known limitations
 
-- Native durable and HTTP adapter benchmarks are not included in this phase
+- HTTP sidecar latency is not included; it needs a service-level benchmark
 - Allocation counts are not measured
 - `arqen dev` does not include an integrated file watcher
-- The CLI does not prompt for interactive input
 - Generated projects do not include a `src/routes/` directory (use built-in routes)
 
 ## Follow-up phases
 
-- Add native durable and HTTP adapter benchmarks
+- Add representative service-level HTTP adapter benchmarks
 - Add allocation counting to benchmarks
-- Add file watcher to `arqen dev`
-- Add interactive prompts for project scaffolding
+- Investigate the measured health-check regression before optimizing it

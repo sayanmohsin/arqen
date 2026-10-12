@@ -9,6 +9,10 @@ hooks through the `Authentication` trait. Policy combinators include
 `auth_middleware`, `optional_auth_middleware`, and the `Authenticated`
 extractor.
 
+`JwtAuth::with_issuer()` and `JwtAuth::with_audience()` enforce the expected
+issuer and audience during token validation. Configure both when the identity
+provider issues tokens for multiple services or audiences.
+
 ```rust
 let protected = Router::new()
     .route("/reports", get(reports))

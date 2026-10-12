@@ -65,7 +65,13 @@ impl NativeThingdBackend {
 }
 
 fn to_app_error(error: thingd::ThingdError) -> AppError {
-    AppError::new(ErrorKind::Internal, error.to_string())
+    let kind = match &error {
+        thingd::ThingdError::Conflict(_) => ErrorKind::Conflict,
+        thingd::ThingdError::InvalidInput(_) => ErrorKind::Validation,
+        thingd::ThingdError::NotFound(_) => ErrorKind::NotFound,
+        _ => ErrorKind::Internal,
+    };
+    AppError::new(kind, error.to_string())
 }
 
 fn to_object(obj: &MemoryObject) -> ThingdObject {
@@ -189,6 +195,33 @@ impl ThingdBackend for NativeThingdBackend {
         .await?
     }
 
+    async fn get_object_versioned(
+        &self,
+        collection: &str,
+        id: &str,
+    ) -> Result<Option<crate::thingd::VersionedThingdObject>, AppError> {
+        let collection = collection.to_string();
+        let id = id.to_string();
+        self.run_blocking(move |store| {
+            store.with_engine(|engine| {
+                let found = match engine {
+                    crate::thingd::NativeThingdEngine::Memory(engine) => {
+                        engine.get_object(&collection, &id)
+                    }
+                    crate::thingd::NativeThingdEngine::Persistent(engine) => {
+                        engine.get_object(&collection, &id)
+                    }
+                }
+                .map_err(to_app_error)?;
+                Ok(found.map(|object| crate::thingd::VersionedThingdObject {
+                    version: object.version,
+                    object: to_object(&object),
+                }))
+            })?
+        })
+        .await
+    }
+
     async fn put_object(
         &self,
         collection: &str,
@@ -199,6 +232,37 @@ impl ThingdBackend for NativeThingdBackend {
         let id = id.to_string();
         self.run_blocking(move |store| put_object_into_store(&store, &collection, &id, &data))
             .await
+    }
+
+    async fn put_object_if_version(
+        &self,
+        collection: &str,
+        id: &str,
+        data: Value,
+        expected_version: u64,
+    ) -> Result<ThingdObject, AppError> {
+        let collection = collection.to_string();
+        let id = id.to_string();
+        self.run_blocking(move |store| {
+            store.with_engine(|engine| {
+                let object = to_memory_object(&collection, &id, &data);
+                let options = thingd::PutObjectOptions {
+                    index: true,
+                    expected_version: Some(expected_version),
+                };
+                let stored = match engine {
+                    crate::thingd::NativeThingdEngine::Memory(engine) => {
+                        engine.put_object_with_options(object, options)
+                    }
+                    crate::thingd::NativeThingdEngine::Persistent(engine) => {
+                        engine.put_object_with_options(object, options)
+                    }
+                }
+                .map_err(to_app_error)?;
+                Ok(to_object(&stored))
+            })?
+        })
+        .await
     }
 
     async fn delete_object(&self, collection: &str, id: &str) -> Result<(), AppError> {
@@ -708,6 +772,33 @@ mod tests {
         let obj = backend.get_object("watchloom_titles", "t1").await.unwrap();
         assert!(obj.is_some());
         assert_eq!(obj.unwrap().data["titleId"], "t1");
+    }
+
+    #[tokio::test]
+    async fn conditional_write_uses_thingd_create_and_conflict_versions() {
+        let backend = NativeThingdBackend::memory();
+        backend
+            .put_object_if_version("titles", "t1", serde_json::json!({"v":1}), 0)
+            .await
+            .unwrap();
+        backend
+            .put_object_if_version("titles", "t1", serde_json::json!({"v":2}), 1)
+            .await
+            .unwrap();
+        let error = backend
+            .put_object_if_version("titles", "t1", serde_json::json!({"v":3}), 1)
+            .await
+            .unwrap_err();
+        assert_eq!(error.kind, ErrorKind::Conflict);
+        assert_eq!(
+            backend
+                .get_object("titles", "t1")
+                .await
+                .unwrap()
+                .unwrap()
+                .data["v"],
+            2
+        );
     }
 
     #[tokio::test]

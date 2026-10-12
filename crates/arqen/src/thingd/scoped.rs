@@ -11,6 +11,8 @@ use crate::thingd::{
     ThingdObject, ThingdOperation, ThingdOperationResult,
 };
 
+const MAX_SCOPED_SEARCH_SCAN: usize = 10_000;
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ScopeSubject {
     SharedTenant,
@@ -156,6 +158,26 @@ impl ThingdBackend for ScopedThingdBackend {
             .map(|object| logical_object(&namespace, object))
             .transpose()
     }
+    async fn get_object_versioned(
+        &self,
+        collection: &str,
+        id: &str,
+    ) -> Result<Option<crate::thingd::VersionedThingdObject>, AppError> {
+        let namespace = self.namespace();
+        self.inner
+            .get_object_versioned(
+                &scoped_collection(&namespace, collection),
+                &scoped_id(&namespace, id),
+            )
+            .await?
+            .map(|versioned| {
+                Ok(crate::thingd::VersionedThingdObject {
+                    object: logical_object(&namespace, versioned.object)?,
+                    version: versioned.version,
+                })
+            })
+            .transpose()
+    }
     async fn put_object(
         &self,
         collection: &str,
@@ -170,6 +192,26 @@ impl ThingdBackend for ScopedThingdBackend {
                     &scoped_collection(&namespace, collection),
                     &scoped_id(&namespace, id),
                     data,
+                )
+                .await?,
+        )
+    }
+    async fn put_object_if_version(
+        &self,
+        collection: &str,
+        id: &str,
+        data: Value,
+        expected_version: u64,
+    ) -> Result<ThingdObject, AppError> {
+        let namespace = self.namespace();
+        logical_object(
+            &namespace,
+            self.inner
+                .put_object_if_version(
+                    &scoped_collection(&namespace, collection),
+                    &scoped_id(&namespace, id),
+                    data,
+                    expected_version,
                 )
                 .await?,
         )
@@ -275,6 +317,27 @@ impl ThingdBackend for ScopedThingdBackend {
         job.id = scoped_id(&namespace, &job.id);
         Ok(job)
     }
+    async fn push_job_with_options(
+        &self,
+        queue: &str,
+        payload: Value,
+        max_retries: u32,
+        options: crate::thingd::PushJobOptions,
+    ) -> Result<ThingdJob, AppError> {
+        let namespace = self.namespace();
+        let mut job = self
+            .inner
+            .push_job_with_options(
+                &format!("{namespace}/queue/{queue}"),
+                payload,
+                max_retries,
+                options,
+            )
+            .await?;
+        job.queue = queue.to_string();
+        job.id = scoped_id(&namespace, &job.id);
+        Ok(job)
+    }
     async fn claim_job(
         &self,
         queue: &str,
@@ -327,10 +390,19 @@ impl ThingdBackend for ScopedThingdBackend {
         let namespace = self.namespace();
         let offset = options.offset;
         let limit = options.limit;
-        let mut unpaged = options;
-        unpaged.offset = 0;
-        unpaged.limit = usize::MAX;
-        let mut results = self.inner.search(query, unpaged).await?;
+        let mut bounded = options;
+        bounded.offset = 0;
+        bounded.limit = MAX_SCOPED_SEARCH_SCAN.saturating_add(1);
+        let mut results = self.inner.search(query, bounded).await?;
+        if results.total > MAX_SCOPED_SEARCH_SCAN {
+            return Err(AppError::new(
+                ErrorKind::Unavailable,
+                format!(
+                    "scoped search exceeds the {}-object scan limit; narrow the query",
+                    MAX_SCOPED_SEARCH_SCAN
+                ),
+            ));
+        }
         let prefix = format!("{namespace}/collection/");
         results
             .items
@@ -424,5 +496,154 @@ mod tests {
             .unwrap();
         assert_eq!(object.collection, "movies");
         assert_eq!(object.id, "m-1");
+    }
+
+    #[tokio::test]
+    async fn scopes_cannot_search_other_tenants_or_instances() {
+        let inner: Arc<dyn ThingdBackend> = Arc::new(MemoryThingdBackend::new());
+        let first = ScopedThingdBackend::tenant(inner.clone(), "tenant-a", "instance-1");
+        let other_tenant = ScopedThingdBackend::tenant(inner.clone(), "tenant-b", "instance-1");
+        let other_instance = ScopedThingdBackend::tenant(inner, "tenant-a", "instance-2");
+        first
+            .put_object("notes", "one", serde_json::json!({"text":"needle"}))
+            .await
+            .unwrap();
+        other_tenant
+            .put_object("notes", "two", serde_json::json!({"text":"needle"}))
+            .await
+            .unwrap();
+        other_instance
+            .put_object("notes", "three", serde_json::json!({"text":"needle"}))
+            .await
+            .unwrap();
+
+        let results = first
+            .search(
+                "needle",
+                SearchOptions {
+                    limit: 10,
+                    offset: 0,
+                    filters: vec![],
+                },
+            )
+            .await
+            .unwrap();
+        assert_eq!(results.total, 1);
+        assert_eq!(results.items[0].id, "one");
+    }
+
+    #[tokio::test]
+    async fn scoped_search_fails_closed_above_scan_budget() {
+        let inner = Arc::new(MemoryThingdBackend::new());
+        for index in 0..=MAX_SCOPED_SEARCH_SCAN {
+            inner
+                .put_object(
+                    "shared",
+                    &format!("item-{index}"),
+                    serde_json::json!({"text":"needle"}),
+                )
+                .await
+                .unwrap();
+        }
+        let scope = ScopedThingdBackend::tenant(inner, "tenant-a", "instance-1");
+        let error = scope
+            .search(
+                "needle",
+                SearchOptions {
+                    limit: 5,
+                    offset: 0,
+                    filters: vec![],
+                },
+            )
+            .await
+            .unwrap_err();
+        assert_eq!(error.kind, ErrorKind::Unavailable);
+    }
+
+    #[tokio::test]
+    async fn scoped_conditional_writes_enforce_create_match_and_stale_conflict() {
+        let inner: Arc<dyn ThingdBackend> = Arc::new(MemoryThingdBackend::new());
+        let first = ScopedThingdBackend::tenant(inner.clone(), "tenant-a", "instance-1");
+        let second = ScopedThingdBackend::tenant(inner, "tenant-b", "instance-1");
+        first
+            .put_object_if_version("items", "one", serde_json::json!({"v":1}), 0)
+            .await
+            .unwrap();
+        let version = first
+            .get_object_versioned("items", "one")
+            .await
+            .unwrap()
+            .unwrap()
+            .version;
+        assert_eq!(version, 1);
+        first
+            .put_object_if_version("items", "one", serde_json::json!({"v":2}), version)
+            .await
+            .unwrap();
+        let stale = first
+            .put_object_if_version("items", "one", serde_json::json!({"v":3}), 1)
+            .await
+            .unwrap_err();
+        assert_eq!(stale.kind, ErrorKind::Conflict);
+        second
+            .put_object_if_version("items", "one", serde_json::json!({"v":4}), 0)
+            .await
+            .unwrap();
+        assert_eq!(
+            first
+                .get_object("items", "one")
+                .await
+                .unwrap()
+                .unwrap()
+                .data["v"],
+            2
+        );
+    }
+
+    #[tokio::test]
+    async fn scope_isolation_covers_events_jobs_links_and_batches() {
+        let inner: Arc<dyn ThingdBackend> = Arc::new(MemoryThingdBackend::new());
+        let first = ScopedThingdBackend::user(inner.clone(), "tenant-a", "instance-1", "user-a");
+        let second = ScopedThingdBackend::user(inner, "tenant-a", "instance-1", "user-b");
+
+        first
+            .append_event("activity", "created", serde_json::json!({"v":1}))
+            .await
+            .unwrap();
+        assert!(
+            second
+                .read_events("activity", None, 10)
+                .await
+                .unwrap()
+                .is_empty()
+        );
+
+        first
+            .push_job("work", serde_json::json!({"v":1}), 3)
+            .await
+            .unwrap();
+        assert!(
+            second
+                .claim_job("work", "worker", 30)
+                .await
+                .unwrap()
+                .is_none()
+        );
+
+        first
+            .create_link("source", "target", "related")
+            .await
+            .unwrap();
+        assert!(second.get_links("source", None).await.unwrap().is_empty());
+
+        first
+            .batch_write(vec![ThingdOperation::Put {
+                collection: "records".to_string(),
+                id: "one".to_string(),
+                data: serde_json::json!({"v":1}),
+            }])
+            .await
+            .unwrap();
+        assert!(second.get_object("records", "one").await.unwrap().is_none());
     }
 }

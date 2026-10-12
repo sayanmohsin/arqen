@@ -130,6 +130,9 @@ agents need to discover and invoke selected application operations. Read
 
 Read the [roadmap](./roadmap.md) for planned work and the
 [Feature status](./feature-status.md) page for what is currently available.
+The [security guide](./security.md) summarizes operating controls; the
+[October 2026 audit](./security-audit-2026-10.md) records reviewed findings and
+the next hardening priorities.
 
 ## Performance
 

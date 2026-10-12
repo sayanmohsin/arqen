@@ -23,6 +23,7 @@ fn lock_mutex<'a, T>(
 /// Useful for development, testing, and as a reference implementation.
 pub struct MemoryThingdBackend {
     objects: Mutex<HashMap<String, Vec<ThingdObject>>>,
+    object_versions: Mutex<HashMap<(String, String), u64>>,
     events: Mutex<HashMap<String, Vec<ThingdEvent>>>,
     jobs: Mutex<HashMap<String, Vec<ThingdJob>>>,
     links: Mutex<Vec<ThingdLink>>,
@@ -32,6 +33,7 @@ impl MemoryThingdBackend {
     pub fn new() -> Self {
         Self {
             objects: Mutex::new(HashMap::new()),
+            object_versions: Mutex::new(HashMap::new()),
             events: Mutex::new(HashMap::new()),
             jobs: Mutex::new(HashMap::new()),
             links: Mutex::new(Vec::new()),
@@ -58,6 +60,27 @@ impl ThingdBackend for MemoryThingdBackend {
         Ok(collection_objects.iter().find(|o| o.id == id).cloned())
     }
 
+    async fn get_object_versioned(
+        &self,
+        collection: &str,
+        id: &str,
+    ) -> Result<Option<VersionedThingdObject>, AppError> {
+        let objects = lock_mutex(&self.objects, "objects")?;
+        let Some(object) = objects
+            .get(collection)
+            .and_then(|items| items.iter().find(|object| object.id == id))
+            .cloned()
+        else {
+            return Ok(None);
+        };
+        let versions = lock_mutex(&self.object_versions, "object versions")?;
+        let version = versions
+            .get(&(collection.to_string(), id.to_string()))
+            .copied()
+            .unwrap_or(1);
+        Ok(Some(VersionedThingdObject { object, version }))
+    }
+
     async fn put_object(
         &self,
         collection: &str,
@@ -81,7 +104,58 @@ impl ThingdBackend for MemoryThingdBackend {
         } else {
             collection_objects.push(object.clone());
         }
+        let mut versions = lock_mutex(&self.object_versions, "object versions")?;
+        let version = versions
+            .entry((collection.to_string(), id.to_string()))
+            .or_insert(0);
+        *version = version.saturating_add(1);
 
+        Ok(object)
+    }
+
+    async fn put_object_if_version(
+        &self,
+        collection: &str,
+        id: &str,
+        data: serde_json::Value,
+        expected_version: u64,
+    ) -> Result<ThingdObject, AppError> {
+        let mut objects = lock_mutex(&self.objects, "objects")?;
+        let mut versions = lock_mutex(&self.object_versions, "object versions")?;
+        let collection_objects = objects.entry(collection.to_string()).or_default();
+        let existing_index = collection_objects.iter().position(|object| object.id == id);
+        let key = (collection.to_string(), id.to_string());
+        let actual_version = if existing_index.is_some() {
+            versions.get(&key).copied().unwrap_or(1)
+        } else {
+            0
+        };
+        if actual_version != expected_version {
+            return Err(AppError::new(
+                ErrorKind::Conflict,
+                format!(
+                    "object version conflict: expected {expected_version}, found {actual_version}"
+                ),
+            ));
+        }
+
+        let now = Utc::now().to_rfc3339();
+        let object = ThingdObject {
+            id: id.to_string(),
+            collection: collection.to_string(),
+            data,
+            created_at: existing_index
+                .and_then(|index| collection_objects.get(index))
+                .map(|existing| existing.created_at.clone())
+                .unwrap_or_else(|| now.clone()),
+            updated_at: now,
+        };
+        if let Some(index) = existing_index {
+            collection_objects[index] = object.clone();
+        } else {
+            collection_objects.push(object.clone());
+        }
+        versions.insert(key, actual_version.saturating_add(1));
         Ok(object)
     }
 
@@ -90,6 +164,8 @@ impl ThingdBackend for MemoryThingdBackend {
         if let Some(collection_objects) = objects.get_mut(collection) {
             collection_objects.retain(|o| o.id != id);
         }
+        lock_mutex(&self.object_versions, "object versions")?
+            .remove(&(collection.to_string(), id.to_string()));
         Ok(())
     }
 
@@ -419,8 +495,10 @@ impl ThingdBackend for MemoryThingdBackend {
         let mut events = lock_mutex(&self.events, "events")?;
         let mut jobs = lock_mutex(&self.jobs, "jobs")?;
         let mut links = lock_mutex(&self.links, "links")?;
+        let mut object_versions = lock_mutex(&self.object_versions, "object versions")?;
 
         objects.clear();
+        object_versions.clear();
         events.clear();
         jobs.clear();
         links.clear();

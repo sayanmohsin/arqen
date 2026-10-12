@@ -49,6 +49,20 @@ When logging errors or debug information:
 - Agent discovery endpoints may be authenticated in production
 - Use shortest possible token lifetimes
 
+`JwtAuth::with_issuer()` and `JwtAuth::with_audience()` validate the configured
+issuer and audience. Set both when the identity provider issues tokens for
+multiple services. See the [authentication guide](./authentication.md) for
+the supported Arqen APIs.
+
+The October 2026 source audit found that `Secret<T>` redacts `Debug` and
+`Display`, while its `Serialize` implementation emits the wrapped value. Treat
+serialized configuration containing `Secret<T>` as credential-bearing. Do not
+serialize it into logs, API responses, or diagnostic output. The audit also
+found that CLI bearer-token arguments can appear in process listings; prefer
+environment variables or a secret provider on shared hosts. See the
+[security audit](./security-audit-2026-10.md) for evidence, remaining risks, and
+the recommended hardening order.
+
 ## Input validation
 
 - Validate all input against JSON Schema

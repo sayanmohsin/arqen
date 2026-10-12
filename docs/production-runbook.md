@@ -23,7 +23,11 @@ storage adapter contract before deployment.
 
 Production should use structured logs, explicit authentication, and a
 non-memory storage mode. Applications should call
-`AppConfig::validate_production()` during startup.
+`AppConfig::validate_production()` during startup. Supply either API keys or
+a JWT HMAC secret or API key of at least 32 bytes, and configure a specific
+browser origin allowlist; wildcard CORS is rejected. Use HTTPS when a remote
+Thingd credential is configured. The example below uses a JWT secret. Set
+`server.cors_origins` in the config file to the exact deployed browser origins.
 
 ```bash
 export ARQEN_HOST=0.0.0.0

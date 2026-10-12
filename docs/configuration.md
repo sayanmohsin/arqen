@@ -42,7 +42,7 @@ Required mode fails startup when the environment cannot be loaded. Use
 | `ARQEN_THINGD_MAX_RETRY_DURATION`     | Maximum total retry duration in seconds                             | `30`                                 |
 | `ARQEN_THINGD_MAX_QUERY_SCAN_OBJECTS` | Maximum objects an HTTP range query may scan                        | `100000`                             |
 | `ARQEN_CLOUD_URL`                     | Future public thingd.cloud endpoint                                 | unset; cloud mode is not implemented |
-| `ARQEN_THINGD_AUTH_TOKEN`             | Server-side thingd/cloud bearer token                               | unset; never log or commit           |
+| `ARQEN_THINGD_AUTH_TOKEN`             | Bearer token configured on the direct Thingd REST server            | unset; never log or commit           |
 | `ARQEN_THINGD_ENCRYPTION_KEY`         | 64-hex-character native Thingd encryption key                       | unset; server-side only              |
 | `ARQEN_THINGD_SCHEMA_PATH`            | Versioned `.thingd` schema path                                     | unset                                |
 | `ARQEN_THINGD_CACHE_ENABLED`          | Enable the allowlisted catalog read cache                           | `false`                              |
@@ -78,6 +78,12 @@ Required mode fails startup when the environment cannot be loaded. Use
 | `ARQEN_COMPRESSION_ENABLED`           | Enable gzip/Brotli response compression                             | `true`                               |
 | `ARQEN_MAX_BODY_SIZE`                 | Maximum request body size                                           | `1048576`                            |
 | `ARQEN_SHUTDOWN_TIMEOUT`              | Graceful shutdown timeout                                           | `10s`                                |
+
+For HTTP storage, `ARQEN_THINGD_URL` must point to a direct Thingd REST
+server; Arqen appends `/v1` to this base URL. Its bearer token must match the
+server's `THINGD_AUTH_TOKEN` or `auth.token`. Thingd Cloud project keys
+(`md_pk_…`) are for the Cloud MCP endpoint and are not interchangeable with a
+direct engine token.
 
 `ARQEN_CONFIG_FILE` selects the configuration file for generated applications
 and for `arqen check`. The explicit `--file` CLI flag remains the preferred
@@ -209,4 +215,10 @@ Development mode (`arqen dev`) uses compact logging by default. Production
 mode (`arqen start`) uses JSON logging. For Rust hot reload, use `cargo watch`
 as a `[[dev.services]]` in `arqen.toml` and run `arqen up` (see `hot-reload.md`).
 Call `AppConfig::validate_production()` from a production bootstrap to reject
-memory storage, disabled authentication, and pretty logs.
+memory storage, disabled authentication, missing configured credentials,
+short HMAC JWT secrets or API keys, wildcard CORS origins, cleartext remote
+Thingd credentials, and pretty logs. Configure an API key or a JWT secret of
+at least 32 bytes and use HTTPS when a remote storage token is configured;
+deployments using custom auth
+middleware should not enable this built-in production profile unless they also
+configure one of these supported credential sources.

@@ -9,6 +9,9 @@ cargo bench --workspace --all-features --bench framework -- --noplot
 ```
 
 Reports are written to `target/criterion/` with HTML reports and estimates.
+On macOS, the optional native Thingd feature requires LLVM/libclang; set
+`LIBCLANG_PATH`, `DYLD_LIBRARY_PATH`, `LLVM_CONFIG_PATH`, and the native linker
+search path for your local LLVM installation when Cargo cannot find it.
 
 ## Benchmark methodology
 
@@ -104,7 +107,7 @@ separate persistent-path benchmark before choosing disk settings. HTTP latency
 must be measured against the deployed thingd service because network distance,
 TLS, pooling, and server load dominate the result.
 
-Thingd 0.91.1 exposes both RocksDB and its experimental Rust-native ThingDB
+Thingd 0.92.2 exposes both RocksDB and its experimental Rust-native ThingDB
 backend behind `PersistentBackend`. Arqen keeps RocksDB as its default and
 benchmarks durable writes against both engines with search indexing disabled to
 focus on storage write cost. These local results do not substitute for

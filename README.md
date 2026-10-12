@@ -102,12 +102,12 @@ Application, client, or agent
 
 The same application-facing contract is designed for these deployment modes:
 
-| Mode           | Best for                                       | Status                                         |
-| -------------- | ---------------------------------------------- | ---------------------------------------------- |
-| Memory         | Local development and tests                    | Available                                      |
+| Mode           | Best for                        | Status                                                                            |
+| -------------- | ------------------------------- | --------------------------------------------------------------------------------- |
+| Memory         | Local development and tests     | Available                                                                         |
 | Native durable | Local development and migration | Available with `thingd-native`; validate the compatible Thingd range and recovery |
-| HTTP Thingd    | A separate Thingd HTTP service                         | Available with `http-client`; validate the public `v1` contract |
-| Cloud          | Hosted thingd services                         | Future integration path                        |
+| HTTP Thingd    | A separate Thingd HTTP service  | Available with `http-client`; validate the public `v1` contract                   |
+| Cloud          | Hosted thingd services          | Future integration path                                                           |
 
 Thingd supplies the durable records and replication primitives. Arqen owns
 configuration, lifecycle, the stable `ThingdBackend` contract, health,
@@ -120,11 +120,11 @@ for the safe native-to-HTTP data movement workflow.
 
 ### Compatibility policy
 
-| Boundary | Compatibility source | Failure mode |
-| --- | --- | --- |
-| Arqen core | Arqen SemVer and `ThingdBackend` contract | Cargo/API compatibility |
-| Native adapter | Optional Arqen feature and compatible Thingd Cargo range | Compile-time failure or native contract test failure |
-| HTTP adapter | Public Thingd REST API `v1` and required endpoint behavior | `check_compatibility()` returns a dependency error |
+| Boundary       | Compatibility source                                       | Failure mode                                         |
+| -------------- | ---------------------------------------------------------- | ---------------------------------------------------- |
+| Arqen core     | Arqen SemVer and `ThingdBackend` contract                  | Cargo/API compatibility                              |
+| Native adapter | Optional Arqen feature and compatible Thingd Cargo range   | Compile-time failure or native contract test failure |
+| HTTP adapter   | Public Thingd REST API `v1` and required endpoint behavior | `check_compatibility()` returns a dependency error   |
 
 The native adapter currently supports Thingd `>=0.92.2, <0.93.0`. The optional
 `thingd-maintenance` and `thingd-connectors` features use Thingd's public native
@@ -183,7 +183,7 @@ runtime, frontend, BaaS, or workflow system, but does not require any of them.
 - [Troubleshooting](https://github.com/sayanmohsin/arqen/blob/main/docs/troubleshooting.md) · [Migration](https://github.com/sayanmohsin/arqen/blob/main/docs/migration.md) · [Standards](https://github.com/sayanmohsin/arqen/blob/main/docs/standards.md)
 - [Examples](https://github.com/sayanmohsin/arqen/blob/main/docs/examples.md) · [Health](https://github.com/sayanmohsin/arqen/blob/main/docs/health.md) · [Performance](https://github.com/sayanmohsin/arqen/blob/main/docs/performance.md)
 - [Deployment](https://sayanmohsin.github.io/arqen/deployment) · [Docker](https://sayanmohsin.github.io/arqen/docker) · [Security](https://sayanmohsin.github.io/arqen/security)
-- [Application hardening](docs/application-hardening.md) · [Logging](docs/logging.md) · [Commands](docs/commands.md)
+- [Application hardening](docs/application-hardening.md) · [Security audit](docs/security-audit-2026-10.md) · [Logging](docs/logging.md) · [Commands](docs/commands.md)
 - [Thingd bootstrap](docs/bootstrap.md) · [Thingd adapter contract](docs/adapter-contract.md)
 - [HTTP caching](docs/http-caching.md) · [Streaming](docs/streaming.md) · [Performance](docs/performance.md)
 - [Production runbook](docs/production-runbook.md)

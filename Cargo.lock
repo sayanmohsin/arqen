@@ -4109,9 +4109,9 @@ dependencies = [
 
 [[package]]
 name = "thingd"
-version = "0.92.2"
+version = "0.92.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "301adf7230bc3b816ddd4bd8287fcf4918044ca85707a57196d0ab4e41825596"
+checksum = "325cd429744b3fea5ee99b4be4f78fc04ca9bf29e4421cbc659bd941335b6049"
 dependencies = [
  "calamine",
  "chacha20poly1305 0.11.0",
@@ -4132,9 +4132,9 @@ dependencies = [
 
 [[package]]
 name = "thingdb"
-version = "0.92.2"
+version = "0.92.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e50bda5e96fa5d894364fdd8d94a31e04baff2bed72623143990169497e1d066"
+checksum = "d4639c29020d46c9e66ae83bca414f5ffd5e23bad0c01a2cf0cc7675d010c6c8"
 dependencies = [
  "crc32fast",
  "serde",

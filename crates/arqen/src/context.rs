@@ -106,3 +106,29 @@ pub(crate) fn from_extensions(extensions: &Extensions) -> RequestContext {
         .map(|auth| RequestContext::from_auth(auth, correlation_id.0.clone()))
         .unwrap_or_else(|| RequestContext::anonymous(correlation_id.0))
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::auth::AuthContext;
+    use serde_json::json;
+
+    #[test]
+    fn request_identity_comes_from_authenticated_extensions_only() {
+        let mut extensions = Extensions::new();
+        extensions.insert(CorrelationId("request-1".to_string()));
+        let anonymous = from_extensions(&extensions);
+        assert!(anonymous.subject.is_none());
+        assert!(anonymous.tenant_id.is_none());
+
+        let auth = AuthContext::new("subject-1", "jwt")
+            .with_claim("tenant_id", json!("tenant-1"))
+            .with_claim("instance_id", json!("instance-1"));
+        extensions.insert(auth);
+        let authenticated = from_extensions(&extensions);
+        assert_eq!(authenticated.subject.as_deref(), Some("subject-1"));
+        assert_eq!(authenticated.tenant_id.as_deref(), Some("tenant-1"));
+        assert_eq!(authenticated.instance_id.as_deref(), Some("instance-1"));
+        assert_eq!(authenticated.correlation_id, "request-1");
+    }
+}

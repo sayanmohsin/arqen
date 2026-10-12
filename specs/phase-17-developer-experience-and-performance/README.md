@@ -15,8 +15,9 @@ files.
 
 ## Status
 
-Ready for implementation after Phases 08–16. This phase is planning only until
-an agent begins implementation.
+Completed. The CLI, documentation system, benchmark harness, quality tooling,
+coding standards, and public onboarding path are implemented. See
+`handoff.md` for the recorded benchmark run and remaining limitations.
 
 ## Non-goals
 

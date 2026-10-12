@@ -1059,6 +1059,51 @@ impl AppConfig {
                 expected: "true in production".to_string(),
             });
         }
+        if self.auth.jwt_secret.is_none() && self.auth.api_keys.is_empty() {
+            return Err(ConfigError::MissingField {
+                field: "auth.jwt_secret or auth.api_keys".to_string(),
+                context: "production authentication must configure at least one credential"
+                    .to_string(),
+            });
+        }
+        if self
+            .auth
+            .jwt_secret
+            .as_ref()
+            .is_some_and(|secret| secret.inner().len() < 32)
+        {
+            return Err(ConfigError::InvalidValue {
+                field: "auth.jwt_secret".to_string(),
+                value: "[REDACTED]".to_string(),
+                expected: "at least 32 bytes for production HMAC-SHA256 keys".to_string(),
+            });
+        }
+        if self
+            .auth
+            .api_keys
+            .iter()
+            .any(|entry| entry.key.inner().len() < 32)
+        {
+            return Err(ConfigError::InvalidValue {
+                field: "auth.api_keys".to_string(),
+                value: "[REDACTED]".to_string(),
+                expected: "each production API key must contain at least 32 bytes".to_string(),
+            });
+        }
+        let remote_url = self
+            .storage
+            .http_url
+            .as_deref()
+            .or(self.storage.cloud_url.as_deref());
+        if self.storage.auth_token.is_some()
+            && remote_url.is_some_and(|url| url.to_ascii_lowercase().starts_with("http://"))
+        {
+            return Err(ConfigError::InvalidValue {
+                field: "storage.remote_url".to_string(),
+                value: "http://…".to_string(),
+                expected: "HTTPS when sending a Thingd or Cloud credential".to_string(),
+            });
+        }
         if matches!(self.logging.format, LogFormat::Pretty) {
             return Err(ConfigError::InvalidValue {
                 field: "logging.format".to_string(),
@@ -1070,6 +1115,18 @@ impl AppConfig {
             return Err(ConfigError::MissingField {
                 field: "server.cors_origins".to_string(),
                 context: "an explicit origin allowlist is required in production".to_string(),
+            });
+        }
+        if self
+            .server
+            .cors_origins
+            .iter()
+            .any(|origin| origin.trim() == "*")
+        {
+            return Err(ConfigError::InvalidValue {
+                field: "server.cors_origins".to_string(),
+                value: "*".to_string(),
+                expected: "an explicit origin allowlist without wildcard entries".to_string(),
             });
         }
         if require_schema_validation
@@ -1336,6 +1393,9 @@ concurrency = 8
             },
             auth: AuthConfig {
                 enabled: true,
+                jwt_secret: Some(Secret::new(
+                    "a sufficiently long production test secret".to_string(),
+                )),
                 ..Default::default()
             },
             logging: LoggingConfig {
@@ -1349,6 +1409,109 @@ concurrency = 8
             ..Default::default()
         };
         assert!(config.validate_production().is_ok());
+    }
+
+    #[test]
+    fn production_rejects_wildcard_cors_and_missing_auth_credentials() {
+        let mut config = AppConfig {
+            storage: StorageConfig {
+                mode: StorageMode::Http,
+                http_url: Some("http://thingd:8757".to_string()),
+                ..Default::default()
+            },
+            auth: AuthConfig {
+                enabled: true,
+                ..Default::default()
+            },
+            logging: LoggingConfig {
+                format: LogFormat::Json,
+                ..Default::default()
+            },
+            server: ServerConfig {
+                cors_origins: vec!["*".to_string()],
+                ..Default::default()
+            },
+            ..Default::default()
+        };
+        let error = config.validate_production().unwrap_err();
+        assert!(
+            error
+                .to_string()
+                .contains("auth.jwt_secret or auth.api_keys")
+        );
+
+        config.auth.jwt_secret = Some(Secret::new(
+            "a sufficiently long production test secret".to_string(),
+        ));
+        let error = config.validate_production().unwrap_err();
+        assert!(error.to_string().contains("wildcard"));
+    }
+
+    #[test]
+    fn production_rejects_short_jwt_hmac_keys() {
+        let config = AppConfig {
+            storage: StorageConfig {
+                mode: StorageMode::Http,
+                http_url: Some("http://thingd:8757".to_string()),
+                ..Default::default()
+            },
+            auth: AuthConfig {
+                enabled: true,
+                jwt_secret: Some(Secret::new("short".to_string())),
+                ..Default::default()
+            },
+            logging: LoggingConfig {
+                format: LogFormat::Json,
+                ..Default::default()
+            },
+            server: ServerConfig {
+                cors_origins: vec!["https://example.test".to_string()],
+                ..Default::default()
+            },
+            ..Default::default()
+        };
+        let error = config.validate_production().unwrap_err();
+        assert!(error.to_string().contains("at least 32 bytes"));
+        assert!(!error.to_string().contains("short"));
+    }
+
+    #[test]
+    fn production_rejects_weak_api_keys_and_cleartext_remote_credentials() {
+        let mut config = AppConfig {
+            storage: StorageConfig {
+                mode: StorageMode::Http,
+                http_url: Some("http://thingd.internal".to_string()),
+                auth_token: Some(Secret::new("remote-storage-secret".to_string())),
+                ..Default::default()
+            },
+            auth: AuthConfig {
+                enabled: true,
+                api_keys: vec![ApiKeyEntry {
+                    key: Secret::new("a sufficiently long API key value".to_string()),
+                    subject: "operator".to_string(),
+                    scopes: vec![],
+                }],
+                ..Default::default()
+            },
+            logging: LoggingConfig {
+                format: LogFormat::Json,
+                ..Default::default()
+            },
+            server: ServerConfig {
+                cors_origins: vec!["https://example.test".to_string()],
+                ..Default::default()
+            },
+            ..Default::default()
+        };
+        let error = config.validate_production().unwrap_err();
+        assert!(error.to_string().contains("HTTPS"));
+        assert!(!error.to_string().contains("remote-storage-secret"));
+
+        config.storage.auth_token = None;
+        config.auth.api_keys[0].key = Secret::new("weak".to_string());
+        let error = config.validate_production().unwrap_err();
+        assert!(error.to_string().contains("at least 32 bytes"));
+        assert!(!error.to_string().contains("weak"));
     }
 
     #[test]

@@ -101,6 +101,10 @@ full collection.
   the application marks the remote dependency ready
 - It reports API compatibility, not an arbitrary concrete Thingd engine
   version, because the public health response does not expose one
+- Caller-provided queue idempotency keys and `delayMs` require Thingd 0.92.3+
+  within Arqen's supported `<0.93` range. The adapter retries queue pushes only
+  when a caller key is present and reuses the same key for every attempt;
+  Thingd scopes the job identity to its queue.
 
 ### <CurrentVersion kind="http-api" /> synchronization
 
