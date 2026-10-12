@@ -14,9 +14,9 @@ Reports are written to `target/criterion/` with HTML reports and estimates.
 
 ### Environment
 
-- **Recorded**: 2026-10-01, Thingd 0.91.1; Arqen checkout based on `e5b11c9` with the upgrade changes
+- **Recorded**: 2026-10-11, Thingd 0.92.2; Arqen working tree after the security and dependency refresh
 - **OS/architecture**: macOS 27.0.1, arm64
-- **Rust**: `rustc 1.98.1 (48a229cea 2026-09-01)`
+- **Rust**: `rustc 1.99.0 (b940084d7 2026-09-28)`
 - **Feature flags**: `--all-features`
 - **Storage mode**: memory, native, persistent, or cache (as named by each benchmark)
 - **Sample size**: 100 iterations (Criterion default)
@@ -59,32 +59,29 @@ Values are median estimates from Criterion.
 
 | Workload                                    |     Median |
 | ------------------------------------------- | ---------: |
-| `routing/health_route`                      |  80.125 µs |
-| `manifest/100_tools`                        | 231.622 µs |
-| `validation/3_fields`                       |   2.899 ns |
-| `thingd_memory/put_object`                  | 530.323 ns |
-| `thingd_memory/get_object`                  | 274.600 ns |
-| `thingd_memory/query_objects`               |  21.962 µs |
-| `thingd_native/put_object`                  |   7.096 µs |
-| `thingd_native/get_object`                  |   5.212 µs |
-| `thingd_persistent/rocksdb_put_object`      |  48.772 µs |
-| `thingd_persistent/thingdb_put_object`      |   5.284 ms |
-| `thingd_cache/hit`                          | 466.173 ns |
-| `jobs/enqueue_dequeue`                      |   4.027 µs |
-| `health/10_checks`                          |  10.815 µs |
-| `performance/request_metrics_record`        | 105.156 ns |
-| `performance/thingd_memory_batch_write_100` |  68.962 µs |
+| `routing/health_route`                      |  81.129 µs |
+| `manifest/100_tools`                        | 234.730 µs |
+| `validation/3_fields`                       |   2.910 ns |
+| `thingd_memory/put_object`                  | 531.250 ns |
+| `thingd_memory/get_object`                  | 269.800 ns |
+| `thingd_memory/query_objects`               |  22.006 µs |
+| `thingd_native/put_object`                  |   6.275 µs |
+| `thingd_native/get_object`                  |   5.573 µs |
+| `thingd_persistent/rocksdb_put_object`      |  44.198 µs |
+| `thingd_persistent/thingdb_put_object`      |   5.212 ms |
+| `thingd_cache/hit`                          | 459.670 ns |
+| `jobs/enqueue_dequeue`                      |   5.349 µs |
+| `health/10_checks`                          |  11.454 µs |
+| `performance/request_metrics_record`        | 103.440 ns |
+| `performance/thingd_memory_batch_write_100` |  69.717 µs |
 
-Against the available local Criterion baseline, manifest generation regressed
-3.1%, memory reads regressed 3.1%, and native in-memory writes regressed 8.2%.
-Validation improved 19.9%, health checks improved 5.4%, and batch writes
-improved 3.0%. Routing, memory writes and queries, native reads, cache hits,
-jobs, and request metrics were unchanged or within Criterion's noise threshold.
-The persistent workloads have no prior baseline: RocksDB measured 48.8 µs and
-ThingDB 5.284 ms per durable write with default synchronous persistence and
-search disabled. This local single-record result is diagnostic, not a
-production comparison; measure representative datasets and hardware before
-choosing an engine.
+Criterion reported improvements in memory reads (3.1%), native in-memory
+writes (8.0%), cache hits (3.4%), RocksDB writes (8.0%), ThingDB writes
+(3.6%), and request metrics (2.4%). Health checks regressed 7.6%. Other
+workloads were unchanged or within Criterion's noise threshold. The persistent
+workloads use default synchronous persistence with search disabled. These
+single-record results are diagnostic, not a production comparison; measure
+representative datasets and hardware before choosing an engine.
 
 ## Performance budgets
 

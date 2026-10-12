@@ -245,8 +245,6 @@ pub struct JwtAuth {
     decoding_key: jsonwebtoken::DecodingKey,
     /// Validation settings.
     validation: jsonwebtoken::Validation,
-    /// Optional issuer to validate.
-    issuer: Option<String>,
 }
 
 #[cfg(feature = "http-server")]
@@ -262,7 +260,6 @@ impl JwtAuth {
         Self {
             decoding_key: DecodingKey::from_secret(secret),
             validation,
-            issuer: None,
         }
     }
 
@@ -277,13 +274,12 @@ impl JwtAuth {
         Self {
             decoding_key: DecodingKey::from_rsa_pem(public_key).expect("invalid RSA public key"),
             validation,
-            issuer: None,
         }
     }
 
     /// Set the expected issuer for validation.
     pub fn with_issuer(mut self, issuer: impl Into<String>) -> Self {
-        self.issuer = Some(issuer.into());
+        self.validation.set_issuer(&[issuer.into()]);
         self
     }
 
@@ -730,6 +726,32 @@ mod http_tests {
         assert_eq!(
             ctx.get_claim("iss"),
             Some(&serde_json::json!("test-issuer"))
+        );
+    }
+
+    #[tokio::test]
+    async fn test_jwt_auth_rejects_wrong_issuer() {
+        let secret = b"test-secret";
+        let header = jsonwebtoken::Header::new(jsonwebtoken::Algorithm::HS256);
+        let claims = serde_json::json!({
+            "sub": "user-123",
+            "exp": 4102444800_i64,
+            "iss": "unexpected-issuer"
+        });
+        let token = jsonwebtoken::encode(
+            &header,
+            &claims,
+            &jsonwebtoken::EncodingKey::from_secret(secret),
+        )
+        .unwrap();
+
+        let auth = JwtAuth::new_secret(secret).with_issuer("expected-issuer");
+        let mut headers = axum::http::HeaderMap::new();
+        headers.insert("authorization", format!("Bearer {token}").parse().unwrap());
+
+        assert_eq!(
+            auth.authenticate(&headers).await.unwrap_err(),
+            AuthError::Invalid
         );
     }
 
