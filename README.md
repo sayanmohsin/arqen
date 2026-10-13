@@ -47,7 +47,7 @@ Add the core package for production HTTP deployments:
 
 ```toml
 [dependencies]
-arqen = "0.21"
+arqen = "0.22"
 ```
 
 Install the optional CLI from crates.io when you want the project generator:
