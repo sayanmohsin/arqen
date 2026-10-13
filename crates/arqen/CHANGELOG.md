@@ -17,6 +17,13 @@
   APIs.
 - Upgrade the Thingd dependency to `0.86.3`.
 
+## [0.22.0](https://github.com/sayanmohsin/arqen/compare/arqen-v0.21.0...arqen-v0.22.0) (2026-10-13)
+
+
+### Features
+
+* complete Arqen Phase 18 adapter hardening ([2d6bcc2](https://github.com/sayanmohsin/arqen/commit/2d6bcc2d063ede3ae030f702d1104921e7280f38))
+
 ## [0.21.0](https://github.com/sayanmohsin/arqen/compare/arqen-v0.20.2...arqen-v0.21.0) (2026-10-02)
 
 
