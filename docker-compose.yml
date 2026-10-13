@@ -13,22 +13,22 @@ services:
       - ARQEN_LOG_FORMAT=json
       - ARQEN_STORAGE_MODE=http
       - ARQEN_THINGD_URL=http://thingd:8757
-      - ARQEN_THINGD_AUTH_TOKEN=${THINGD_AUTH_TOKEN:-dev-token}
       - ARQEN_JWT_SECRET=${ARQEN_JWT_SECRET:-arqen-docker-smoke-secret-for-local-ci-only}
       - ARQEN_CORS_ORIGINS=${ARQEN_CORS_ORIGINS:-http://localhost:8888}
     volumes:
       - arqen_data:/data
     restart: unless-stopped
 
-  # Standalone thingd sidecar used by the production-style Arqen smoke test.
+  # Unauthenticated Thingd is restricted to this smoke-only Docker network.
+  # Keep its port unpublished so the test does not send a credential over HTTP.
   thingd:
     # The smoke image applies a local executable-mode repair to /thingd-server
     # so the test remains resilient to upstream scratch-image metadata.
     build:
       context: .
       dockerfile: Dockerfile.thingd-smoke
-    ports:
-      - "8757:8757"
+    expose:
+      - "8757"
     volumes:
       - thingd_data:/data
     environment:
@@ -37,6 +37,7 @@ services:
       - THINGD_HOST=0.0.0.0
       - THINGD_PORT=8757
       - THINGD_AUTH_TOKEN=${THINGD_AUTH_TOKEN:-dev-token}
+      - THINGD_ALLOW_UNAUTHENTICATED=true
     restart: unless-stopped
 
 volumes:
